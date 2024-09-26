@@ -720,4 +720,13 @@ $.loop = (render = null) => {
 	})
 	return gl.canvas
 }
-return $}}
+return $}
+Gamma(globalThis).loop()
+document.head.insertAdjacentHTML('beforeend', `<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">`)
+glLost = () => {
+	document.body.textContent = 'WebGL2 context lost :('
+	document.body.style = 'color:white;background:#000;text-align:center;line-height:90vh;font-size:32px;font-family:monospace;'
+}
+if(!gl) throw glLost(), 'Please reload app'
+document.documentElement.append(canvas)
+canvas.style = `position: fixed; inset: 0; width: 100%; height: 100%; touch-action: none; background: #000; user-select: none; -webkit-user-select: none;`}
