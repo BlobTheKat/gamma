@@ -700,7 +700,7 @@ $.loop = (render = null) => {
 		dt = max(.01/$.ctxFramerate, -($.t-($.t=now)))
 		frameDrawCalls = fdc; frameSprites = fs; frameData = fd*4+fdc*24; fdc = fs = fd = 0
 		ctx.clear(); ctx.reset()
-		try{frame?.(dt)}catch(e){Promise.reject(e)}; i&&draw()
+		try{$.render?.(dt)}catch(e){Promise.reject(e)}; i&&draw()
 		if((now=performance.now()/1000) >= (nextF+=1/$.ctxFramerate)) setImmediate(g)
 		timeToFrame = now-$.t
 	}, 0)
