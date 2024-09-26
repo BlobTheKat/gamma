@@ -194,7 +194,7 @@ class img{
 	}
 	set options(o){
 		const {t}=this; t.o=o
-		if(!t.tex) return null
+		if(!t.tex) return
 		img.fakeBind(t)
 		if(t.f[3]>>31)
 			gl.texParameterf(35866, 10240, 9728),
