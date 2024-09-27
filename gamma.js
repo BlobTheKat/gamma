@@ -226,7 +226,7 @@ class img{
 }
 let arr = new Float32Array(16), iarr = new Int32Array(arr.buffer), i = 0
 $.Texture = (w=0, h=0, d=0, o=0, f=Formats.RGBA, mips=0) => {
-	const t = {tex: gl.createTexture(), i: -1, o, src: null, f, w, h, d: +d||1,m:0}, tx = new img(t)
+	const t = {tex: gl.createTexture(), i: -1, o, src: null, f, w, h, d: +d||1,m:mips}, tx = new img(t)
 	img.setOptions(t)
 	if(w&&h) gl.texStorage3D(35866, (t.m = mips)||1, t.f[0], t.w=w, t.h=h, t.d=+d||1)
 	else gl.texStorage3D(35866, (t.m = mips)||1, t.f[0], t.w=1, t.h=1, t.d=1)
