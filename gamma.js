@@ -342,7 +342,7 @@ T = $.vec3 = (x=0,y=x,z=x)=>new W(x,y,z)
 T.one = T(1); const v3z = T.zero = T(0)
 T = $.vec4 = (x=0,y=x,z=x,w=x)=>new X(x,y,z,w)
 T.one = T(1); const v4z = T.zero = T(0)
-$.Formats={R:[33321,6403,5121],RG:[33323,33319,5121],RGB:[32849,6407,5121],RGBA:[32856,T=6408,5121],RGB565:[36194,6407,33635],R11F_G11F_B10F:[35898,6407,35899],RGB5_A1:[32855,T,32820],RGB10_A2:[32857,T,33640],RGBA4:[32854,T,32819],RGB9_E5:[35901,6407,35902],R8:[33330,T=36244,5121,1<<31],RG8:[33336,33320,5121,1<<31],RGB8:[36221,36248,5121,1<<31],RGBA8:[36220,36249,5121,1<<31],R16:[33332,T,5123,1<<31],RG16:[33338,33320,5123,1<<31],RGB16:[36215,36248,5123,1<<31],RGBA16:[36214,36249,5123,1<<31],R32:[33334,T,5125,1<<31],RG32:[33340,33320,5125,1<<31],RGB32:[36209,36248,5125,1<<31],RGBA32:[36208,36249,5125,1<<31],R16F:[33325,6403,5131],RG16F:[33327,33319,5131],RGB16F:[34843,6407,5131],RGBA16F:[34842,6408,5131],R16F_32F:[33325,6403,5126],RG16F_32F:[33327,33319,5126],RGB16F_32F:[34843,6407,5126],RGBA16F_32F:[34842,6408,5126],R32F:[33326,6403,5126],RG32F:[33328,33319,5126],RGB32F:[34837,6407,5126],RGBA32F:[34836,6408,5126]}
+$.Formats={LUM:[6409,6409,5121],A:[6406,6406,5121],LUM_A:[6410,6410,5121],R:[33321,6403,5121],RG:[33323,33319,5121],RGB:[32849,6407,5121],RGBA:[32856,T=6408,5121],RGB565:[36194,6407,33635],R11F_G11F_B10F:[35898,6407,35899],RGB5_A1:[32855,T,32820],RGB10_A2:[32857,T,33640],RGBA4:[32854,T,32819],RGB9_E5:[35901,6407,35902],R8:[33330,T=36244,5121,1<<31],RG8:[33336,33320,5121,1<<31],RGB8:[36221,36248,5121,1<<31],RGBA8:[36220,36249,5121,1<<31],R16:[33332,T,5123,1<<31],RG16:[33338,33320,5123,1<<31],RGB16:[36215,36248,5123,1<<31],RGBA16:[36214,36249,5123,1<<31],R32:[33334,T,5125,1<<31],RG32:[33340,33320,5125,1<<31],RGB32:[36209,36248,5125,1<<31],RGBA32:[36208,36249,5125,1<<31],R16F:[33325,6403,5131],RG16F:[33327,33319,5131],RGB16F:[34843,6407,5131],RGBA16F:[34842,6408,5131],R16F_32F:[33325,6403,5126],RG16F_32F:[33327,33319,5126],RGB16F_32F:[34843,6407,5126],RGBA16F_32F:[34842,6408,5126],R32F:[33326,6403,5126],RG32F:[33328,33319,5126],RGB32F:[34837,6407,5126],RGBA32F:[34836,6408,5126]}
 $.loader=({url})=>{
 	url = url.slice(0,url.lastIndexOf('/')+1)
 	return (...src) => {
@@ -388,20 +388,20 @@ class can{
 	new(a=1,b=0,c=0,d=1,e=0,f=0){return new can(this.t,a,b,c,d,e,f,this.#m,this.#shader,this.s)}
 	reset(a=1,b=0,c=0,d=1,e=0,f=0){this.#a=a;this.#b=b;this.#c=c;this.#d=d;this.#e=e;this.#f=f;this.#m=290787599;this.#shader=$.Shader.DEFAULT;this.s=defaultShape}
 	box(x=0,y=0,w=1,h=w){ this.#e+=x*this.#a+y*this.#c; this.#f+=x*this.#b+y*this.#d; this.#a*=w; this.#b*=w; this.#c*=h; this.#d*=h }
-	to(x=0, y=0){if(typeof x=='object')({x,y}=x);return new V(this.#a*x+this.#c*y+this.#e,this.#b*x+this.#d*y+this.#f)}
+	to(x=0, y=0){ if(typeof x=='object'){y=x.y;x=x.x} return new V(this.#a*x+this.#c*y+this.#e,this.#b*x+this.#d*y+this.#f)}
 	from(x=0, y=0){
-		if(typeof x=='object')({x,y}=x)
+		if(typeof x=='object'){y=x.y;x=x.x}
 		const a=this.#a,b=this.#b,c=this.#c,d=this.#d, det = a*d-b*c
 		return new V(
 			(x*d - x*c + c*this.#f - d*this.#e)/det,
 			(y*a - y*b + b*this.#e - a*this.#f)/det
 		)
 	}
-	toDelta(dx=0, dy=0){if(typeof dx=='object')({dx,dy}=dx);return{dx:this.#a*dx+this.#c*dy,dy:this.#b*dx+this.#d*dy}}
+	toDelta(dx=0, dy=0){ if(typeof dx=='object'){dy=dx.y;dx=dx.x} return new V(this.#a*dx+this.#c*dy,this.#b*dx+this.#d*dy)}
 	fromDelta(dx=0, dy=0){
-		if(typeof dx=='object')({dx,dy}=dx)
+		if(typeof dx=='object'){dy=dx.y;dx=dx.x}
 		const a=this.#a,b=this.#b,c=this.#c,d=this.#d, det = a*d-b*c
-		return { dx: (dx*d-dx*c)/det, dy: (dy*a-dy*b)/det }
+		return new V((dx*d-dx*c)/det, (dy*a-dy*b)/det)
 	}
 	sub(){ return new can(this.t,this.#a,this.#b,this.#c,this.#d,this.#e,this.#f,this.#m,this.#shader,this.s) }
 	resetTo(m){ this.#a=m.#a;this.#b=m.#b;this.#c=m.#c;this.#d=m.#d;this.#e=m.#e;this.#f=m.#f;this.#m=m.#m;this.#shader=m.#shader;this.s=m.s }
@@ -638,16 +638,15 @@ T = $.Shader = (src, inputs, uniforms, output=4, defaults, uDefaults, frat=0.5) 
 	const bindUniTex = eval(`(function(){${fn3Body.join(';')};shuniBind=boundUsed})`)
 	const fMask = 32-fCount&&(-1>>>fCount)
 	s.outInt = (output==16||output==32)<<31
-	s.uniBind = 0
 	const v=gl.createShader(35633), f=gl.createShader(35632)
 	shaderBody.push('}')
 	gl.shaderSource(v, shaderHead.join('')+shaderBody.join(''))
 	gl.compileShader(v)
-	gl.shaderSource(f, src = shaderHead2.join('')+'\n'+src)
+	gl.shaderSource(f, shaderHead2.join('')+'\n'+src)
 	gl.compileShader(f)
 	gl.attachShader(p, v)
 	gl.attachShader(p, f)
-	if(T=gl.getShaderInfoLog(f)) console.warn('GLSL Error:\n'+T+'\n'+src+'\n\n'+shaderHead.join('')+shaderBody.join(''))
+	if(T=gl.getShaderInfoLog(f)) console.warn('GLSL Error:\n'+T)
 	gl.linkProgram(p)
 	gl.useProgram(p)
 	while(j3--) uniLocs.push(gl.getUniformLocation(p, 'uni'+uniLocs.length))
@@ -667,7 +666,7 @@ T = $.Shader = (src, inputs, uniforms, output=4, defaults, uDefaults, frat=0.5) 
 		gl.vertexAttribDivisor(i1++, 1)
 		i2 += (t&15)<<2
 	}
-	if(sh) gl.useProgram(sh.program||sh), gl.bindVertexArray(sh.vao)
+	if(sh) gl.useProgram(sh.program), gl.bindVertexArray(sh.vao)
 	return s
 }
 let fdc = 0, fs = 0, fd = 0

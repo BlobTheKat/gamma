@@ -5,19 +5,21 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 	<title>Gamma</title>
 </head>
-<script src="./gamma.js"></script>
+<script src="./gamma.min.js"></script>
+<script src="./input.js"></script>
 <script>
 	Gamma(globalThis).loop()
 	document.head.insertAdjacentHTML('beforeend', `<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">`)
+	const unint = `user-select:none;-webkit-user-select:none;touch-action: none;`
 	glLost = () => {
 		document.body.textContent = 'WebGL2 context lost :('
-		document.body.style = 'color:white;background:#000;text-align:center;line-height:90vh;font-size:32px;font-family:monospace;'
+		document.body.style = 'color:white;background:#000;text-align:center;line-height:90vh;font-size:32px;font-family:monospace;cursor:normal;'+unint
+		canvas.remove()
 	}
 	if(!gl) throw glLost(), 'Please reload app'
 	document.documentElement.append(canvas)
-	canvas.style = `position: fixed; inset: 0; width: 100%; height: 100%; touch-action: none; background: #000; user-select: none; -webkit-user-select: none;`
-	render = () => {
-		ctx.draw(vec4(.5, 0, 0, 1))
-	}
+	canvas.style = `position: fixed; inset: 0; width: 100%; height: 100%; background: #000;`+unint
+	Gamma.input(globalThis, document)
 </script>
+<script src="./index.js"></script>
 </html>
