@@ -195,7 +195,7 @@ if(!('remove'in[]))Object.defineProperty(Array.prototype,'remove',{value(a){
 	return i
 },enumerable:false,configurable:true})
 
-Gamma.input = ($, T) => {
+Gamma.input = ($, T = $.canvas) => {
 	$.keys = new BitField()
 	$.MOUSE = Object.freeze({ LEFT: 0, RIGHT: 1, MIDDLE: 2, BACK: 3, FORWARD: 4 })
 	$.KEY = Object.freeze({
