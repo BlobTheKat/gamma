@@ -5,9 +5,10 @@ float median(float r, float g, float b) {
 }
 void main(){
 	vec3 c = arg0().rgb;
-	float o = uni1 == 0 ? c.r : clamp(uni0*(max(min(c.r, c.g), min(max(c.r, c.g), c.b))-.5)+.5,0.,1.);
-	color = vec4(o);
-}`, [COLOR], [FLOAT, INT])
+	float sd = max(min(c.r, c.g), min(max(c.r, c.g), c.b))-.5+arg1;
+	float o = uni1 == 0 ? c.r : clamp(uni0*sd+.5,0.,1.);
+	color = arg2*o;
+}`, [COLOR, FLOAT, VEC4], [FLOAT, INT], _, [_, 0, vec4.one])
 msdf.oldPxRange = msdf.oldFlags = 0
 	let T = $.Token = (regex, type = 0, sepAfter = '', sepBefore = '', breakRatio = 0, cb = null, next = undefined, ret = undefined) => {
 		if(regex instanceof RegExp){
@@ -62,11 +63,6 @@ msdf.oldPxRange = msdf.oldFlags = 0
 	T.BREAK_BEFORE_AFTER = 13
 	const defaultSet = [T(/\r\n?|\n/y, 11, ''), T(/[$£"+]?[\w'-]+[,.!?:;"^%€*]?/yi, 0, '-'), T(/\s+/y, 5)]
 	const defaultToken = T(/[^]/y)
-	const addToken = (str, t, q) => {
-		const type = t.type
-		t.sepA; t.sepB; t.bR
-		q.push(str)
-	}
 	T = new Map
 	const ADV = 1, LH = 4, ST = 5, SK = 6, LSB = 7
 	class txtstream{
@@ -82,7 +78,7 @@ msdf.oldPxRange = msdf.oldFlags = 0
 		set shader(a){if(typeof a=='function')this.#sh=a;this.#q.l==this&&(this.#q.l=null)}
 		#lh = 1
 		get height(){return this.#lh}
-		set height(a){this.#lh=+a}
+		set height(a){this.#lh=+a;this.#q.l==this&&(this.#q.l=null)}
 		#st = 1
 		get stretch(){return this.#st}
 		set stretch(a){this.#st=+a;this.#q.l==this&&(this.#q.l=null)}

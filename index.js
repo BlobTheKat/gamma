@@ -1,12 +1,16 @@
-const locus = Font('locus-msdf/index.json')
+const locus = Font('ankacoder/index.json')
 
 const t = RichText()
 t.font = locus
 t.height = 2
 t.add('Hello, World!')
+t.height = 1
+t.values(.3, vec4(1,1,0,0))
+t.add(' bold')
 t.skew = .2
-t.height = 4
-t.add(' italic text')
+t.values(0, vec4(1,1,0,0))
+t.add(' italic')
+console.log(t)
 
 let zoom = 50
 render = () => {
