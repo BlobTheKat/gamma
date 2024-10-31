@@ -431,25 +431,9 @@ class can{
 		arr[i  ] = ta*a+tc*b; arr[i+1] = ta*c+tc*d; arr[i+2] = ta*e+tc*f+te
 		arr[i+3] = tb*a+td*b; arr[i+4] = tb*c+td*d; arr[i+5] = tb*e+td*f+tf
 	}
-	qlock(){setv(this.t,this.#m)}
-	qdraw(v){
-		const i = this.#shader(v)
-		arr[i  ] = this.#a; arr[i+1] = this.#c; arr[i+2] = this.#e
-		arr[i+3] = this.#b; arr[i+4] = this.#d; arr[i+5] = this.#f
-	}
-	qdrawRect(x=0, y=0, w=1, h=1, v){
-		const i = this.#shader(v)
-		arr[i  ] = this.#a*w; arr[i+1] = this.#c*h; arr[i+2] = this.#e+x*this.#a+y*this.#c
-		arr[i+3] = this.#b*w; arr[i+4] = this.#d*h; arr[i+5] = this.#f+x*this.#b+y*this.#d
-	}
-	qdrawMat(a=1, b=0, c=0, d=1, e=0, f=0, v){
-		const i = this.#shader(v)
-		const ta=this.#a,tb=this.#b,tc=this.#c,td=this.#d,te=this.#e,tf=this.#f
-		arr[i  ] = ta*a+tc*b; arr[i+1] = ta*c+tc*d; arr[i+2] = ta*e+tc*f+te
-		arr[i+3] = tb*a+td*b; arr[i+4] = tb*c+td*d; arr[i+5] = tb*e+td*f+tf
-	}
 	dup(){
-		const s = this.#shader.count
+		if(!i) return
+		const s = sh.count
 		if(i+s>arr.length) grow()
 		for(let j=i-s;j<i;j++)arr[j+s]=arr[j]
 		arr[i  ] = this.#a; arr[i+1] = this.#c; arr[i+2] = this.#e
@@ -457,7 +441,8 @@ class can{
 		i += s
 	}
 	dupRect(x=0, y=0, w=1, h=1, i){
-		const s = this.#shader.count
+		if(!i) return
+		const s = sh.count
 		if(i+s>arr.length) grow()
 		for(let j=i-s;j<i;j++)arr[j+s]=arr[j]
 		arr[i  ] = this.#a*w; arr[i+1] = this.#c*h; arr[i+2] = this.#e+x*this.#a+y*this.#c
@@ -465,7 +450,8 @@ class can{
 		i += s
 	}
 	dupMat(a=1, b=0, c=0, d=1, e=0, f=0, i){
-		const s = this.#shader.count
+		if(!i) return
+		const s = sh.count
 		if(i+s>arr.length) grow()
 		for(let j=i-s;j<i;j++)arr[j+s]=arr[j]
 		const ta=this.#a,tb=this.#b,tc=this.#c,td=this.#d,te=this.#e,tf=this.#f

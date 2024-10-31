@@ -5,11 +5,11 @@ float median(float r, float g, float b) {
 }
 void main(){
 	vec3 c = arg0().rgb;
-	float sd = max(min(c.r, c.g), min(max(c.r, c.g), c.b))-.5+arg1;
-	float o = uni1 == 0 ? c.r : clamp(uni0*sd+.5,0.,1.);
+	float sd = (uni1 < 0. ? c.r : max(min(c.r, c.g), min(max(c.r, c.g), c.b)))-.5+arg1*abs(uni1);
+	float o = clamp(uni0*sd+.5,0.,1.);
 	color = arg2*o;
-}`, [COLOR, FLOAT, VEC4], [FLOAT, INT], _, [_, 0, vec4.one])
-msdf.oldPxRange = msdf.oldFlags = 0
+}`, [COLOR, FLOAT, VEC4], [FLOAT, FLOAT], _, [_, 0, vec4.one])
+msdf.oldPxRange = msdf.oldfv = 0
 	let T = $.Token = (regex, type = 0, sepAfter = '', sepBefore = '', breakRatio = 0, cb = null, next = undefined, ret = undefined) => {
 		if(regex instanceof RegExp){
 			let f = regex.flags, g = f.indexOf('g')
@@ -223,7 +223,7 @@ msdf.oldPxRange = msdf.oldFlags = 0
 						const g = cmap.get(ch.codePointAt())
 						if(!g) continue
 						w += (g.xadv+lsb)*chw
-						if(g.tex.waiting) g.tex.load()
+						if(g.tex?.waiting) g.tex.load()
 					}
 				}else if(typeof s == 'object'){
 					if(Array.isArray(s))continue
@@ -255,26 +255,26 @@ msdf.oldPxRange = msdf.oldFlags = 0
 					const v = q[idx++]
 					switch(s){
 						case LH: ctx.scale(v/lh); lh = v; break
-						case ST: ctx.scale(1, v/st); st = v; break
+						case ST: ctx.scale(v/st, 1); st = v; break
 						case SK: ctx.skew(v-sk, 0); sk=v; break
 						case LSB: lsb = v; break
 					}
+					continue
 				}else if(typeof s == 'string'){
 					for(const ch of s){
 						const g = cmap.get(ch.codePointAt())
 						if(!g) continue
-						v?ctx.drawRect(g.x,g.y,g.w,g.h,g.tex,...v):ctx.drawRect(g.x,g.y,g.w,g.h,g.tex)
+						if(g.tex) v?ctx.drawRect(g.x,g.y,g.w,g.h,g.tex,...v):ctx.drawRect(g.x,g.y,g.w,g.h,g.tex)
 						ctx.translate(g.xadv+lsb,0)
 					}
+					continue
 				}else if(typeof s == 'object'){
 					if(Array.isArray(s)){v=s.length?s:null;continue}
 					font = s; cmap = s.map
-					s.then?.(() => q.w=NaN)
-					const d = s._dstr*pxr, f = s._flags
-					if(d!=sh.oldPxRange||f!=sh.oldFlags) sh.uniforms(sh.oldPxRange=d, sh.oldFlags=f)
-				}else if(typeof s == 'function'){
-					ctx.shader = sh = s
-					if(font) s.uniforms(font._dstr*pxr, font._flags)
+				}else if(typeof s == 'function') ctx.shader = sh = s
+				if(font){
+					const d = font.normDistRange*pxr, f = (font._flags&1?.5:-.5)/font.normDistRange
+					if(d!=sh.oldPxRange||f!=sh.oldfv) sh.uniforms(sh.oldPxRange=d, sh.oldfv=f)
 				}
 			}
 		}
@@ -314,40 +314,66 @@ msdf.oldPxRange = msdf.oldFlags = 0
 	}
 
 	
-	void class font{
-		_flags = 0; _dstr = 0; #info = null; #pages = []; map = new Map; ascend = 0; descend = 0
-		get then(){return this.#info?undefined:this.#then}
-		get info(){return this.#info}
-		get pages(){return this.#info?this.#pages:null}
-		#then(cb,rj){if(!this.#info)this.#pages.push(cb,rj)}
-		draw(ctx, txt, lsb = 0){
-			if(!this.#info) return
-			const d = this._dstr*ctx.pixelRatio(), f = this._flags
-			//if(d!=oldPxRange||f!=oldFlags) msdf.uniforms(oldPxRange=d, f=oldFlags)
+	class font{
+		_flags = 0; normDistRange = 0; #cb = []; map = new Map; ascend = 0
+		get then(){return this.#cb?this.#then:undefined}
+		#then(cb,rj){this.#cb?.push(cb,rj)}
+		get isMsdf(){return!!(this._flags&1)}
+		set isMsdf(a){this._flags=this._flags&-2|a}
+		done(){
+			const cb = this.#cb; this.#cb = null
+			if(cb) for(let i=0;i<cb.length;i+=2) cb[i]?.(this)
 		}
-	static _ = $.Font = src => {
-		const f = new font()
-		fetch(src).then(a => (src=a.url,a.json())).then(({info,chars,distanceField:df,pages,common:{lineHeight:lh,base,scaleW,scaleH}}) => {
-			const msdf = df.fieldType.toLowerCase() == 'msdf'
-			f._flags |= msdf
-			f._dstr = df.distanceRange/lh*2 //*2 is a good tradeoff for sharpness
-			f.#info = info
-			f.ascend = base
-			f.descend = lh-base
-			const cb = f.#pages
-			f.#pages = pages.map(a => Img(new URL(a,src).href,SMOOTH,msdf?Formats.RGB:Formats.R))
-			for(const {id,x,y,width,height,xoffset,yoffset,xadvance,page} of chars)
-				f.map.set(id, {
-					x: xoffset/lh, y: (base-yoffset-height)/lh,
-					w: width/lh, h: height/lh,
-					xadv: xadvance/lh,
-					tex: f.#pages[page].sub(x/scaleW,1-(y+height)/scaleH,width/scaleW,height/scaleH)
-				})
-			for(let i=0;i<cb.length;i+=2) cb[i]?.(f)
-		}, err => {
-			for(let i=1;i<f.#pages.length;i+=2) f.#pages[i]?.(err)
-			f.#pages.length = 0
-		})
-		return f
-	}}
+		error(e){
+			const cb = this.#cb; this.#cb = null
+			if(cb) for(let i=1;i<cb.length;i+=2) cb[i]?.(e)
+		}
+		chlumsky(src, atlas){ fetch(src).then(a => (src=a.url,a.json())).then(d => {
+			const {atlas:{type,distanceRange,size,width,height},metrics:{ascender,descender},glyphs} = d
+			const fmt = (this.isMsdf = type.toLowerCase().endsWith('msdf')) ? Formats.RGB : Formats.R
+			const img = Img(atlas,SMOOTH,fmt)
+			this.normDistRange = distanceRange/size*2 //*2 is a good tradeoff for sharpness
+			this.ascend = ascender/(ascender+descender)
+			for(const {unicode,advance,planeBounds:pb,atlasBounds:ab} of glyphs) this.map.set(unicode, pb ? {
+				x: pb.left, y: pb.bottom,
+				w: (pb.right-pb.left), h: (pb.top-pb.bottom),
+				xadv: advance, tex: img.sub(ab.left/width,ab.bottom/height,(ab.right-ab.left)/width,(ab.top-ab.bottom)/height)
+			} : {x:0,y:0,w:0,h:0,xadv: advance, tex: null})
+			this.done()
+		}, this.error.bind(this)); return this}
+		bmfont(src){ fetch(src).then(a => (src=a.url,a.json())).then(d => {
+			const {chars,distanceField:df,pages,common:{lineHeight:lh,base,scaleW,scaleH}} = d
+			const fmt = (this.isMsdf = df.fieldType.toLowerCase().endsWith('msdf')) ? Formats.RGB : Formats.R
+			this.normDistRange = df.distanceRange/lh*2 //*2 is a good tradeoff for sharpness
+			this.ascend = base/lh
+			const p = pages.map(a => Img(new URL(a,src).href,SMOOTH,fmt))
+			for(const {id,x,y,width,height,xoffset,yoffset,xadvance,page} of chars) this.map.set(id, {
+				x: xoffset/lh, y: (base-yoffset-height)/lh,
+				w: width/lh, h: height/lh,
+				xadv: xadvance/lh,
+				tex: width&&height?p[page].sub(x/scaleW,1-(y+height)/scaleH,width/scaleW,height/scaleH):null
+			})
+			this.done()
+		}, this.error.bind(this)); return this}
+		draw(ctx, txt, lsb = 0){
+			if(this.#cb) return
+			const d = this.normDistRange*ctx.pixelRatio(), f = this._flags
+			//if(d!=oldPxRange||f!=oldfv) msdf.uniforms(oldPxRange=d, f=oldfv)
+		}
+		static _ = T = $.Font = (src, gen = font._.bmfont) => {
+			const f = new font()
+			fetch(src).then(a => (src=a.url,a.json())).then(d => {
+				gen(d, f, src)
+				const cb = f.#cb; f.#cb = null
+				for(let i=0;i<cb.length;i+=2) cb[i]?.(f)
+			}, err => {
+				const cb = f.#cb; f.#cb = null
+				for(let i=1;i<cb.length;i+=2) cb[i]?.(err)
+			})
+			return f
+		}
+	}
+	$.Font = () => new font()
+	$.Font.bmfont = a => new font().bmfont(a)
+	$.Font.chlumsky = (a,b) => new font().chlumsky(a,b)
 }

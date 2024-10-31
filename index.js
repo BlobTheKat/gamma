@@ -1,16 +1,17 @@
-const locus = Font('ankacoder/index.json')
+const locus = Font.bmfont('locus/index.json')
+const locus1 = await Font.chlumsky('locus1/index.json', 'locus1/atlas.png')
 
 const t = RichText()
-t.font = locus
+t.font = locus1
 t.height = 2
 t.add('Hello, World!')
 t.height = 1
-t.values(.3, vec4(1,1,0,0))
+t.values(.05, vec4(1,1,0,0))
 t.add(' bold')
 t.skew = .2
+t.stretch = 2
 t.values(0, vec4(1,1,0,0))
 t.add(' italic')
-console.log(t)
 
 let zoom = 50
 render = () => {
@@ -21,5 +22,8 @@ render = () => {
 	ctx.scale(zoom)
 	ctx.translate((cursor.x-.5)*ctx.width*.02,(cursor.y-.5)*ctx.height*.02)
 	ctx.translate(-t.width*.5,0)
-	t.draw(ctx)
+	t.draw(ctx.sub())
+	ctx.blend = Blend(ONE, SUBTRACT, ONE)
+	const {x,y} = ctx.from(0, 0)
+	ctx.drawRect(x, 0, ctx.fromDelta(1, 0).x, y, vec4(1))
 }
