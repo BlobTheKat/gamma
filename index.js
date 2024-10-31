@@ -1,25 +1,21 @@
-const locus = await Font('locus-msdf/index.json')
+const locus = Font('locus-msdf/index.json')
 
 const t = RichText()
 t.font = locus
 t.height = 2
 t.add('Hello, World!')
 t.skew = .2
-t.height = 1
+t.height = 4
 t.add(' italic text')
-console.log(t.width)
 
-ctx.scale(100) // draw at base size of 100px
-t.draw(ctx) // Draws the text as one line
-
-const lines = t.break(5)
-for(const line of lines){
-	console.log(line.width)
-	line.draw(ctx.sub()) // draw() mutates the canvas so we pass a copy
-	ctx.translate(0, 1.2) // 1.2x the height of 100px, so we have a
-								 // 20px gap between each line
-}
-
+let zoom = 50
 render = () => {
+	zoom *= .999**wheel.y;wheel.y=0
 	
+	ctx.scale(1/ctx.width,1/ctx.height)
+	ctx.translate(ctx.width*.5, ctx.height*.5)
+	ctx.scale(zoom)
+	ctx.translate((cursor.x-.5)*ctx.width*.02,(cursor.y-.5)*ctx.height*.02)
+	ctx.translate(-t.width*.5,0)
+	t.draw(ctx)
 }

@@ -30,8 +30,9 @@ class img{
 		this.t = t; this.x = x; this.y = y
 		this.w = w; this.h = h; this.l = l
 	}
-	get loaded(){return !!this.t.tex}
-	get then(){return !this.t.tex?this.#then:null}
+	get loaded(){return !this.t.src}
+	get waiting(){return !this.t.tex}
+	get then(){return this.t.src?this.#then:null}
 	load(){if(!this.t.tex) img.load(this.t)}
 	sub(x=0, y=0, w=1, h=1, l=this.l){
 		return new img(this.t, this.x+x*this.w, this.y+y*this.h, this.w*w, this.h*h, l)
@@ -42,9 +43,9 @@ class img{
 	}
 	crop(x=0, y=0, w=1, h=1, l=this.l){
 		const {t,x:X,y:Y,h:H}=this
-		if(t.tex) return new img(t, X+x/t.w, Y+H-(y+h)/t.h, w/t.w, h/t.h, l)
+		if(!t.src) return new img(t, X+x/t.w, Y+H-(y+h)/t.h, w/t.w, h/t.h, l)
 		const i = new img(t, 0, 0, 0, 0, l)
-		img.load(t)
+		if(!t.tex) img.load(t)
 		t.src.push(i => {
 			i.x = X+x/t.w
 			i.y = Y+H-(y+h)/t.h
@@ -55,45 +56,42 @@ class img{
 	layer(l=this.l){return new img(this.t, this.x, this.y, this.w, this.h, l)}
 	#then(r, j){
 		if(typeof r != 'function') r = Function.prototype
-		if(this.t.tex) r(this)
-		else img.load(this.t),this.t.src.push(r,j,this)
+		if(!this.t.src) r(this)
+		else this.t.tex||img.load(this.t),this.t.src.push(r,j,this)
 	}
 	static load(t){
-		if(!t.src.length || typeof t.src[0] == 'function') return
 		let src = t.src, loaded = 0
 		t.src = []
 		let w=0, h=0
+		t.tex = gl.createTexture()
 		const rj = e => {
 			loaded = -1
-			t.tex = gl.createTexture()
 			img.setOptions(t)
 			gl.texStorage3D(35866, t.m||1, t.f[0], t.w=w=1, t.h=h=1, t.d=src.length)
 			if(!pma) gl.pixelStorei(37440,1),gl.pixelStorei(37441,pma=1)
 			if(t.m) gl.generateMipmap(35866)
 			if(t.i<0) gl.bindTexture(35866, null)
-			for(let i = 1; i < t.src.length; i+=3) t.src[i]?.(t.src[i+1])
-			t.src = null
+			const l = t.src; t.src = null
+			for(let i = 1; i < l.length; i+=3) l[i]?.(l[i+1])
 		}
 		for(let i=0;i<src.length;i++) resolveData(src[i], data => {
 			if(!loaded) w=data.width, h=data.height
 			else if(w!=data.width||h!=data.height) return rj('Failed to load image: all layers must be the same size')
 			src[i] = data
 			if(++loaded<src.length) return
-			t.tex = gl.createTexture()
 			img.setOptions(t)
-			console.log(w,h,loaded)
 			gl.texStorage3D(35866, t.m||1, t.f[0], t.w=w, t.h=h, t.d=loaded)
 			if(!pma) gl.pixelStorei(37440,1),gl.pixelStorei(37441,pma=1)
 			for(let l = 0; l < loaded; l++)
 				gl.texSubImage3D(35866, 0, 0, 0, l, w, h, 1, t.f[1], t.f[2], src[l])
 			if(t.m) gl.generateMipmap(35866)
 			if(t.i<0) gl.bindTexture(35866, null)
-			for(let i = 0; i < t.src.length; i+=3) t.src[i](t.src[i+2])
-			t.src = null
+			const l = t.src; t.src = null
+			for(let i = 0; i < l.length; i+=3) l[i](l[i+2])
 		}, rj)
 	}
 	paste(tex, x=0, y=0, l=0, srcX=0, srcY=0, srcL=0, srcW=0, srcH=0, srcD=0){
-		const {t}=this; if(!t.tex) return this
+		const {t}=this; if(t.src) return this
 		if(!(tex instanceof img)) return resolveData(tex, i => {
 			img.fakeBind(t)
 			if(!pma) gl.pixelStorei(37440,1),gl.pixelStorei(37441,pma=1)
@@ -103,6 +101,7 @@ class img{
 		})
 		const {t:t2}=tex
 		if(!t2.d) return tex.#then(()=>this.paste(tex,x,y,l,srcX,srcY,srcL,srcW,srcH,srcD)), this
+		if(t2.src) return this
 		if(t.tex==t2.tex) return console.warn('cannot copy from texture to itself'), this
 		i&&draw()
 		img.fakeBind(t)
@@ -110,7 +109,7 @@ class img{
 		if(fbSte) gl.framebufferRenderbuffer(36160,36128,36161,null)
 		srcW = srcW||t2.w; srcH = srcH||t2.h; srcD = srcD||t2.d
 		while(srcD--){
-			gl.framebufferTextureLayer(36160,36064, t2.tex,0, srcL++)
+			gl.framebufferTextureLayer(36160,36064, t2.tex, 0, srcL++)
 			gl.copyTexSubImage3D(35866, 0, x, y, l++, srcX, srcY, srcW, srcH)
 		}
 		if(t.i<0) gl.bindTexture(35866, null)
@@ -120,7 +119,7 @@ class img{
 		return this
 	}
 	pasteData(data, x=0, y=0, l=0, w=0, h=0, d=0){
-		const {t}=this; if(!t.tex) return null
+		const {t}=this; if(t.src) return null
 		w = w||t.w; h = h||t.h; d = d||t.d
 		img.fakeBind(t)
 		if(pma) gl.pixelStorei(37440,0),gl.pixelStorei(37441,pma=0)
@@ -129,17 +128,17 @@ class img{
 		if(t.i<0) gl.bindTexture(35866, null)
 	}
 	readData(x=0, y=0, l=0, w=0, h=0, d=0, arr=null){
-		const {t}=this; if(!t.tex) return null
+		const {t}=this; if(t.src) return null
 		w = w||t.w; h = h||t.h; d = d||t.d
 		i&&draw()
 		if(!ca.img) gl.bindFramebuffer(36160,fb)
 		if(fbSte) gl.framebufferRenderbuffer(36160,36128,36161,null)
-		const a = t.f[0]
-		const S = (a==32856||a==36214||a==36208||a==34842||a==34836||a==36220?4:a==32849||a==36215||a==36209||a==34843||a==34837||a==32849||a==36221?3:a==33323||a==33338||a==33340||a==33327||a==33328||a==33336?2:1)*w*h
+		let a = t.f[0], S = (a==33323||a==33338||a==33340||a==33327||a==33328||a==33336?2:a==33321||a==33330||a==33332||a==33334||a==33325||a==33326?1:4)*w*h
+		a = S==1?6403:S==2?33319:6408
 		if(!arr || arr.length != S) arr = (t.f[2]==5121?new Uint8Array(S*d):t.f[2]==5126?new Float32Array(S*d):t.f[2]==5125||t.f[2]==35899||t.f[2]==33640||t.f[2]==35902?new Uint32Array(S*d):new Uint16Array(S*d))
 		while(d--){
 			gl.framebufferTextureLayer(36160,36064,t.tex,0,l)
-			gl.readPixels(x, y, w, h, t.f[1], t.f[2], arr.subarray(S*l, S*(++l)))
+			gl.readPixels(x, y, w, h, a, t.f[2], arr.subarray(S*l, S*(++l)))
 		}
 		if(t.i<0) gl.bindTexture(35866, null)
 		if(!ca.img) gl.bindFramebuffer(36160,null)
@@ -160,7 +159,7 @@ class img{
 			if(!(sl&(i^shfMask))) return (boundUsed|=sl,t.i)
 			bound[t.i]=null,t.i=-1
 		}
-		if(!t.tex) return img.load(t), -2
+		t.tex||img.load(t)
 		const j = Math.clz32(~(boundUsed|i^shfMask))
 		if(j>=maxTex) return -1
 		boundUsed |= -2147483648>>>j
@@ -194,7 +193,7 @@ class img{
 	}
 	set options(o){
 		const {t}=this; t.o=o
-		if(!t.tex) return
+		if(t.src) return
 		img.fakeBind(t)
 		if(t.f[3]>>31)
 			gl.texParameterf(35866, 10240, 9728),
@@ -208,7 +207,7 @@ class img{
 	}
 	drawable(l=this.l,stencil=false){
 		const {t}=this
-		if(!t.tex) return null
+		if(t.src) return null
 		let stencilBuf = null
 		if(stencil){
 			gl.bindRenderbuffer(36161, stencilBuf = gl.createRenderbuffer())
@@ -342,7 +341,7 @@ T = $.vec3 = (x=0,y=x,z=x)=>new W(x,y,z)
 T.one = T(1); const v3z = T.zero = T(0)
 T = $.vec4 = (x=0,y=x,z=x,w=x)=>new X(x,y,z,w)
 T.one = T(1); const v4z = T.zero = T(0)
-$.Formats={LUM:[6409,6409,5121],A:[6406,6406,5121],LUM_A:[6410,6410,5121],R:[33321,6403,5121],RG:[33323,33319,5121],RGB:[32849,6407,5121],RGBA:[32856,T=6408,5121],RGB565:[36194,6407,33635],R11F_G11F_B10F:[35898,6407,35899],RGB5_A1:[32855,T,32820],RGB10_A2:[32857,T,33640],RGBA4:[32854,T,32819],RGB9_E5:[35901,6407,35902],R8:[33330,T=36244,5121,1<<31],RG8:[33336,33320,5121,1<<31],RGB8:[36221,36248,5121,1<<31],RGBA8:[36220,36249,5121,1<<31],R16:[33332,T,5123,1<<31],RG16:[33338,33320,5123,1<<31],RGB16:[36215,36248,5123,1<<31],RGBA16:[36214,36249,5123,1<<31],R32:[33334,T,5125,1<<31],RG32:[33340,33320,5125,1<<31],RGB32:[36209,36248,5125,1<<31],RGBA32:[36208,36249,5125,1<<31],R16F:[33325,6403,5131],RG16F:[33327,33319,5131],RGB16F:[34843,6407,5131],RGBA16F:[34842,6408,5131],R16F_32F:[33325,6403,5126],RG16F_32F:[33327,33319,5126],RGB16F_32F:[34843,6407,5126],RGBA16F_32F:[34842,6408,5126],R32F:[33326,6403,5126],RG32F:[33328,33319,5126],RGB32F:[34837,6407,5126],RGBA32F:[34836,6408,5126]}
+$.Formats={R:[33321,6403,5121],RG:[33323,33319,5121],RGB:[32849,6407,5121],RGBA:[32856,T=6408,5121],RGB565:[36194,6407,33635],R11F_G11F_B10F:[35898,6407,35899],RGB5_A1:[32855,T,32820],RGB10_A2:[32857,T,33640],RGBA4:[32854,T,32819],RGB9_E5:[35901,6407,35902],R8:[33330,T=36244,5121,1<<31],RG8:[33336,33320,5121,1<<31],RGB8:[36221,36248,5121,1<<31],RGBA8:[36220,36249,5121,1<<31],R16:[33332,T,5123,1<<31],RG16:[33338,33320,5123,1<<31],RGB16:[36215,36248,5123,1<<31],RGBA16:[36214,36249,5123,1<<31],R32:[33334,T,5125,1<<31],RG32:[33340,33320,5125,1<<31],RGB32:[36209,36248,5125,1<<31],RGBA32:[36208,36249,5125,1<<31],R16F:[33325,6403,5131],RG16F:[33327,33319,5131],RGB16F:[34843,6407,5131],RGBA16F:[34842,6408,5131],R16F_32F:[33325,6403,5126],RG16F_32F:[33327,33319,5126],RGB16F_32F:[34843,6407,5126],RGBA16F_32F:[34842,6408,5126],R32F:[33326,6403,5126],RG32F:[33328,33319,5126],RGB32F:[34837,6407,5126],RGBA32F:[34836,6408,5126]}
 $.loader=({url})=>{
 	url = url.slice(0,url.lastIndexOf('/')+1)
 	return (...src) => {
@@ -355,6 +354,7 @@ $.loader=({url})=>{
 		return src.length==1?src[0][0]=='/'?src[0]:url+src[0]:src.map(src=>src[0]=='/'?src:url+src)
 	}
 }
+const grow = new Function(ArrayBuffer.prototype.transfer?'arr=gtArr||new Float32Array(arr.buffer.transfer(i*8)),iarr=new Int32Array(arr.buffer)':'const oa=arr;(arr=gtArr||new Float32Array(i*2)).set(oa,0);iarr=new Int32Array(arr.buffer)')
 class can{
 	t;#a;#b;#c;#d;#e;#f;#m;#shader;s
 	get width(){return this.t.w}
@@ -421,15 +421,57 @@ class can{
 		arr[i+3] = this.#b; arr[i+4] = this.#d; arr[i+5] = this.#f
 	}
 	drawRect(x=0, y=0, w=1, h=1, ...values){
-		setv(this.t,this.#m); const j = this.#shader(values)
-		arr[j  ] = this.#a*w; arr[j+1] = this.#c*h; arr[j+2] = this.#e+x*this.#a+y*this.#c
-		arr[j+3] = this.#b*w; arr[j+4] = this.#d*h; arr[j+5] = this.#f+x*this.#b+y*this.#d
+		setv(this.t,this.#m); const i = this.#shader(values)
+		arr[i  ] = this.#a*w; arr[i+1] = this.#c*h; arr[i+2] = this.#e+x*this.#a+y*this.#c
+		arr[i+3] = this.#b*w; arr[i+4] = this.#d*h; arr[i+5] = this.#f+x*this.#b+y*this.#d
 	}
 	drawMat(a=1, b=0, c=0, d=1, e=0, f=0, ...values){
 		setv(this.t,this.#m); const i = this.#shader(values)
 		const ta=this.#a,tb=this.#b,tc=this.#c,td=this.#d,te=this.#e,tf=this.#f
 		arr[i  ] = ta*a+tc*b; arr[i+1] = ta*c+tc*d; arr[i+2] = ta*e+tc*f+te
 		arr[i+3] = tb*a+td*b; arr[i+4] = tb*c+td*d; arr[i+5] = tb*e+td*f+tf
+	}
+	qlock(){setv(this.t,this.#m)}
+	qdraw(v){
+		const i = this.#shader(v)
+		arr[i  ] = this.#a; arr[i+1] = this.#c; arr[i+2] = this.#e
+		arr[i+3] = this.#b; arr[i+4] = this.#d; arr[i+5] = this.#f
+	}
+	qdrawRect(x=0, y=0, w=1, h=1, v){
+		const i = this.#shader(v)
+		arr[i  ] = this.#a*w; arr[i+1] = this.#c*h; arr[i+2] = this.#e+x*this.#a+y*this.#c
+		arr[i+3] = this.#b*w; arr[i+4] = this.#d*h; arr[i+5] = this.#f+x*this.#b+y*this.#d
+	}
+	qdrawMat(a=1, b=0, c=0, d=1, e=0, f=0, v){
+		const i = this.#shader(v)
+		const ta=this.#a,tb=this.#b,tc=this.#c,td=this.#d,te=this.#e,tf=this.#f
+		arr[i  ] = ta*a+tc*b; arr[i+1] = ta*c+tc*d; arr[i+2] = ta*e+tc*f+te
+		arr[i+3] = tb*a+td*b; arr[i+4] = tb*c+td*d; arr[i+5] = tb*e+td*f+tf
+	}
+	dup(){
+		const s = this.#shader.count
+		if(i+s>arr.length) grow()
+		for(let j=i-s;j<i;j++)arr[j+s]=arr[j]
+		arr[i  ] = this.#a; arr[i+1] = this.#c; arr[i+2] = this.#e
+		arr[i+3] = this.#b; arr[i+4] = this.#d; arr[i+5] = this.#f
+		i += s
+	}
+	dupRect(x=0, y=0, w=1, h=1, i){
+		const s = this.#shader.count
+		if(i+s>arr.length) grow()
+		for(let j=i-s;j<i;j++)arr[j+s]=arr[j]
+		arr[i  ] = this.#a*w; arr[i+1] = this.#c*h; arr[i+2] = this.#e+x*this.#a+y*this.#c
+		arr[i+3] = this.#b*w; arr[i+4] = this.#d*h; arr[i+5] = this.#f+x*this.#b+y*this.#d
+		i += s
+	}
+	dupMat(a=1, b=0, c=0, d=1, e=0, f=0, i){
+		const s = this.#shader.count
+		if(i+s>arr.length) grow()
+		for(let j=i-s;j<i;j++)arr[j+s]=arr[j]
+		const ta=this.#a,tb=this.#b,tc=this.#c,td=this.#d,te=this.#e,tf=this.#f
+		arr[i  ] = ta*a+tc*b; arr[i+1] = ta*c+tc*d; arr[i+2] = ta*e+tc*f+te
+		arr[i+3] = tb*a+td*b; arr[i+4] = tb*c+td*d; arr[i+5] = tb*e+td*f+tf
+		i += s
 	}
 	clear(r = 0, g = r, b = r, a = g){
 		if(typeof r=='object')a=r.w??0,b=r.z??0,g=r.y,r=r.x

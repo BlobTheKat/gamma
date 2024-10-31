@@ -1,8 +1,14 @@
 Gamma.font = $ => {
-	let oldPxRange = 0
-	const msdf = $.Shader(`void main(){
-		color = vec4(1,1,1,1);
-	}`, [COLOR], [FLOAT])
+	const msdf = $.Shader(`
+float median(float r, float g, float b) {
+    return max(min(r, g), min(max(r, g), b));
+}
+void main(){
+	vec3 c = arg0().rgb;
+	float o = uni1 == 0 ? c.r : clamp(uni0*(max(min(c.r, c.g), min(max(c.r, c.g), c.b))-.5)+.5,0.,1.);
+	color = vec4(o);
+}`, [COLOR], [FLOAT, INT])
+msdf.oldPxRange = msdf.oldFlags = 0
 	let T = $.Token = (regex, type = 0, sepAfter = '', sepBefore = '', breakRatio = 0, cb = null, next = undefined, ret = undefined) => {
 		if(regex instanceof RegExp){
 			let f = regex.flags, g = f.indexOf('g')
@@ -127,7 +133,7 @@ Gamma.font = $ => {
 						break w
 					}
 				}else if(typeof s == 'function') st.shader = s
-				else st.font = s
+				else if(!Array.isArray(s)) st.font = s
 			}
 			while(j > 0 && idx < q.length){
 				const s = q[idx++]
@@ -160,7 +166,7 @@ Gamma.font = $ => {
 					i -= s.length
 					if(i<0){ q[idx-1] = s.slice(0, i); break w }
 				}else if(typeof s == 'function') q.sh = s
-				else q.f = s
+				else if(!Array.isArray(s)) q.f = s
 			}
 			this.#f = q.f
 			this.#sh = q.sh
@@ -190,6 +196,8 @@ Gamma.font = $ => {
 						case LSB: this.#lsb = v; break
 					}
 				}else if(typeof s == 'string'){ this.#setv(q); q.push(s); break w }
+				else if(typeof s == 'function') this.#sh = s
+				else if(!Array.isArray(s)) this.#f = s
 			}
 			while(idx < q2l) q.push(q2[idx++])
 			q.w=NaN
@@ -217,9 +225,12 @@ Gamma.font = $ => {
 				}else if(typeof s == 'string'){
 					for(const ch of s){
 						const g = cmap.get(ch.codePointAt())
-						if(g) w += (g.xadv+lsb)*chw
+						if(!g) continue
+						w += (g.xadv+lsb)*chw
+						if(g.tex.waiting) g.tex.load()
 					}
 				}else if(typeof s == 'object'){
+					if(Array.isArray(s))continue
 					cmap = s.map
 					s.then?.(() => q.w=NaN)
 				}
@@ -232,6 +243,44 @@ Gamma.font = $ => {
 			if(typeof str != 'function') q.len += (str+='').length
 			q.push(typeof str == 'function' ? str : ''+str)
 			q.w=NaN
+		}
+		draw(ctx){
+			const q = this.#q
+			let cmap = T
+			let idx = 0
+			let lh = 1, st = 1, lsb = 0, sk = 0
+			let sh = ctx.shader = msdf
+			let v = null
+			let font = null
+			const pxr = ctx.pixelRatio()
+			while(idx < q.length){
+				let s = q[idx++]
+				if(typeof s=='number'){
+					const v = q[idx++]
+					switch(s){
+						case LH: ctx.scale(v/lh); lh = v; break
+						case ST: ctx.scale(1, v/st); st = v; break
+						case SK: ctx.skew(v-sk, 0); sk=v; break
+						case LSB: lsb = v; break
+					}
+				}else if(typeof s == 'string'){
+					for(const ch of s){
+						const g = cmap.get(ch.codePointAt())
+						if(!g) continue
+						v?ctx.drawRect(g.x,g.y,g.w,g.h,g.tex,...v):ctx.drawRect(g.x,g.y,g.w,g.h,g.tex)
+						ctx.translate(g.xadv+lsb,0)
+					}
+				}else if(typeof s == 'object'){
+					if(Array.isArray(s)){v=s.length?s:null;continue}
+					font = s; cmap = s.map
+					s.then?.(() => q.w=NaN)
+					const d = s._dstr*pxr, f = s._flags
+					if(d!=sh.oldPxRange||f!=sh.oldFlags) sh.uniforms(sh.oldPxRange=d, sh.oldFlags=f)
+				}else if(typeof s == 'function'){
+					ctx.shader = sh = s
+					if(font) s.uniforms(font._dstr*pxr, font._flags)
+				}
+			}
 		}
 		break(widths, tokss = [defaultSet]){
 			if(!Array.isArray(tokss[0])) tokss = [tokss]
@@ -270,32 +319,33 @@ Gamma.font = $ => {
 
 	
 	void class font{
-		#flags = 0; #dstr = 0; #info = null; #pages = []; map = new Map; ascend = 0; descend = 0
+		_flags = 0; _dstr = 0; #info = null; #pages = []; map = new Map; ascend = 0; descend = 0
 		get then(){return this.#info?undefined:this.#then}
 		get info(){return this.#info}
 		get pages(){return this.#info?this.#pages:null}
 		#then(cb,rj){if(!this.#info)this.#pages.push(cb,rj)}
 		draw(ctx, txt, lsb = 0){
 			if(!this.#info) return
-			const d = this.#dstr*ctx.pixelRatio()
-			if(d!=oldPxRange) msdf.uniforms(oldPxRange=d)
+			const d = this._dstr*ctx.pixelRatio(), f = this._flags
+			//if(d!=oldPxRange||f!=oldFlags) msdf.uniforms(oldPxRange=d, f=oldFlags)
 		}
 	static _ = $.Font = src => {
 		const f = new font()
-		fetch(src).then(a => a.json()).then(({info,chars,distanceField:df,pages,common:{lineHeight:lh,base,scaleW,scaleH}}) => {
-			f.#flags |= df.fieldType.toLowerCase() == 'msdf'
-			f.#dstr = df.distanceRange
+		fetch(src).then(a => (src=a.url,a.json())).then(({info,chars,distanceField:df,pages,common:{lineHeight:lh,base,scaleW,scaleH}}) => {
+			const msdf = df.fieldType.toLowerCase() == 'msdf'
+			f._flags |= msdf
+			f._dstr = df.distanceRange/lh*2 //*2 is a good tradeoff for sharpness
 			f.#info = info
 			f.ascend = base
-			base = f.descend = lh-base
+			f.descend = lh-base
 			const cb = f.#pages
-			f.#pages = pages.map(src => Img(src,0,f.msdf?Formats.RGB:Formats.LUM))
+			f.#pages = pages.map(a => Img(new URL(a,src).href,SMOOTH,msdf?Formats.RGB:Formats.R))
 			for(const {id,x,y,width,height,xoffset,yoffset,xadvance,page} of chars)
 				f.map.set(id, {
 					x: xoffset/lh, y: (base-yoffset-height)/lh,
 					w: width/lh, h: height/lh,
 					xadv: xadvance/lh,
-					tex: f.#pages[page].sub(x/scaleW,y/scaleH,width/scaleW,height/scaleH)
+					tex: f.#pages[page].sub(x/scaleW,1-(y+height)/scaleH,width/scaleW,height/scaleH)
 				})
 			for(let i=0;i<cb.length;i+=2) cb[i]?.(f)
 		}, err => {
