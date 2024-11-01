@@ -1,7 +1,7 @@
-const locus = await Font.chlumsky('locus/index.json', 'locus/atlas.png')
+const font = await Font.chlumsky('ankacoder/index.json', 'ankacoder/atlas.png')
 
 const p = RichText()
-p.font = locus
+p.font = font
 p.height = 2
 p.add('Hello, World!')
 p.height = 1
@@ -12,9 +12,13 @@ p.values(0, vec4(1,1,0,0))
 p.add(' italic')
 
 p.trim()
-p.font = locus
+p.font = font
 p.height = .5
 p.add('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!"$%^&*()-_=+[]{};:\'@#~\\|,<.>/?`\0')
+
+p.trim()
+p.font = font
+p.add('The quick brown fox jumps over the lazy dog')
 
 let zoom = 50
 cursor.x = cursor.y = .5
@@ -27,7 +31,6 @@ render = () => {
 	ctx.translate((cursor.x-.5)*ctx.width*.02,(cursor.y-.5)*ctx.height*.02)
 	ctx.translate(-p.width*.5,0)
 	p.draw(ctx.sub())
-	ctx.blend = Blend(ONE, SUBTRACT, ONE)
 	const {x,y} = ctx.from(0, 0)
-	ctx.drawRect(x, 0, ctx.fromDelta(1, 0).x, y, vec4(1))
+	ctx.drawRect(x, 0, ctx.fromDelta(1, 0).x, y, vec4(.2,.2,.2,.4))
 }

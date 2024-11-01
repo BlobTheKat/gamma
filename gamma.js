@@ -354,7 +354,7 @@ $.loader=({url})=>{
 		return src.length==1?src[0][0]=='/'?src[0]:url+src[0]:src.map(src=>src[0]=='/'?src:url+src)
 	}
 }
-const grow = new Function(ArrayBuffer.prototype.transfer?'arr=gtArr||new Float32Array(arr.buffer.transfer(i*8)),iarr=new Int32Array(arr.buffer)':'const oa=arr;(arr=gtArr||new Float32Array(i*2)).set(oa,0);iarr=new Int32Array(arr.buffer)')
+const grow = new Function(ArrayBuffer.prototype.transfer?'arr=new Float32Array(arr.buffer.transfer(i*8)),iarr=new Int32Array(arr.buffer)':'const oa=arr;(arr=new Float32Array(i*2)).set(oa,0);iarr=new Int32Array(arr.buffer)')
 class can{
 	t;#a;#b;#c;#d;#e;#f;#m;#shader;s
 	get width(){return this.t.w}
@@ -435,7 +435,7 @@ class can{
 		if(!i) return
 		const s = sh.count
 		if(i+s>arr.length) grow()
-		for(let j=i-s;j<i;j++)arr[j+s]=arr[j]
+		for(let j=i-s;j<i;j++)iarr[j+s]=iarr[j]
 		arr[i  ] = this.#a; arr[i+1] = this.#c; arr[i+2] = this.#e
 		arr[i+3] = this.#b; arr[i+4] = this.#d; arr[i+5] = this.#f
 		i += s
@@ -444,7 +444,7 @@ class can{
 		if(!i) return
 		const s = sh.count
 		if(i+s>arr.length) grow()
-		for(let j=i-s;j<i;j++)arr[j+s]=arr[j]
+		for(let j=i-s;j<i;j++)iarr[j+s]=iarr[j]
 		arr[i  ] = this.#a*w; arr[i+1] = this.#c*h; arr[i+2] = this.#e+x*this.#a+y*this.#c
 		arr[i+3] = this.#b*w; arr[i+4] = this.#d*h; arr[i+5] = this.#f+x*this.#b+y*this.#d
 		i += s
@@ -453,7 +453,7 @@ class can{
 		if(!i) return
 		const s = sh.count
 		if(i+s>arr.length) grow()
-		for(let j=i-s;j<i;j++)arr[j+s]=arr[j]
+		for(let j=i-s;j<i;j++)iarr[j+s]=iarr[j]
 		const ta=this.#a,tb=this.#b,tc=this.#c,td=this.#d,te=this.#e,tf=this.#f
 		arr[i  ] = ta*a+tc*b; arr[i+1] = ta*c+tc*d; arr[i+2] = ta*e+tc*f+te
 		arr[i+3] = tb*a+td*b; arr[i+4] = tb*c+td*d; arr[i+5] = tb*e+td*f+tf
@@ -555,7 +555,7 @@ T = $.Geometry = (type, points) => {
 function sub(s=0,l=this.length-s, type=this.type){
 	return {type, b: this.b, start: this.start+s, length: l, sub}
 }
-let gtArr = null, boundUsed = 0, shp = T.DEFAULT = T($.TRIANGLE_STRIP, [0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1]), shuniBind = 0
+let boundUsed = 0, shp = T.DEFAULT = T($.TRIANGLE_STRIP, [0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1]), shuniBind = 0
 const defaultShape = shp
 let g
 const treeIf = (s=0, e=maxTex,o=0) => {
@@ -661,7 +661,7 @@ T = $.Shader = (src, inputs, uniforms, output=4, defaults, uDefaults, frat=0.5) 
 		+(o&16?`highp vec4 fGetPixel(int u,ivec3 p,int l){${T||treeIf(0,fCount)}}`:'')
 		+(o&8?`uvec4 uGetPixel(int u,ivec3 p,int l){${g=i=>'return texelFetch(GL_i['+i+'],p,l);',treeIf(0,maxTex-fCount,maxTex)}}`:'')
 		+(o&28?`ivec3 getSize(int u,int l){${g=i=>'return textureSize(GL_'+(i<fCount?'f['+i:'i['+(i-fCount))+'],l);',T=treeIf(0,maxTex)}}`:'')
-	fnBody[0] = '}){if(sh!=s){i&&draw(0);shfCount=fCount;shfMask=fMask;gl.useProgram((sh=s).program);gl.bindVertexArray(s.vao);bindUniTex()}if(shp!=this.s){i&&draw();shp=this.s}if(s.geometry!=this.s.b){gl.bindBuffer(34962,s.geometry=this.s.b);gl.vertexAttribPointer(0,4,5126,0,0,0);gl.bindBuffer(34962,buf)}const b=boundUsed^shuniBind;'+texCheck.join(';')+';const j=i;if((i=j+'+j+')>arr.length)'+(ArrayBuffer.prototype.transfer?'(arr=gtArr||new Float32Array(arr.buffer.transfer(i*8))),iarr=new Int32Array(arr.buffer)':'{const oa=arr;(arr=gtArr||new Float32Array(i*2)).set(oa,0);iarr=new Int32Array(arr.buffer)}')
+	fnBody[0] = '}){if(sh!=s){i&&draw(0);shfCount=fCount;shfMask=fMask;gl.useProgram((sh=s).program);gl.bindVertexArray(s.vao);bindUniTex()}if(shp!=this.s){i&&draw();shp=this.s}if(s.geometry!=this.s.b){gl.bindBuffer(34962,s.geometry=this.s.b);gl.vertexAttribPointer(0,4,5126,0,0,0);gl.bindBuffer(34962,buf)}const b=boundUsed^shuniBind;'+texCheck.join(';')+';const j=i;if((i=j+'+j+')>arr.length)'+(ArrayBuffer.prototype.transfer?'arr=new Float32Array(arr.buffer.transfer(i*8)),iarr=new Int32Array(arr.buffer)':'{const oa=arr;(arr=new Float32Array(i*2)).set(oa,0);iarr=new Int32Array(arr.buffer)}')
 	fnBody.push('return j})')
 	const s = eval(fnParams.join('')+fnBody.join(';')), p = s.program = gl.createProgram()
 	s.uniforms = eval(`(function(${fn2Params}){${fn2Body.join(';')};bindUniTex()})`)

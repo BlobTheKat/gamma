@@ -10,7 +10,7 @@ void main(){
 	color = arg2*o;
 }`, [COLOR, FLOAT, VEC4], [FLOAT, FLOAT], _, [_, 0, vec4.one])
 msdf.oldPxRange = msdf.oldfv = 0
-	let T = $.Token = (regex, type = 0, sepAfter = '', sepBefore = '', breakRatio = 0, cb = null, next = undefined, ret = undefined) => {
+	const T = $.Token = (regex, type = 0, sepAfter = '', sepBefore = '', breakRatio = 0, cb = null, next = undefined, ret = undefined) => {
 		if(regex instanceof RegExp){
 			let f = regex.flags, g = f.indexOf('g')
 			if(g>-1) f=f.slice(0,g)+f.slice(g+1)
@@ -63,7 +63,7 @@ msdf.oldPxRange = msdf.oldfv = 0
 	T.BREAK_BEFORE_AFTER = 13
 	const defaultSet = [T(/\r\n?|\n/y, 11, ''), T(/[$£"+]?[\w'-]+[,.!?:;"^%€*]?/yi, 0, '-'), T(/\s+/y, 5)]
 	const defaultToken = T(/[^]/y)
-	T = new Map
+	const M = new Map
 	const ADV = 1, LH = 4, ST = 5, SK = 6, LSB = 7
 	class txtstream{
 		constructor(q,i=0){ this.#q = q }
@@ -205,7 +205,7 @@ msdf.oldPxRange = msdf.oldfv = 0
 			if(w==w)return w
 			w = 0
 			const q = this.#q
-			let cmap = T
+			let cmap = M
 			let idx = 0
 			let lh = 1, st = 1, lsb = 0
 			let chw = 1
@@ -226,7 +226,8 @@ msdf.oldPxRange = msdf.oldfv = 0
 						if(g.tex?.waiting) g.tex.load()
 					}
 				}else if(typeof s == 'object'){
-					if(Array.isArray(s))continue
+					if(!s){cmap=M;continue}
+					if(Array.isArray(s)) continue
 					cmap = s.map
 					s.then?.(() => q.w=NaN)
 				}
@@ -242,7 +243,7 @@ msdf.oldPxRange = msdf.oldfv = 0
 		}
 		draw(ctx){
 			const q = this.#q
-			let cmap = T
+			let cmap = M
 			let idx = 0
 			let lh = 1, st = 1, lsb = 0, sk = 0
 			let sh = ctx.shader = msdf
@@ -269,6 +270,7 @@ msdf.oldPxRange = msdf.oldfv = 0
 					}
 					continue
 				}else if(typeof s == 'object'){
+					if(!s){cmap=M;continue}
 					if(Array.isArray(s)){v=s.length?s:null;continue}
 					font = s; cmap = s.map
 				}else if(typeof s == 'function') ctx.shader = sh = s
@@ -362,18 +364,6 @@ msdf.oldPxRange = msdf.oldfv = 0
 			if(this.#cb) return
 			const d = this.normDistRange*ctx.pixelRatio(), f = this._flags
 			//if(d!=oldPxRange||f!=oldfv) msdf.uniforms(oldPxRange=d, f=oldfv)
-		}
-		static _ = T = $.Font = (src, gen = font._.bmfont) => {
-			const f = new font()
-			fetch(src).then(a => (src=a.url,a.json())).then(d => {
-				gen(d, f, src)
-				const cb = f.#cb; f.#cb = null
-				for(let i=0;i<cb.length;i+=2) cb[i]?.(f)
-			}, err => {
-				const cb = f.#cb; f.#cb = null
-				for(let i=1;i<cb.length;i+=2) cb[i]?.(err)
-			})
-			return f
 		}
 	}
 	$.Font = () => new font()
