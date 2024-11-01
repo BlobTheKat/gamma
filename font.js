@@ -141,7 +141,7 @@ msdf.oldPxRange = msdf.oldfv = 0
 			}
 			return st
 		}
-		trim(i){
+		trim(i=0){
 			const q = this.#q
 			if(i<0) (i+=q.len)<0&&(i=0)
 			if(i>=q.len) return
@@ -330,7 +330,7 @@ msdf.oldPxRange = msdf.oldfv = 0
 		}
 		chlumsky(src, atlas){ fetch(src).then(a => (src=a.url,a.json())).then(d => {
 			const {atlas:{type,distanceRange,size,width,height},metrics:{ascender,descender},glyphs} = d
-			const fmt = (this.isMsdf = type.toLowerCase().endsWith('msdf')) ? Formats.RGB : Formats.R
+			const fmt = (this.isMsdf = type.toLowerCase().endsWith('msdf')) ? Formats.RGB16F : Formats.R
 			const img = Img(atlas,SMOOTH,fmt)
 			this.normDistRange = distanceRange/size*2 //*2 is a good tradeoff for sharpness
 			this.ascend = ascender/(ascender+descender)
@@ -341,18 +341,21 @@ msdf.oldPxRange = msdf.oldfv = 0
 			} : {x:0,y:0,w:0,h:0,xadv: advance, tex: null})
 			this.done()
 		}, this.error.bind(this)); return this}
-		bmfont(src){ fetch(src).then(a => (src=a.url,a.json())).then(d => {
-			const {chars,distanceField:df,pages,common:{lineHeight:lh,base,scaleW,scaleH}} = d
+		bmfont(src, baselineOffset=0){ fetch(src).then(a => (src=a.url,a.json())).then(d => {
+			const {chars,distanceField:df,pages,info:{size:s},common:{base,lineHeight:lh,scaleW,scaleH}} = d
 			const fmt = (this.isMsdf = df.fieldType.toLowerCase().endsWith('msdf')) ? Formats.RGB : Formats.R
 			this.normDistRange = df.distanceRange/lh*2 //*2 is a good tradeoff for sharpness
-			this.ascend = base/lh
+			const b = this.ascend = base/lh
 			const p = pages.map(a => Img(new URL(a,src).href,SMOOTH,fmt))
+			//let min=Infinity
+			//for(const {yoffset} of chars) if(yoffset<min) min = yoffset
 			for(const {id,x,y,width,height,xoffset,yoffset,xadvance,page} of chars) this.map.set(id, {
-				x: xoffset/lh, y: (base-yoffset-height)/lh,
-				w: width/lh, h: height/lh,
-				xadv: xadvance/lh,
+				x: xoffset/s, y: b-(yoffset-baselineOffset+height)/s,
+				w: width/s, h: height/s,
+				xadv: xadvance/s,
 				tex: width&&height?p[page].sub(x/scaleW,1-(y+height)/scaleH,width/scaleW,height/scaleH):null
 			})
+			console.log(this.map.get('y'.codePointAt()))
 			this.done()
 		}, this.error.bind(this)); return this}
 		draw(ctx, txt, lsb = 0){
@@ -374,6 +377,6 @@ msdf.oldPxRange = msdf.oldfv = 0
 		}
 	}
 	$.Font = () => new font()
-	$.Font.bmfont = a => new font().bmfont(a)
+	$.Font.bmfont = (a,b) => new font().bmfont(a,b)
 	$.Font.chlumsky = (a,b) => new font().chlumsky(a,b)
 }
