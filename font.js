@@ -10,7 +10,7 @@ void main(){
 	color = arg2*o;
 }`, [COLOR, FLOAT, VEC4], [FLOAT, FLOAT], _, [_, 0, vec4.one])
 msdf.oldPxRange = msdf.oldfv = 0
-	const T = $.Token = (regex, type = 0, sepAfter = '', sepBefore = '', breakRatio = 0, cb = null, next = undefined, ret = undefined) => {
+	const T = $.Token = (regex, type = 0, sepAfter = '', sepBefore = '', breakRatio = 0, cb = null, next = undefined, push = 0) => {
 		if(regex instanceof RegExp){
 			let f = regex.flags, g = f.indexOf('g')
 			if(g>-1) f=f.slice(0,g)+f.slice(g+1)
@@ -30,7 +30,7 @@ msdf.oldPxRange = msdf.oldfv = 0
 		regex.bR = breakRatio
 		regex.cb = cb
 		regex.next = next
-		regex.ret = ret
+		regex.ret = push
 		return regex
 	}
 	// Token jumps to new line on break, unless it would take up more than half of that line, in which case insert sep
@@ -61,148 +61,167 @@ msdf.oldPxRange = msdf.oldfv = 0
 	T.LEFT_OVERFLOW_BREAK = 12
 	// Always break before and after token, making the token stand on its own line
 	T.BREAK_BEFORE_AFTER = 13
+	// Used by next and push parameter
+	T.POP = 0
 	const defaultSet = [T(/\r\n?|\n/y, 11, ''), T(/[$£"+]?[\w'-]+[,.!?:;"^%€*]?/yi, 0, '-'), T(/\s+/y, 5)]
 	const defaultToken = T(/[^]/y)
 	const M = new Map
-	const ADV = 1, LH = 4, ST = 5, SK = 6, LSB = 7
-	class txtstream{
-		constructor(q,i=0){ this.#q = q }
+	const ADV = 1, SH = 2, LH = 3, YO = 4, ST = 5, SK = 6, LSB = 7
+	class itxtstream extends Array{
+		#_f=null;#_sh=msdf;#_lh=1;#_yo=0;#_st=1;#_sk=0;#_lsb=0;#_v=null;#len=0;#w=NaN;#l=null
+		get width(){return this.#w}
+		get length(){return this.#len}
+		static #_ = class txtstream{
+		constructor(q){ this.#q = q }
 		sub(){const s=new txtstream(this.#q);s.#f=this.#f;s.#sh=this.#sh;s.#lh=this.#lh;s.#st=this.#st;s.#sk=this.#sk;s.#lsb=this.#lsb;return s}
-		reset(f=null,sh=msdf,lh=1,st=1,sk=0,lsb=0,...a){this.#f=typeof f=='object'?f:null;this.#sh=typeof sh=='function'?sh:msdf;this.#lh=+lh;this.#st=+st;this.#sk=+sk;this.#lsb=+lsb;this.#q.push(a);this.#q.l==this&&(this.#q.l=null)}
-		#q;
-		#f = null
+		reset(f=null,sh=msdf,lh=1,st=1,sk=0,lsb=0,...a){this.#f=typeof f=='object'?f:null;this.#sh=typeof sh=='function'?sh:msdf;this.#lh=+lh;this.#st=+st;this.#sk=+sk;this.#lsb=+lsb;this.#q.push(a);this.#q.#l==this&&(this.#q.#l=null)}
+		#q; #f = null
 		get font(){return this.#f}
-		set font(a){if(typeof a=='object')this.#f=a;this.#q.l==this&&(this.#q.l=null)}
+		set font(a){if(typeof a=='object')this.#f=a;this.#q.#l==this&&(this.#q.#l=null)}
 		#sh = msdf
 		get shader(){return this.#sh}
-		set shader(a){if(typeof a=='function')this.#sh=a;this.#q.l==this&&(this.#q.l=null)}
+		set shader(a){if(typeof a=='function')this.#sh=a;this.#q.#l==this&&(this.#q.#l=null)}
 		#lh = 1
 		get height(){return this.#lh}
-		set height(a){this.#lh=+a;this.#q.l==this&&(this.#q.l=null)}
+		set height(a){this.#lh=+a;this.#q.#l==this&&(this.#q.#l=null)}
+		#yo = 0
+		get yOffset(){return this.#yo}
+		set yOffset(a){this.#yo=+a;this.#q.#l==this&&(this.#q.#l=null)}
 		#st = 1
 		get stretch(){return this.#st}
-		set stretch(a){this.#st=+a;this.#q.l==this&&(this.#q.l=null)}
+		set stretch(a){this.#st=+a;this.#q.#l==this&&(this.#q.#l=null)}
 		get letterWidth(){return this.#lh*this.stretch}
 		set letterWidth(a){this.stretch=a/this.#lh}
 		#sk = 0
 		get skew(){return this.#sk}
-		set skew(a){this.#sk=+a;this.#q.l==this&&(this.#q.l=null)}
+		set skew(a){this.#sk=+a;this.#q.#l==this&&(this.#q.#l=null)}
 		#lsb = 0
 		get letterSpacingBias(){return this.#lsb}
-		set letterSpacingBias(a){this.#lsb=+a;this.#q.l==this&&(this.#q.l=null)}
+		set letterSpacingBias(a){this.#lsb=+a;this.#q.#l==this&&(this.#q.#l=null)}
+		#v = null
 		// Sets the shader's values at this point in the stream
-		values(...a){ this.#q.push(a) }
+		values(...a){ this.#q.push(this.#q.#_v = this.#v = a) }
 		advance(gap = 0){ this.#q.push(ADV, +gap); this.#q.w=NaN }
 		#setv(q){
-			if(this.#f!=q.f)q.push(q.f=this.#f)
-			if(this.#sh!=q.sh)q.push(q.sh=this.#sh)
-			if(this.#lh!=q.lh)q.push(LH,q.lh=this.#lh)
-			if(this.#st!=q.st)q.push(ST,q.st=this.#st)
-			if(this.#sk!=q.sk)q.push(SK,q.sk=this.#sk)
-			if(this.#lsb!=q.lsb)q.push(LSB,q.lsb=this.#lsb)
-			q.l=this
+			if(this.#v!=q.#_v)q.push(this.#v??[]),q.#_v=this.#v
+			if(this.#f!=q.#_f)q.push(q.#_f=this.#f)
+			if(this.#sh!=q.#_sh)q.push(SH,q.#_sh=this.#sh)
+			if(this.#lh!=q.#_lh)q.push(LH,q.#_lh=this.#lh)
+			if(this.#yo!=q.#_yo)q.push(YO,q.#_yo=this.#yo)
+			if(this.#st!=q.#_st)q.push(ST,q.#_st=this.#st)
+			if(this.#sk!=q.#_sk)q.push(SK,q.#_sk=this.#sk)
+			if(this.#lsb!=q.#_lsb)q.push(LSB,q.#_lsb=this.#lsb)
+			q.#l=this
 		}
-		slice(i=0, j=this.#q.len){
-			const q = this.#q, q2 = []
-			if(i<0) (i+=q.len)<0&&(i=0)
-			if(j<0) (j+=q.len)<0&&(j=0)
+		slice(i=0, j=this.#q.#len){
+			const q = this.#q, q2 = new itxtstream()
+			if(i<0) (i+=q.#len)<0&&(i=0)
+			if(j<0) (j+=q.#len)<0&&(j=0)
 			j -= i
-			q2.f=null;q2.sh=msdf;q2.lh=1;q2.st=1;q2.sk=0;q2.lsb=0;q2.len=0;q2.w=NaN
-			const st = q2.l = new txtstream(q2)
+			const st = new txtstream(q2)
 			let idx = 0
+			let col = null
 			w: while(i > 0 && idx < q.length){
 				const s = q[idx++]
 				if(typeof s=='number'){
 					const v = q[idx++]
 					switch(s){
-						case LH: st.height = v; break
-						case ST: st.stretch = v; break
-						case SK: st.skew = v; break
-						case LSB: st.letterSpacingBias = v; break
+						case SH: st.#sh = v; break
+						case LH: st.#lh = v; break
+						case YO: st.#yo = v; break
+						case ST: st.#st = v; break
+						case SK: st.#sk = v; break
+						case LSB: st.#lsb = v; break
 					}
 				}else if(typeof s == 'string'){
 					i -= s.length
 					if(i<0){
-						if(q2.l!=st) st.#setv(q2)
+						st.#setv(q2)
+						if(col) q2.push(col), col = null
 						const v = s.slice(i,(j+=i)+s.length)
-						q2.push(v); q2.len += v.length
+						q2.push(v); q2.#len += v.length
 						break w
 					}
-				}else if(typeof s == 'function') st.shader = s
-				else if(!Array.isArray(s)) st.font = s
+				}else if(!Array.isArray(s)) st.#f = s
+				else col = s
 			}
+			if(col) q2.push(col)
 			while(j > 0 && idx < q.length){
 				const s = q[idx++]
 				if(typeof s == 'string'){
-					j -= s.length; q2.len += s.length
-					if(j < 0) q2.push(s.slice(0, j)), q2.len += s.length+j
-					else q2.push(s), q2.len += s.length
-				}else q2.push(s), q2.len += s.len
+					j -= s.length; q2.#len += s.length
+					if(j < 0) q2.push(s.slice(0, j)), q2.#len += s.length+j
+					else q2.push(s), q2.#len += s.length
+				}else q2.push(s)
 			}
 			return st
 		}
 		trim(i=0){
 			const q = this.#q
-			if(i<0) (i+=q.len)<0&&(i=0)
-			if(i>=q.len) return
-			q.len = i < 0 ? 0 : i
+			if(i<0) (i+=q.#len)<0&&(i=0)
+			if(i>=q.#len) return
+			q.#len = i < 0 ? 0 : i
 			let idx = 0
-			q.f = null; q.sh = msdf; q.lh = 1; q.st = 1; q.sk = 0; q.lsb = 0
+			q.#_f = null; q.#_sh = msdf; q.#_lh = 1; q.#_st = 1; q.#_sk = 0; q.#_lsb = 0
 			w: while(i > 0 && idx < q.length){
 				const s = q[idx++]
 				if(typeof s=='number'){
 					const v = q[idx++]
 					switch(s){
-						case LH: q.lh = v; break
-						case ST: q.st = v; break
-						case SK: q.sk = v; break
-						case LSB: q.lsb = v; break
+						case SH: q.#_sh = v; break
+						case LH: q.#_lh = v; break
+						case YO: q.#_yo = v; break
+						case ST: q.#_st = v; break
+						case SK: q.#_sk = v; break
+						case LSB: q.#_lsb = v; break
 					}
 				}else if(typeof s == 'string'){
 					i -= s.length
 					if(i<0){ q[idx-1] = s.slice(0, i); break w }
-				}else if(typeof s == 'function') q.sh = s
-				else if(!Array.isArray(s)) q.f = s
+				}else if(!Array.isArray(s)) q.#_f = s
 			}
-			this.#f = q.f
-			this.#sh = q.sh
-			this.#lh = q.lh
-			this.#st = q.st
-			this.#sk = q.sk
-			this.#lsb = q.lsb
+			this.#f = q.#_f
+			this.#sh = q.#_sh
+			this.#lh = q.#_lh
+			this.#st = q.#_st
+			this.#sk = q.#_sk
+			this.#lsb = q.#_lsb
 			q.length = idx
-			q.w=NaN
+			q.#w=NaN
 		}
 		concat(st){
 			const q = this.#q, q2 = st.#q
-			q.len += q2.len
+			q.#len += q2.#len
 			let idx = 0
 			this.#f = null; this.#sh = msdf; this.#lh = 1; this.#st = 1; this.#sk = 0; this.#lsb = 0
 			// If concat to ourselves, don't loop infinitely
 			const q2l = q2.length
+			let col = null
 			w: while(idx < q2l){
 				const s = q2[idx++]
 				if(typeof s=='number'){
 					const v = q[idx++]
 					switch(s){
 						case ADV: q.push(s, v); break
+						case SH: this.#sh = v; break
 						case LH: this.#lh = v; break
+						case YO: this.#yo = v; break
 						case ST: this.#st = v; break
 						case SK: this.#sk = v; break
 						case LSB: this.#lsb = v; break
 					}
-				}else if(typeof s == 'string'){ this.#setv(q); q.push(s); break w }
-				else if(typeof s == 'function') this.#sh = s
+				}else if(typeof s == 'string'){ this.#setv(q); col&&q.push(col); q.push(s); break w }
 				else if(!Array.isArray(s)) this.#f = s
+				else col = s
 			}
 			while(idx < q2l) q.push(q2[idx++])
-			q.w=NaN
+			q.#w=NaN
 		}
-		get length(){return this.#q.len}
+		get length(){return this.#q.#len}
 		set length(a){this.trim(a)}
 		get width(){
-			let w=this.#q.w
-			if(w==w)return w
+			let w=this.#q.#w
+			if(w==w) return w
 			w = 0
 			const q = this.#q
 			let cmap = M
@@ -214,6 +233,7 @@ msdf.oldPxRange = msdf.oldfv = 0
 				if(typeof s=='number'){
 					const v = q[idx++]
 					switch(s){
+						case ADV: w += chw*v; break
 						case LH: chw = (lh = v) * st; break
 						case ST: chw = (st = v) * lh; break
 						case LSB: lsb = v; break
@@ -229,38 +249,43 @@ msdf.oldPxRange = msdf.oldfv = 0
 					if(!s){cmap=M;continue}
 					if(Array.isArray(s)) continue
 					cmap = s.map
-					s.then?.(() => q.w=NaN)
+					s.then?.(() => q.#w=NaN)
 				}
 			}
-			return q.w = w-lsb*chw
+			return q.#w = w-lsb*chw
 		}
 		add(str){
 			const q=this.#q
-			if(q.l!=this) this.#setv(q)
-			if(typeof str != 'function') q.len += (str+='').length
+			if(q.#l!=this) this.#setv(q)
+			if(typeof str != 'function') q.#len += (str+='').length
 			q.push(typeof str == 'function' ? str : ''+str)
-			q.w=NaN
+			q.#w=NaN
 		}
 		draw(ctx){
 			const q = this.#q
 			let cmap = M
 			let idx = 0
-			let lh = 1, st = 1, lsb = 0, sk = 0
+			let lh = 1, st = 1, lsb = 0, sk = 0, yo = 0
 			let sh = ctx.shader = msdf
 			let v = null
 			let font = null
 			const pxr = ctx.pixelRatio()
-			while(idx < q.length){
+			w: while(idx < q.length){
 				let s = q[idx++]
 				if(typeof s=='number'){
 					const v = q[idx++]
 					switch(s){
-						case LH: ctx.scale(v/lh); lh = v; break
-						case ST: ctx.scale(v/st, 1); st = v; break
-						case SK: ctx.skew(v-sk, 0); sk=v; break
-						case LSB: lsb = v; break
+						case ADV: ctx.translate(v, 0); continue w
+						case LH:{
+							ctx.scale(v/lh); lh = v
+						}continue w
+						case YO: yo = (v-yo)/lh; ctx.translate(-sk*yo, yo); yo = v; break
+						case SH: ctx.shader = sh = s; break
+						case ST: ctx.scale(v/st, 1); st = v; continue w
+						case SK: ctx.skew(v-sk, 0); sk = v; continue w
+						case LSB: lsb = v; continue w
+						default: continue w
 					}
-					continue
 				}else if(typeof s == 'string'){
 					for(const ch of s){
 						const g = cmap.get(ch.codePointAt())
@@ -269,52 +294,83 @@ msdf.oldPxRange = msdf.oldfv = 0
 						ctx.translate(g.xadv+lsb,0)
 					}
 					continue
-				}else if(typeof s == 'object'){
+				}else{
 					if(!s){cmap=M;continue}
 					if(Array.isArray(s)){v=s.length?s:null;continue}
 					font = s; cmap = s.map
-				}else if(typeof s == 'function') ctx.shader = sh = s
+				}
 				if(font){
 					const d = font.normDistRange*pxr, f = (font._flags&1?.5:-.5)/font.normDistRange
 					if(d!=sh.oldPxRange||f!=sh.oldfv) sh.uniforms(sh.oldPxRange=d, sh.oldfv=f)
 				}
 			}
 		}
-		break(widths, tokss = [defaultSet]){
-			if(!Array.isArray(tokss[0])) tokss = [tokss]
-			let toks = tokss[tokss.length-1]
-			let i = 0; const l = str.length
-			w: while(i < l){
-				if(toks) for(const t of toks){
-					t.lastIndex = i
-					const m = t.exec(str)
-					if(!m) continue
-					// Match!
-					let s = m[0]
-					if(t.cb){
-						s = t.cb(this, s, m) ?? s
-						this.#setv(q)
+		break(widths, toks = defaultSet, tokss = []){
+			const q = this.#q
+			let i = 0, str = ''
+			for(const s of q) if(typeof s == 'string') str += s
+			const lines = []
+			let w = typeof widths=='number'?widths:typeof widths=='function'?widths(lines.length):widths[max(lines.length,widths.length-1)]
+			let q2 = new itxtstream()
+			//let s2 = q2.l = new txtstream(q2)
+			let idx = 0
+			while(i < str.length){
+				let j = 0, t
+				a: {
+					if(toks) for(t of toks){
+						t.lastIndex = i
+						const m = t.exec(str)
+						if(!m) continue
+						// Match!
+						
+						i += j = m[0].length
+						const ret = t.ret ?? toks
+						if(ret) tokss.push(ret)
+						const nex = t.next ?? toks
+						if(!nex) toks = tokss.pop() ?? toks
+						else toks = nex
+						break a
 					}
-					addToken(s, t, q); i += s.length
-					toks = t.next ?? toks
-					continue w
+					i += j = 1
+					t = defaultToken
 				}
-				addToken(str[i++], defaultToken, q)
+				while(j){
+					const s = q2[idx++]
+					if(typeof s == 'number'){
+						const v = q2[idx++]
+						q2.push(s, v)
+						switch(s){
+							case ADV: /* TODO */; break
+							case SH: q2.#_f = v; break
+							case LH: q2.#_lh = v; break
+							case YO: q2.#_yo = v; break
+							case ST: q2.#_st = v; break
+							case SK: q2.#_sk = v; break
+							case LSB: q2.#_lsb = v; break
+						}
+					}else if(typeof s == 'string'){
+						j -= s.length
+						if(j<0) q2.push(s.slice(0,j)), q2.#len += s.length+j
+						else q2.push(s), q2.#len += s.length
+					}else q2.push(s), Array.isArray(s)||(q2.#_f = s)
+				}
 			}
-			this.tokenSet = tok
-			
+			if(q2.#len) lines.push(q2)
+			return lines
 		}
 		toString(){
-			let r = ''
-			for(const s of this.#q) if(typeof s == 'string') r += s
-			return r
+			let str = ''
+			for(const s of this.#q) if(typeof s == 'string') str += s
+			return str
+		}
+		static #_ = $.RichText = (q) => {
+			if(q) return new txtstream(q)
+			q = new itxtstream()
+			return q.#l = new txtstream(q)
 		}
 	}
-	$.RichText = () => {
-		const q = []; q.f=null;q.sh=msdf;q.lh=1;q.st=1;q.sk=0;q.lsb=0;q.len=0;q.w=NaN
-		return q.l = new txtstream(q)
-	}
-
+}
+	
 	
 	class font{
 		_flags = 0; normDistRange = 0; #cb = []; map = new Map; ascend = 0
