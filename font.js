@@ -1,15 +1,12 @@
 Gamma.font = $ => {
 	const msdf = $.Shader(`
-float median(float r, float g, float b) {
-    return max(min(r, g), min(max(r, g), b));
-}
 void main(){
 	vec3 c = arg0().rgb;
-	float sd = (uni1 < 0. ? c.r : max(min(c.r, c.g), min(max(c.r, c.g), c.b)))-.5+arg1*abs(uni1);
-	float o = clamp(uni0*sd+.5,0.,1.);
-	color = arg2*o;
-}`, [COLOR, FLOAT, VEC4], [FLOAT, FLOAT], _, [_, 0, vec4.one])
-msdf.oldPxRange = msdf.oldfv = 0
+	float sd = (uni0 < 0. ? c.r : max(min(c.r, c.g), min(max(c.r, c.g), c.b)))-.5+arg2*abs(uni0);
+	float o = clamp(arg1*sd+.5,0.,1.);
+	color = arg3*o;
+}`, [COLOR, FLOAT, FLOAT, VEC4], [FLOAT], _, [_, 1, 0, vec4.one])
+msdf.oldfv = 0
 	const T = $.Token = (regex, type = 0, sepAfter = '', sepBefore = '', breakRatio = 0, cb = null, next = undefined, push = 0) => {
 		if(regex instanceof RegExp){
 			let f = regex.flags, g = f.indexOf('g')
@@ -261,27 +258,28 @@ msdf.oldPxRange = msdf.oldfv = 0
 			q.push(typeof str == 'function' ? str : ''+str)
 			q.#w=NaN
 		}
-		draw(ctx){
+		draw(ctx, arcRad = Infinity){
+			arcRad = .5/arcRad
+			let ar = arcRad
 			const q = this.#q
 			let cmap = M
 			let idx = 0
-			let lh = 1, st = 1, lsb = 0, sk = 0, yo = 0
+			let lh = 1, lh1 = 1, st = 1, lsb = 0, sk = 0, yo = 0
 			let sh = ctx.shader = msdf
 			let v = null
 			let font = null
-			const pxr = ctx.pixelRatio()
+			const pxr0 = ctx.pixelRatio(); let pxr = 1
+			let ea = 0
 			w: while(idx < q.length){
 				let s = q[idx++]
 				if(typeof s=='number'){
 					const v = q[idx++]
 					switch(s){
 						case ADV: ctx.translate(v, 0); continue w
-						case LH:{
-							ctx.scale(v/lh); lh = v
-						}continue w
-						case YO: yo = (v-yo)/lh; ctx.translate(-sk*yo, yo); yo = v; break
+						case LH: ctx.scale(v*lh1); yo *= lh*(lh1=1/(lh=v)); ar=arcRad*lh; if(font)pxr=pxr0*font.normDistRange*lh; continue w
+						case YO: yo = v*lh; continue w
 						case SH: ctx.shader = sh = s; break
-						case ST: ctx.scale(v/st, 1); st = v; continue w
+						case ST: st = v; continue w
 						case SK: ctx.skew(v-sk, 0); sk = v; continue w
 						case LSB: lsb = v; continue w
 						default: continue w
@@ -290,18 +288,25 @@ msdf.oldPxRange = msdf.oldfv = 0
 					for(const ch of s){
 						const g = cmap.get(ch.codePointAt())
 						if(!g) continue
-						if(g.tex) v?ctx.drawRect(g.x,g.y,g.w,g.h,g.tex,...v):ctx.drawRect(g.x,g.y,g.w,g.h,g.tex)
-						ctx.translate(g.xadv+lsb,0)
+						const w = (g.xadv+lsb)*st
+						if(ar){
+							if(sk) ctx.skew(-sk,0)
+							ctx.rotate(ea+(ea=-asin(w*ar)||0))
+							if(sk) ctx.skew(sk,0)
+						}
+						if(g.tex) v?ctx.drawRect(g.x*st,g.y,g.w*st,g.h,g.tex,pxr,...v):ctx.drawRect(g.x*st,g.y+yo,g.w*st,g.h,g.tex,pxr)
+						ctx.translate(w,0)
 					}
 					continue
 				}else{
 					if(!s){cmap=M;continue}
 					if(Array.isArray(s)){v=s.length?s:null;continue}
 					font = s; cmap = s.map
+					pxr = pxr0*font.normDistRange*lh
 				}
 				if(font){
-					const d = font.normDistRange*pxr, f = (font._flags&1?.5:-.5)/font.normDistRange
-					if(d!=sh.oldPxRange||f!=sh.oldfv) sh.uniforms(sh.oldPxRange=d, sh.oldfv=f)
+					const f = (font._flags&1?.5:-.5)/font.normDistRange
+					if(f!=sh.oldfv) sh.uniforms(sh.oldfv=f)
 				}
 			}
 		}
@@ -312,7 +317,7 @@ msdf.oldPxRange = msdf.oldfv = 0
 			const lines = []
 			let w = typeof widths=='number'?widths:typeof widths=='function'?widths(lines.length):widths[max(lines.length,widths.length-1)]
 			let q2 = new itxtstream()
-			//let s2 = q2.l = new txtstream(q2)
+			let s2 = q2.l = new txtstream(q2)
 			let idx = 0
 			while(i < str.length){
 				let j = 0, t
@@ -329,6 +334,7 @@ msdf.oldPxRange = msdf.oldfv = 0
 						const nex = t.next ?? toks
 						if(!nex) toks = tokss.pop() ?? toks
 						else toks = nex
+						t.cb?.(s2)
 						break a
 					}
 					i += j = 1
@@ -338,18 +344,18 @@ msdf.oldPxRange = msdf.oldfv = 0
 					const s = q2[idx++]
 					if(typeof s == 'number'){
 						const v = q2[idx++]
-						q2.push(s, v)
 						switch(s){
 							case ADV: /* TODO */; break
-							case SH: q2.#_f = v; break
-							case LH: q2.#_lh = v; break
-							case YO: q2.#_yo = v; break
-							case ST: q2.#_st = v; break
-							case SK: q2.#_sk = v; break
-							case LSB: q2.#_lsb = v; break
+							case SH: s2.#f = v; break
+							case LH: s2.#lh = v; break
+							case YO: s2.#yo = v; break
+							case ST: s2.#st = v; break
+							case SK: s2.#sk = v; break
+							case LSB: s2.#lsb = v; break
 						}
 					}else if(typeof s == 'string'){
 						j -= s.length
+						s2.#setv(q2)
 						if(j<0) q2.push(s.slice(0,j)), q2.#len += s.length+j
 						else q2.push(s), q2.#len += s.length
 					}else q2.push(s), Array.isArray(s)||(q2.#_f = s)
@@ -391,7 +397,7 @@ msdf.oldPxRange = msdf.oldfv = 0
 			const fmt = (this.isMsdf = type.toLowerCase().endsWith('msdf')) ? Formats.RGB16F : Formats.R
 			const img = Img(atlas,SMOOTH,fmt)
 			this.normDistRange = distanceRange/size*2 //*2 is a good tradeoff for sharpness
-			this.ascend = ascender/(ascender+descender)
+			this.ascend = ascender/(ascender-descender)
 			for(const {unicode,advance,planeBounds:pb,atlasBounds:ab} of glyphs) this.map.set(unicode, pb ? {
 				x: pb.left, y: pb.bottom,
 				w: (pb.right-pb.left), h: (pb.top-pb.bottom),
@@ -413,13 +419,33 @@ msdf.oldPxRange = msdf.oldfv = 0
 				xadv: xadvance/s,
 				tex: width&&height?p[page].sub(x/scaleW,1-(y+height)/scaleH,width/scaleW,height/scaleH):null
 			})
-			console.log(this.map.get('y'.codePointAt()))
 			this.done()
 		}, this.error.bind(this)); return this}
-		draw(ctx, txt, lsb = 0){
+		draw(ctx, txt, arcRad = Infinity, lsb = 0, ...v){
 			if(this.#cb) return
-			const d = this.normDistRange*ctx.pixelRatio(), f = this._flags
-			//if(d!=oldPxRange||f!=oldfv) msdf.uniforms(oldPxRange=d, f=oldfv)
+			arcRad = .5/arcRad
+			let pxr = ctx.pixelRatio()*this.normDistRange, sh = ctx.shader
+			if(sh.oldfv === undefined) sh = ctx.shader = msdf
+			const f = (this._flags&1?.5:-.5)/this.normDistRange
+			if(f!=sh.oldfv) sh.uniforms(sh.oldfv=f)
+			let ea = 0
+			for(const ch of txt){
+				const g = this.map.get(ch.codePointAt())
+				if(!g) continue
+				const w = g.xadv+lsb
+				if(arcRad) ctx.rotate(ea+(ea=-asin(w*arcRad)||0))
+				if(g.tex) ctx.drawRect(g.x,g.y,g.w,g.h,g.tex,pxr,...v)
+				ctx.translate(w,0)
+			}
+		}
+		measure(txt, lsb = 0){
+			if(this.#cb) return
+			let w = 0
+			for(const ch of txt){
+				const g = this.map.get(ch.codePointAt())
+				if(g) w += g.xadv+lsb
+			}
+			return w-lsb
 		}
 	}
 	$.Font = () => new font()

@@ -103,7 +103,6 @@ class img{
 		if(!t2.d) return tex.#then(()=>this.paste(tex,x,y,l,srcX,srcY,srcL,srcW,srcH,srcD)), this
 		if(t2.src) return this
 		if(t.tex==t2.tex) return console.warn('cannot copy from texture to itself'), this
-		i&&draw()
 		img.fakeBind(t)
 		if(!ca.img) gl.bindFramebuffer(36160,fb)
 		if(fbSte) gl.framebufferRenderbuffer(36160,36128,36161,null)
@@ -113,8 +112,7 @@ class img{
 			gl.copyTexSubImage3D(35866, 0, x, y, l++, srcX, srcY, srcW, srcH)
 		}
 		if(t.i<0) gl.bindTexture(35866, null)
-		if(!ca.img) gl.bindFramebuffer(36160,null)
-		else if(!i) gl.bindFramebuffer(36160,null), ca=ctx.t, fbLayer=srcL-1,fbTex=t2.tex, fbSte = null
+		if(!ca.img||!i) gl.bindFramebuffer(36160,null), ca=ctx.t, fbLayer=srcL-1,fbTex=t2.tex, fbSte = null
 		else gl.framebufferTextureLayer(36160,36064,fbTex,0,fbLayer), fbSte&&gl.framebufferRenderbuffer(36160,36128,36161,fbSte)
 		return this
 	}
@@ -130,7 +128,6 @@ class img{
 	readData(x=0, y=0, l=0, w=0, h=0, d=0, arr=null){
 		const {t}=this; if(t.src) return null
 		w = w||t.w; h = h||t.h; d = d||t.d
-		i&&draw()
 		if(!ca.img) gl.bindFramebuffer(36160,fb)
 		if(fbSte) gl.framebufferRenderbuffer(36160,36128,36161,null)
 		let a = t.f[0], S = (a==33323||a==33338||a==33340||a==33327||a==33328||a==33336?2:a==33321||a==33330||a==33332||a==33334||a==33325||a==33326?1:4)*w*h
@@ -141,8 +138,7 @@ class img{
 			gl.readPixels(x, y, w, h, a, t.f[2], arr.subarray(S*l, S*(++l)))
 		}
 		if(t.i<0) gl.bindTexture(35866, null)
-		if(!ca.img) gl.bindFramebuffer(36160,null)
-		else if(!i) gl.bindFramebuffer(36160,null), ca=ctx.t, fbLayer=l-1,fbTex=t.tex, fbSte = null
+		if(!ca.img||!i) gl.bindFramebuffer(36160,null), ca=ctx.t, fbLayer=l-1,fbTex=t.tex, fbSte = null
 		else gl.framebufferTextureLayer(36160,36064,fbTex,0,fbLayer), fbSte&&gl.framebufferRenderbuffer(36160,36128,36161,fbSte)
 		return arr
 	}
@@ -461,7 +457,7 @@ class can{
 	}
 	clear(r = 0, g = r, b = r, a = g){
 		if(typeof r=='object')a=r.w??0,b=r.z??0,g=r.y,r=r.x
-		if(i) draw()
+		i&&draw()
 		setv(this.t, this.#m)
 		gl.clearColor(r, g, b, a)
 		const q = this.t.stencil=this.t.stencil+1&7
@@ -469,7 +465,7 @@ class can{
 		gl.disable(2960); pmask &= -241
 	}
 	clearStencil(){
-		if(i) draw()
+		i&&draw()
 		setv(this.t, this.#m)
 		const q = this.t.stencil=this.t.stencil+1&7
 		if(!q) gl.stencilMask(255), gl.clear(1024)
@@ -612,7 +608,7 @@ T = $.Shader = (src, inputs, uniforms, output=4, defaults, uDefaults, frat=0.5) 
 		id++
 	}
 	id = 0; let j2 = 0, j3 = 0
-	const fn2Params = [], fn2Body = ['fd+=j2;if(sh!=s){i&&draw(0);shfCount=fCount;shfMask=fMask;gl.useProgram((sh=s).program);gl.bindVertexArray(s.vao)}'], fn3Body = []
+	const fn2Params = [], fn2Body = ['fd+=j2;i&&draw(0);if(sh!=s){shfCount=fCount;shfMask=fMask;gl.useProgram((sh=s).program);gl.bindVertexArray(s.vao)}'], fn3Body = []
 	const uniTex = [], uniLocs = []
 	for(const t of uniforms){
 		let c = (t&3)+1, n = names[t&3|t>>4<<2]

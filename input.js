@@ -194,10 +194,10 @@ if(!('remove'in[]))Object.defineProperty(Array.prototype,'remove',{value(a){
 	if(i>-1){while(i<b.length)b[i]=b[++i];b.pop()}
 	return i
 },enumerable:false,configurable:true})
-
+{let _keys=null,_dcbs=null
 Gamma.input = ($, T = $.canvas) => {
-	$.keys = new BitField()
-	$.MOUSE = Object.freeze({ LEFT: 0, RIGHT: 1, MIDDLE: 2, BACK: 3, FORWARD: 4 })
+	const keys = $.keys = new BitField()
+	$.MOUSE = Object.freeze({ LEFT: 0, RIGHT: 2, MIDDLE: 1, BACK: 3, FORWARD: 4 })
 	$.KEY = Object.freeze({
 		A: 65, B: 66, C: 67, D: 68, E: 69, F: 70, G: 71, H: 72, I: 73, J: 74, K: 75, L: 76, M: 77,
 		N: 78, O: 79, P: 80, Q: 81, R: 82, S: 83, T: 84, U: 85, V: 86, W: 87, X: 88, Y: 89, Z: 90,
@@ -241,25 +241,34 @@ Gamma.input = ($, T = $.canvas) => {
 	const wcb = [], mcb = []
 	;($.onWheel = fn => void wcb.push(fn)).remove = fn => void wcb.remove(fn)
 	;($.onMouse = fn => void mcb.push(fn)).remove = fn => void mcb.remove(fn)
-	function genericAdd(e){
+	T.addEventListener('mouseover', _ => {
+		if(_keys) return
+		_keys = keys; _dcbs = dcbs
+	})
+	T.addEventListener('mouseout', _ => {
+		if(_keys != keys) return
+		const k = new BitField(keys); keys.clear()
+		k.iter(n => {
+			const a = dcbs.get(~n)
+			if(a) for(const f of a)try{f(n)}catch(e){Promise.reject(e)}
+		})
+		keys.clear()
+		_keys = _dcbs = null
+	})
+	T.addEventListener('mousedown', e => {
 		e.preventDefault()
-		if(e.repeat) return
-		const n = e.keyCode ?? e.button
+		const n = e.button
 		keys.set(n)
 		const a = dcbs.get(n)
-		if(a) for(const f of a) f(n)
-	}
-	function genericRem(e){
+		if(a) for(const f of a)try{f(n)}catch(e){Promise.reject(e)}
+	})
+	T.addEventListener('mouseup', e => {
 		e.preventDefault()
-		const n = e.keyCode ?? e.button
-		keys.unset(n)
+		const n = e.button
+		if(!keys.pop(n)) return
 		const a = dcbs.get(~n)
-		if(a) for(const f of a) f(n)
-	}
-	T.addEventListener('keydown', genericAdd)
-	T.addEventListener('keyup', genericRem)
-	T.addEventListener('mousedown', genericAdd)
-	T.addEventListener('mouseup', genericRem)
+		if(a) for(const f of a)try{f(n)}catch(e){Promise.reject(e)}
+	})
 	T.addEventListener('contextmenu', e => e.preventDefault())
 	T.addEventListener('wheel', e => {
 		e.preventDefault()
@@ -273,3 +282,20 @@ Gamma.input = ($, T = $.canvas) => {
 		for(const f of wcb) f(e.movementX, e.movementY)
 	})
 }
+document.addEventListener('keydown', e => {
+	if(!_keys) return
+	e.preventDefault()
+	if(e.repeat) return
+	const n = e.keyCode
+	_keys.set(n)
+	const a = _dcbs.get(n)
+	if(a) for(const f of a)try{f(n)}catch(e){Promise.reject(e)}
+})
+document.addEventListener('keyup', e => {
+	if(!_keys) return
+	e.preventDefault()
+	const n = e.keyCode
+	if(!_keys.pop(n)) return
+	const a = _dcbs.get(~n)
+	if(a) for(const f of a)try{f(n)}catch(e){Promise.reject(e)}
+})}
