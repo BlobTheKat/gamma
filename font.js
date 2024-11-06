@@ -7,7 +7,7 @@ void main(){
 	color = arg3*o;
 }`, [COLOR, FLOAT, FLOAT, VEC4], [FLOAT], _, [_, 1, 0, vec4.one])
 msdf.oldfv = 0
-	const T = $.Token = (regex, type = 0, sepAfter = '', sepBefore = '', breakRatio = 0, cb = null, next = undefined, push = 0) => {
+	const T = $.Token = (regex, type = 0, sep = '', next = undefined, push = 0) => {
 		if(regex instanceof RegExp){
 			let f = regex.flags, g = f.indexOf('g')
 			if(g>-1) f=f.slice(0,g)+f.slice(g+1)
@@ -22,92 +22,210 @@ msdf.oldfv = 0
 			regex = new RegExp(src+']','y')
 		}
 		regex.type = type
-		regex.sepA = sepAfter
-		regex.sepB = sepBefore
-		regex.bR = breakRatio
-		regex.cb = cb
+		regex.sep = sep
 		regex.next = next
 		regex.ret = push
+		regex.sepW = regex.sepA = regex.sepS = 0
+		regex.sepL = null
 		return regex
 	}
-	// Token jumps to new line on break, unless it would take up more than half of that line, in which case insert sep
+	// If token takes up 50% or more of current line, split. Otherwise, jump to new line
 	T.NORMAL = 0
-	// On break, always go on a new line
-	T.ALWAYS_JUMP = 1
-	// Token overflows instead of breaking
-	T.OVERFLOW = 2
-	// Token cannot be broken in half and must go on a new line, even if it overflows on that line
-	T.DONT_SPLIT = 3
-	// Token "underflows" on the left of the new line
-	T.LEFT_OVERFLOW = 4
-	// Token is not rendered if it breaks
-	T.VANISH = 5
-	// Token is squished if it breaks
-	T.SQUISH = 6
-	// Token is shrunk if it breaks
-	T.SCALE = 7
+	// Token cannot be split. Always go on a new line
+	T.NEVER_SPLIT = 1
+	// Token should always be split where appropriate
+	T.ALWAYS_SPLIT = 2
+	// Token overflows the line and does not create a new line
+	T.OVERFLOW = 3
+	// Token is not rendered when it overflows
+	T.VANISH = 4
 	// Overflowing characters are not rendered
-	T.TRIM = 8
-	// Token can be broken anywhere
-	T.ANYWHERE = 9
-	// Always break here, even if not overflowing
-	T.BREAK = 10
-	// Always break here, and don't render anything
-	T.VANISH_BREAK = 11
-	// Always break immediately before, drawing text to the left of the new line
-	T.LEFT_OVERFLOW_BREAK = 12
-	// Always break before and after token, making the token stand on its own line
-	T.BREAK_BEFORE_AFTER = 13
+	T.TRIM = 5
+	// Token is squished on overflow
+	T.SQUISH = 6
+	// Token is squished by up to 50%, beyond which it will be split instead
+	T.SQUISH_SPLIT = 7
+	// Always break after this token, even if not overflowing
+	T.BREAK_AFTER = 8
+	// Always break before this token, even if not overflowing
+	T.BREAK_BEFORE = 16
+	// Token is never rendered
+	T.INVISIBLE = 32
+
 	// Used by next and push parameter
 	T.POP = 0
-	const defaultSet = [T(/\r\n?|\n/y, 11, ''), T(/[$£"+]?[\w'-]+[,.!?:;"^%€*]?/yi, 0, '-'), T(/\s+/y, 5)]
+	const defaultSet = [T(/\r\n?|\n/y, 24, ''), T(/[$£"+]?[\w'-]+[,.!?:;"^%€*]?/yi, 0, '-'), T(/\s+/y, 4)]
 	const defaultToken = T(/[^]/y)
 	const M = new Map
-	const ADV = 1, SH = 2, LH = 3, YO = 4, ST = 5, SK = 6, LSB = 7
+	const ADV = 1, SH = 2, SC = 3, YO = 4, ST = 5, SK = 6, LSB = 7, ARC = 8, RONLY = -3, IONLY = -2
+	const getSw = (t, f, ar, lsb = 0) => {
+		t.sepL = f; t.sepA = ar; t.sepS = lsb
+		if(!f) return t.sepW = 0
+		let last = -1, w = 0
+		const {map, kmap} = f, ar1 = 1/ar
+		for(const ch of t.sep){
+			const c = ch.codePointAt()
+			const g = map.get(c)
+			if(!g) continue
+			const cw = g.xadv + lsb + (kmap.get(c+last*1114112) ?? 0)
+			w += ar ? asin(cw*ar)*ar1||cw : cw
+		}
+		f.then?.(() => t.sepL==f&&(t.sepL=null,t.sepW=0))
+		return t.sepW = w
+	}
 	class itxtstream extends Array{
-		#_f=null;#_sh=msdf;#_lh=1;#_yo=0;#_st=1;#_sk=0;#_lsb=0;#_v=null;#len=0;#w=NaN;#l=null
+		#_f=null;#_sh=msdf;#_sc=1;#_yo=0;#_st=1;#_sk=0;#_lsb=0;#_arc=0
+		#_v=null;#len=0;#w=NaN;#l=null;#_m=-1
 		get width(){return this.#w}
 		get length(){return this.#len}
 		static #_ = class txtstream{
 		constructor(q){ this.#q = q }
-		sub(){const s=new txtstream(this.#q);s.#f=this.#f;s.#sh=this.#sh;s.#lh=this.#lh;s.#st=this.#st;s.#sk=this.#sk;s.#lsb=this.#lsb;return s}
-		reset(f=null,sh=msdf,lh=1,st=1,sk=0,lsb=0,...a){this.#f=typeof f=='object'?f:null;this.#sh=typeof sh=='function'?sh:msdf;this.#lh=+lh;this.#st=+st;this.#sk=+sk;this.#lsb=+lsb;this.#q.push(a);this.#q.#l==this&&(this.#q.#l=null)}
+		sub(){const s=new txtstream(this.#q);s.#f=this.#f;s.#sh=this.#sh;s.#sc=this.#sc;s.#st=this.#st;s.#sk=this.#sk;s.#lsb=this.#lsb;s.#arc=this.#arc;s.#v=this.#v;return s}
+		reset(f=null){this.#f=typeof f=='object'?f:null;this.#sh=msdf;this.#sc=1;this.#st=0;this.#sk=0;this.#lsb=0;this.#v=null;this.#arc=0;this.#q.#l==this&&(this.#q.#l=null)}
 		#q; #f = null
 		get font(){return this.#f}
 		set font(a){if(typeof a=='object')this.#f=a;this.#q.#l==this&&(this.#q.#l=null)}
 		#sh = msdf
 		get shader(){return this.#sh}
 		set shader(a){if(typeof a=='function')this.#sh=a;this.#q.#l==this&&(this.#q.#l=null)}
-		#lh = 1
-		get height(){return this.#lh}
-		set height(a){this.#lh=+a;this.#q.#l==this&&(this.#q.#l=null)}
+		#sc = 1
+		get scale(){return this.#sc}
+		set scale(a){this.#sc=+a;this.#q.#l==this&&(this.#q.#l=null)}
+		scaleBy(a = 1, adv = true, yo = true){
+			if(a==1) return
+			const q = this.#q, len = q.length
+			let idx = 0, o = 0
+			while(idx < len){
+				const s = q[idx++]
+				if(typeof s == 'number'){
+					if(s<0) continue; idx++
+					if(s == SC || (s == YO && yo)){
+						if(!o) o = 1
+						q[idx-1] *= a
+					}else if(s == ADV && adv) q[idx-1] *= a
+				}else if(typeof s == 'string') if(!o) o = 2
+			}
+			if(o != 1) q.unshift(SC, a)
+		}
 		#yo = 0
 		get yOffset(){return this.#yo}
 		set yOffset(a){this.#yo=+a;this.#q.#l==this&&(this.#q.#l=null)}
+		offsetBy(a = 0){
+			if(!a) return
+			const q = this.#q, len = q.length
+			let idx = 0, o = 0
+			while(idx < len){
+				const s = q[idx++]
+				if(typeof s == 'number'){
+					if(s<0) continue; idx++
+					if(s == YO){
+						if(!o) o = 1
+						q[idx-1] += a
+					}
+				}else if(typeof s == 'string') if(!o) o = 2
+			}
+			if(o != 1) q.unshift(YO, a)
+		}
 		#st = 1
 		get stretch(){return this.#st}
 		set stretch(a){this.#st=+a;this.#q.#l==this&&(this.#q.#l=null)}
-		get letterWidth(){return this.#lh*this.stretch}
-		set letterWidth(a){this.stretch=a/this.#lh}
+		stretchBy(a = 1, adv = true, sk = false){
+			if(a==1) return
+			const q = this.#q, len = q.length
+			let idx = 0, o = 0
+			while(idx < len){
+				const s = q[idx++]
+				if(typeof s == 'number'){
+					if(s<0) continue; idx++
+					if(s == ST || (s == SK && sk)){
+						if(!o) o = 1
+						q[idx-1] *= a
+					}else if(s == ADV && adv) q[idx-1] *= a
+				}else if(typeof s == 'string') if(!o) o = 2
+			}
+			if(o != 1) sk ? q.unshift(SK, a, ST, a) : q.unshift(ST, a)
+		}
+		get letterWidth(){return this.#sc*this.stretch}
+		set letterWidth(a){this.stretch=a/this.#sc}
 		#sk = 0
 		get skew(){return this.#sk}
 		set skew(a){this.#sk=+a;this.#q.#l==this&&(this.#q.#l=null)}
+		skewBy(a = 0){
+			if(!a) return
+			const q = this.#q, len = q.length
+			let idx = 0, o = 0
+			while(idx < len){
+				const s = q[idx++]
+				if(typeof s == 'number'){
+					if(s<0) continue; idx++
+					if(s == SK){
+						if(!o) o = 1
+						q[idx-1] += a
+					}
+				}else if(typeof s == 'string') if(!o) o = 2
+			}
+			if(o != 1) q.unshift(SK, a)
+		}
 		#lsb = 0
 		get letterSpacingBias(){return this.#lsb}
 		set letterSpacingBias(a){this.#lsb=+a;this.#q.#l==this&&(this.#q.#l=null)}
+		spaceBy(a = 0){
+			if(!a) return
+			const q = this.#q, len = q.length
+			let idx = 0, o = 0
+			while(idx < len){
+				const s = q[idx++]
+				if(typeof s == 'number'){
+					if(s<0) continue; idx++
+					if(s == LSB){
+						if(!o) o = 1
+						q[idx-1] += a
+					}
+				}else if(typeof s == 'string') if(!o) o = 2
+			}
+			if(o != 1) q.unshift(LSB, a)
+		}
+		#arc = 0
+		get curve(){return this.#arc}
+		set curve(a){this.#arc=+a;this.#q.#l==this&&(this.#q.#l=null)}
+		curveBy(a = 0){
+			if(!a) return
+			const q = this.#q, len = q.length
+			let idx = 0, o = 0
+			while(idx < len){
+				const s = q[idx++]
+				if(typeof s == 'number'){
+					if(s<0) continue; idx++
+					if(s == ARC){
+						if(!o) o = 1
+						q[idx-1] += a
+					}else if(s == ADV && !o) o = 2
+				}else if(typeof s == 'string') if(!o) o = 2
+			}
+			if(o != 1) q.unshift(ARC, a)
+		}
 		#v = null
 		// Sets the shader's values at this point in the stream
-		values(...a){ this.#q.push(this.#q.#_v = this.#v = a) }
-		advance(gap = 0){ this.#q.push(ADV, +gap); this.#q.w=NaN }
+		get values(){ return this.#v }
+		set values(a){ this.#v = a?.length ? a : null; this.#q.#l==this&&(this.#q.#l=null) }
+		drawOnly(){this.#q.push(this.#q._m = RONLY)}
+		indexOnly(){this.#q.push(this.#q._m = IONLY)}
+		drawAndIndex(){this.#q.push(this.#q._m = RONLY|IONLY)}
+		advance(gap = 0){
+			const q = this.#q
+			if(q.l!=this) this.#setv(q)
+			q.push(ADV, +gap); q.w=NaN
+		}
 		#setv(q){
-			if(this.#v!=q.#_v)q.push(this.#v??[]),q.#_v=this.#v
 			if(this.#f!=q.#_f)q.push(q.#_f=this.#f)
 			if(this.#sh!=q.#_sh)q.push(SH,q.#_sh=this.#sh)
-			if(this.#lh!=q.#_lh)q.push(LH,q.#_lh=this.#lh)
+			if(this.#sc!=q.#_sc)q.push(SC,q.#_sc=this.#sc)
 			if(this.#yo!=q.#_yo)q.push(YO,q.#_yo=this.#yo)
 			if(this.#st!=q.#_st)q.push(ST,q.#_st=this.#st)
 			if(this.#sk!=q.#_sk)q.push(SK,q.#_sk=this.#sk)
 			if(this.#lsb!=q.#_lsb)q.push(LSB,q.#_lsb=this.#lsb)
+			if(this.#arc!=q.#_arc)q.push(ARC,q.#_arc=this.#arc)
+			if(this.#v!=q.#_v)q.push(this.#v??[]),q.#_v=this.#v
 			q.#l=this
 		}
 		slice(i=0, j=this.#q.#len){
@@ -117,39 +235,57 @@ msdf.oldfv = 0
 			j -= i
 			const st = new txtstream(q2)
 			let idx = 0
-			let col = null
-			w: while(i > 0 && idx < q.length){
+			let str = ''
+			while(i > 0 && idx < q.length){
 				const s = q[idx++]
 				if(typeof s=='number'){
+					if(s<0){ q2.#_m=s; continue }
 					const v = q[idx++]
 					switch(s){
 						case SH: st.#sh = v; break
-						case LH: st.#lh = v; break
+						case SC: st.#sc = v; break
 						case YO: st.#yo = v; break
 						case ST: st.#st = v; break
 						case SK: st.#sk = v; break
 						case LSB: st.#lsb = v; break
+						case ARC: st.#arc = v; break
 					}
 				}else if(typeof s == 'string'){
+					if(!(q2.#_m&2)) continue
 					i -= s.length
 					if(i<0){
-						st.#setv(q2)
-						if(col) q2.push(col), col = null
-						const v = s.slice(i,(j+=i)+s.length)
-						q2.push(v); q2.#len += v.length
-						break w
+						str = s.slice(i,(j+=i)+s.length)
+						break
 					}
 				}else if(!Array.isArray(s)) st.#f = s
-				else col = s
+				else st.#v = s
 			}
-			if(col) q2.push(col)
+			st.#setv(q2)
+			if(q2.#_m!=-1) q2.push(q2.#_m)
+			if(str) q2.push(str), q2.#len += str.length
 			while(j > 0 && idx < q.length){
 				const s = q[idx++]
-				if(typeof s == 'string'){
+				q2.push(s)
+				if(typeof s=='number'){
+					if(s<0){ q2.#_m=s; continue }
+					const v = q[idx++]
+					q2.push(v)
+					switch(s){
+						case SH: st.#sh = v; break
+						case SC: st.#sc = v; break
+						case YO: st.#yo = v; break
+						case ST: st.#st = v; break
+						case SK: st.#sk = v; break
+						case LSB: st.#lsb = v; break
+						case ARC: st.#arc = v; break
+					}
+				}else if(typeof s == 'string'){
+					if(!(q2.#_m&2)) continue
 					j -= s.length; q2.#len += s.length
-					if(j < 0) q2.push(s.slice(0, j)), q2.#len += s.length+j
-					else q2.push(s), q2.#len += s.length
-				}else q2.push(s)
+					if(j < 0) q2[q2.length-1] = s.slice(0, j), q2.#len += s.length+j
+					else q2.#len += s.length
+				}else if(!Array.isArray(s)) st.#f = s
+				else st.#v = s
 			}
 			return st
 		}
@@ -159,30 +295,38 @@ msdf.oldfv = 0
 			if(i>=q.#len) return
 			q.#len = i < 0 ? 0 : i
 			let idx = 0
-			q.#_f = null; q.#_sh = msdf; q.#_lh = 1; q.#_st = 1; q.#_sk = 0; q.#_lsb = 0
-			w: while(i > 0 && idx < q.length){
+			q.#_f = null; q.#_sh = msdf; q.#_sc = 1; q.#_st = 1; q.#_yo = 0
+			q.#_sk = 0; q.#_lsb = 0; q.#_m = -1; q.#_arc = 0; q.#_v = null
+			while(i > 0 && idx < q.length){
 				const s = q[idx++]
 				if(typeof s=='number'){
+					if(s<0){ q.#_m=s; continue }
 					const v = q[idx++]
 					switch(s){
 						case SH: q.#_sh = v; break
-						case LH: q.#_lh = v; break
+						case SC: q.#_sc = v; break
 						case YO: q.#_yo = v; break
 						case ST: q.#_st = v; break
 						case SK: q.#_sk = v; break
 						case LSB: q.#_lsb = v; break
+						case ARC: q.#_arc = v; break
 					}
 				}else if(typeof s == 'string'){
+					if(!(mask&2)) continue
 					i -= s.length
-					if(i<0){ q[idx-1] = s.slice(0, i); break w }
+					if(i<0){ q[idx-1] = s.slice(0, i); break }
 				}else if(!Array.isArray(s)) q.#_f = s
+				else q.#_v = s
 			}
 			this.#f = q.#_f
 			this.#sh = q.#_sh
-			this.#lh = q.#_lh
+			this.#sc = q.#_sc
+			this.#yo = q.#_yo
 			this.#st = q.#_st
 			this.#sk = q.#_sk
 			this.#lsb = q.#_lsb
+			this.#arc = q.#_arc
+			this.#v = q.#_v
 			q.length = idx
 			q.#w=NaN
 		}
@@ -190,28 +334,57 @@ msdf.oldfv = 0
 			const q = this.#q, q2 = st.#q
 			q.#len += q2.#len
 			let idx = 0
-			this.#f = null; this.#sh = msdf; this.#lh = 1; this.#st = 1; this.#sk = 0; this.#lsb = 0
+			this.#f = null; this.#sh = msdf; this.#sc = 1; this.#yo = 0; this.#st = 1
+			this.#sk = 0; this.#lsb = 0; this.#arc = 0; this.#v = null
 			// If concat to ourselves, don't loop infinitely
 			const q2l = q2.length
-			let col = null
-			w: while(idx < q2l){
+			let mask = -1, str = ''
+			while(idx < q2l){
 				const s = q2[idx++]
 				if(typeof s=='number'){
+					if(s<0){ mask=s; continue }
 					const v = q[idx++]
 					switch(s){
 						case ADV: q.push(s, v); break
 						case SH: this.#sh = v; break
-						case LH: this.#lh = v; break
+						case SC: this.#sc = v; break
 						case YO: this.#yo = v; break
 						case ST: this.#st = v; break
 						case SK: this.#sk = v; break
 						case LSB: this.#lsb = v; break
+						case ARC: this.#arc = v; break
 					}
-				}else if(typeof s == 'string'){ this.#setv(q); col&&q.push(col); q.push(s); break w }
+				}else if(typeof s == 'string'){ if(mask&2){ str = s; break } }
 				else if(!Array.isArray(s)) this.#f = s
-				else col = s
+				else this.#v = s
 			}
-			while(idx < q2l) q.push(q2[idx++])
+			this.#setv(q)
+			mask!=q.#_m&&q.push(q.#_m = mask)
+			str && q.push(str)
+			while(idx < q2l){
+				const s = q2[idx++]
+				q.push(s)
+				if(typeof s=='number'){
+					if(s<0){ q.#_m=s; continue }
+					const v = q2[idx++]
+					q.push(v)
+					switch(s){
+						case SH: this.#sh = v; break
+						case SC: this.#sc = v; break
+						case YO: this.#yo = v; break
+						case ST: this.#st = v; break
+						case SK: this.#sk = v; break
+						case LSB: this.#lsb = v; break
+						case ARC: this.#arc = v; break
+					}
+				}else if(typeof s == 'string'){
+					if(!(q.#_m&2)) continue
+					j -= s.length; q.#len += s.length
+					if(j < 0) q[q.length-1] = s.slice(0, j), q.#len += s.length+j
+					else q.#len += s.length
+				}else if(!Array.isArray(s)) this.#f = s
+				else this.#v = s
+			}
 			q.#w=NaN
 		}
 		get length(){return this.#q.#len}
@@ -221,152 +394,322 @@ msdf.oldfv = 0
 			if(w==w) return w
 			w = 0
 			const q = this.#q
-			let cmap = M
+			let cmap = M, kmap = M
 			let idx = 0
-			let lh = 1, st = 1, lsb = 0
+			let sc = 1, st = 1, lsb = 0, mask = -1, ar = 0, ar1 = 0
 			let chw = 1
+			let last = -1, lastCw = 1
 			while(idx < q.length){
 				let s = q[idx++]
 				if(typeof s=='number'){
+					if(s<0){ mask=s; continue}
 					const v = q[idx++]
 					switch(s){
 						case ADV: w += chw*v; break
-						case LH: chw = (lh = v) * st; break
-						case ST: chw = (st = v) * lh; break
+						case SC: chw = (sc = v) * st; break
+						case ST: chw = (st = v) * sc; break
 						case LSB: lsb = v; break
+						case ARC: ar1 = 1/v; ar = v; break
 					}
 				}else if(typeof s == 'string'){
-					for(const ch of s){
-						const g = cmap.get(ch.codePointAt())
+					if(mask&1) for(const ch of s){
+						const c = ch.codePointAt()
+						const g = cmap.get(c)
 						if(!g) continue
-						w += (g.xadv+lsb)*chw
+						const ker = (kmap.get(c+last*1114112) ?? 0) * min(chw, lastCw)
+						last = c; lastCw = chw
+						const cw = (g.xadv+lsb)*chw + ker
+						w += ar ? asin(cw*ar)*ar1||cw : cw
 						if(g.tex?.waiting) g.tex.load()
 					}
 				}else if(typeof s == 'object'){
-					if(!s){cmap=M;continue}
+					if(!s){cmap=kmap=M;continue}
 					if(Array.isArray(s)) continue
-					cmap = s.map
+					cmap = s.map; kmap = s.kmap
 					s.then?.(() => q.#w=NaN)
 				}
 			}
-			return q.#w = w-lsb*chw
+			return q.#w = w
 		}
 		add(str){
 			const q=this.#q
 			if(q.#l!=this) this.#setv(q)
-			if(typeof str != 'function') q.#len += (str+='').length
-			q.push(typeof str == 'function' ? str : ''+str)
+			if(q.#_m&2) q.#len += (str+='').length
+			q.push(str)
 			q.#w=NaN
 		}
-		draw(ctx, arcRad = Infinity){
-			arcRad = .5/arcRad
-			let ar = arcRad
+		draw(ctx){
 			const q = this.#q
-			let cmap = M
+			let cmap = M, kmap = M
 			let idx = 0
-			let lh = 1, lh1 = 1, st = 1, lsb = 0, sk = 0, yo = 0
+			let sc = 1, sc1 = 1, st = 1, lsb = 0, sk = 0, yo = 0, xo = 0, ar = 0, mask = -1
 			let sh = ctx.shader = msdf
-			let v = null
-			let font = null
+			let v = null, font = null
+			let last = -1, lastSt = 1
 			const pxr0 = ctx.pixelRatio(); let pxr = 1
 			let ea = 0
 			w: while(idx < q.length){
 				let s = q[idx++]
 				if(typeof s=='number'){
+					if(s<0){ mask=s; continue w}
 					const v = q[idx++]
 					switch(s){
-						case ADV: ctx.translate(v, 0); continue w
-						case LH: ctx.scale(v*lh1); yo *= lh*(lh1=1/(lh=v)); ar=arcRad*lh; if(font)pxr=pxr0*font.normDistRange*lh; continue w
-						case YO: yo = v*lh; continue w
+						case ADV:
+							if(ar){
+								if(sk) ctx.skew(-sk,0)
+								const r = .5/ar, d = v*ar*2
+								ctx.rotate(ea)
+								ctx.translate(sin(d)*r, (1-cos(d))*r)
+								ctx.rotate(-d); ea = 0
+								if(sk) ctx.skew(sk,0)
+							}else ctx.translate(v, 0)
+							continue w
+						case SC:
+							const a = v*sc1; sc1 = 1/v; ctx.scale(a); yo *= sc *= sc1; xo *= sc;
+							lastSt *= a; ar *= a; sc = v; if(font) pxr=pxr0*font.normDistRange*sc; continue w
+						case YO: yo = v*sc1; xo = yo*sk; continue w
 						case SH: ctx.shader = sh = s; break
 						case ST: st = v; continue w
-						case SK: ctx.skew(v-sk, 0); sk = v; continue w
-						case LSB: lsb = v; continue w
+						case SK: ctx.skew(v-sk, 0); sk = v; xo=yo*v; continue w
+						case LSB: lsb = v*.5; continue w
+						case ARC: ar = v*sc; continue w
 						default: continue w
 					}
 				}else if(typeof s == 'string'){
-					for(const ch of s){
-						const g = cmap.get(ch.codePointAt())
+					if(mask&1) for(const ch of s){
+						const c = ch.codePointAt()
+						const g = cmap.get(c)
 						if(!g) continue
-						const w = (g.xadv+lsb)*st
+						const ker = (kmap.get(c+last*1114112) ?? 0) * min(lastSt, st)
+						last = c; lastSt = st
+						const w = (g.xadv+lsb+lsb)*st
 						if(ar){
 							if(sk) ctx.skew(-sk,0)
-							ctx.rotate(ea+(ea=-asin(w*ar)||0))
+							ctx.rotate(ea+(ea=-asin((w+ker)*ar)||0))
 							if(sk) ctx.skew(sk,0)
 						}
-						if(g.tex) v?ctx.drawRect(g.x*st,g.y,g.w*st,g.h,g.tex,pxr,...v):ctx.drawRect(g.x*st,g.y+yo,g.w*st,g.h,g.tex,pxr)
-						ctx.translate(w,0)
+						if(g.tex) v?ctx.drawRect((g.x+lsb)*st+ker-xo,g.y+yo,g.w*st,g.h,g.tex,pxr,...v):ctx.drawRect((g.x+lsb)*st+ker-xo,g.y+yo,g.w*st,g.h,g.tex,pxr)
+						ctx.translate(w+ker,0)
 					}
 					continue
 				}else{
-					if(!s){cmap=M;continue}
+					if(!s){cmap=kmap=M;continue}
 					if(Array.isArray(s)){v=s.length?s:null;continue}
-					font = s; cmap = s.map
-					pxr = pxr0*font.normDistRange*lh
+					font = s; cmap = s.map; kmap = s.kmap
+					pxr = pxr0*font.normDistRange*sc
 				}
 				if(font){
 					const f = (font._flags&1?.5:-.5)/font.normDistRange
 					if(f!=sh.oldfv) sh.uniforms(sh.oldfv=f)
 				}
 			}
+			if(sk) ctx.skew(-sk,0)
+			if(ea) ctx.rotate(ea)
+			if(sc!=1) ctx.scale(sc1)
 		}
-		break(widths, toks = defaultSet, tokss = []){
-			const q = this.#q
-			let i = 0, str = ''
-			for(const s of q) if(typeof s == 'string') str += s
+		break(widths = Infinity, toks = defaultSet, tokss = []){
+			const q = this.#q, str = this.toString()
 			const lines = []
-			let w = typeof widths=='number'?widths:typeof widths=='function'?widths(lines.length):widths[max(lines.length,widths.length-1)]
+			let maxW = typeof widths=='number'?widths:typeof widths=='function'?widths(lines.length):widths[min(lines.length,widths.length-1)]
 			let q2 = new itxtstream()
 			let s2 = q2.l = new txtstream(q2)
-			let idx = 0
+			let i = 0, idx = 0, l = ''
+			let cmap = M, kmap = M, chw = 1, lastCw = 1, last = -1, w = 0
 			while(i < str.length){
 				let j = 0, t
+				let _i0 = q2.length, _i1 = 0, _w = w, _sh = s2.#sh, _sc = s2.#sc, _yo = s2.#yo, _st = s2.#st, _sk = s2.#sk, _lsb = s2.#lsb, _f = s2.#f, _arc = s2.#arc, _v = s2.#v, _m = q2.#_m, _len = q2.#len
 				a: {
 					if(toks) for(t of toks){
 						t.lastIndex = i
 						const m = t.exec(str)
 						if(!m) continue
 						// Match!
-						
 						i += j = m[0].length
 						const ret = t.ret ?? toks
 						if(ret) tokss.push(ret)
 						const nex = t.next ?? toks
 						if(!nex) toks = tokss.pop() ?? toks
 						else toks = nex
-						t.cb?.(s2)
 						break a
 					}
 					i += j = 1
 					t = defaultToken
 				}
-				while(j){
-					const s = q2[idx++]
+				const ty = t.type
+				if(ty&16){
+					lines.push(s2); q2.w = w; w = 0
+					s2 = s2.sub(); s2.#q = q2 = new itxtstream()
+					maxW = typeof widths=='number'?widths:typeof widths=='function'?widths(lines.length):widths[min(lines.length,widths.length-1)]
+				}
+				const iOnly = (ty&32) && q2.#_m != IONLY
+				if(l){
+					let s = l
+					if(j<l.length) s = l.slice(0,j), l=l.slice(j),j=0
+					else j -= l.length, l = ''
+					iOnly&&q2.push(IONLY)
+					if(s) q2.push(s)
+					if(q2.#_m&2) q2.#len += s.length
+					iOnly&&q2.push(q2.#_m)
+				}
+				let ch = false
+				while(j > 0){
+					const s = q[idx++]
 					if(typeof s == 'number'){
-						const v = q2[idx++]
+						if(s < 0){ q2.#_m = s; q2.push(s); continue }
+						const v = q[idx++]
+						ch = true
 						switch(s){
-							case ADV: /* TODO */; break
-							case SH: s2.#f = v; break
-							case LH: s2.#lh = v; break
+							case ADV: q2.push(s, v); break
+							case SH: s2.#sh = v; break
+							case SC: s2.#sc = v; v*s2.#st; break
 							case YO: s2.#yo = v; break
-							case ST: s2.#st = v; break
+							case ST: s2.#st = v; v*s2.#sc; break
 							case SK: s2.#sk = v; break
 							case LSB: s2.#lsb = v; break
+							case ARC: s2.#arc = v; break
 						}
 					}else if(typeof s == 'string'){
+						if(!(q2.#_m&2)){ q2.push(s); continue }
 						j -= s.length
-						s2.#setv(q2)
-						if(j<0) q2.push(s.slice(0,j)), q2.#len += s.length+j
-						else q2.push(s), q2.#len += s.length
-					}else q2.push(s), Array.isArray(s)||(q2.#_f = s)
+						let v = s
+						if(j<0) v = s.slice(0,j), l = s.slice(j)
+						else l = ''
+						if(ch) s2.#setv(q2)
+						iOnly&&q2.push(IONLY)
+						q2.push(v); q2.#len += v.length
+						iOnly&&q2.push(q2.#_m)
+					}else if(Array.isArray(s)) s2.#v = s, ch = true
+					else s2.#f = s, ch = true
+				}
+				if(ch) s2.#setv(q2)
+				while(1){
+					let i0 = _i0, i1 = _i1, sh = _sh, sc = _sc, yo = _yo, st = _st, sk = _sk, lsb = _lsb, f = _f, v = _v, m = _m, len = _len, arc = _arc, ar1 = 1/arc, overran = false, ptext = false
+					let sepw = t.sepL == f && t.sepA == arc && t.sepS == lsb ? t.sepW : getSw(t, f, arc, lsb)
+					const {type} = t, canBreak = !type ? _w*2 < maxW : (36>>type&1)!=0
+					while(i0 < q2.length){
+						const s = q2[i0++]
+						if(typeof s == 'number'){
+							if(s < 0){ m = s; continue }
+							const s1 = q2[i0++]
+							switch(s){
+								case ADV:
+									w += s1
+									if(overran || !canBreak) break
+									const exc = w - (maxW - (sepw - (kmap.get(t.sep.codePointAt() + last*1114112)??0))*chw)
+									if(overran = exc>0) _i0 = i0-1, _i1 = v - exc
+									else _i0 = i0, _i1 = 0
+									ptext = true
+									_w = w, _sh = sh, _sc = sc, _yo = yo, _st = st, _sk = sk, _lsb = lsb, _f = f, _arc = arc, _v = v, _m = m, _len = len
+									break
+								case SH: sh = s1; break
+								case SC: sc = s1; chw=s1*st; break
+								case YO: yo = s1; break
+								case ST: st = s1; chw=s1*sc; break
+								case SK: sk = s1; break
+								case LSB: lsb = s1; break
+								case ARC: ar1 = 1/s1; arc = s1; break
+							}
+						}else if(typeof s == 'string'){
+							if(m&1) for(const ch of s){
+								const c = ch.codePointAt()
+								const g = cmap.get(c); i1 += ch.length
+								if(!g) continue
+								const ker = (kmap.get(c + last*1114112) ?? 0) * min(chw, lastCw)
+								lastCw = chw; last = c
+								const cw = (g.xadv+lsb)*chw + ker
+								w += arc ? asin(cw*arc)*ar1||cw : cw
+								if(!(overran = w > (maxW - (sepw - (kmap.get(t.sep.codePointAt() + c*1114112)??0))*chw)) && canBreak){
+									ptext = true
+									_i0 = i0-1, _i1 = i1
+									_w = w, _sh = sh, _sc = sc, _yo = yo, _st = st, _sk = sk, _lsb = lsb, _f = f, _arc = arc, _v = v, _m = m, _len = len
+								}
+							}
+						}else if(Array.isArray(s)) v = s
+						else if(f = s) cmap = s.map, kmap = s.kmap, sepw = t.sepL == s && t.sepA == arc && t.sepS == lsb ? t.sepW : getSw(t, s, arc, lsb)
+						else cmap = kmap = M, sepw = 0
+					}
+					if(!_w || w <= maxW || !_i0 || type == 3) break
+					// restore and split/break
+					i0 = _i0, i1 = _i1, sh = _sh, sc = _sc, yo = _yo, st = _st, sk = _sk, lsb = _lsb, f = _f, v = _v, m = _m, arc = _arc, len = _len
+					if(type == 6 || (type == 7 && maxW-_w >= w-maxW)){
+						// squish
+						const squish = (maxW-_w)/(w-_w), q2l = q2.length
+						q2.splice(i0, 0, ST, squish*st); i0 += 2
+						while(i0 < q2l){
+							const s = q2[i0++]
+							if(typeof s != 'number' || s < 0) continue
+							if(s == ST) q2[i0++] *= squish
+							else i0++
+						}
+						q2.push(ST, st)
+						break
+					}
+					w = _w
+					const s = q2[i0]
+					const q3 = new itxtstream(), s3 = new txtstream(q3), q2l = q2.length
+					s3.#sh = sh; s3.#sc = sc; s3.#yo = yo; s3.#st = st; s3.#sk = sk; s3.#lsb = lsb;
+					s3.#f = f; s3.#v = v; s3.#arc = arc; q3.#_m = m
+					let idx = i0 += !!i1
+					const appnd = type != 4 && type != 5
+					w: while(idx < q2l){
+						const s = q2[idx++]
+						if(typeof s=='number'){
+							if(s<0){ q3.#_m = s; continue }
+							const v = q2[idx++]
+							switch(s){
+								case ADV: if(appnd){ idx--; break w }else break
+								case SH: s3.#sh = v; break
+								case SC: s3.#sc = v; break
+								case YO: s3.#yo = v; break
+								case ST: s3.#st = v; break
+								case SK: s3.#sk = v; break
+								case LSB: s3.#lsb = v; break
+								case ARC: s3.#arc = v; break
+							}
+						}else if(typeof s == 'string'){ if(appnd){ idx--; break } }
+						else if(!Array.isArray(s)) s3.#f = s
+						else s3.#v = s
+					}
+					s3.#setv(q3)
+					while(idx < q2l) q3.push(q2[idx++])
+					q3.#len = q2.#len - len
+					q2.#len = appnd ? len : 0; q2.#w = w
+					if(q3.#_m != -1) q3.push(q3.#_m)
+					s3.#sh = q3.#_sh = s2.#sh; s3.#sc = q3.#_sc = s2.#sc
+					s3.#yo = q3.#_yo = s2.#yo; s3.#st = q3.#_st = s2.#st
+					s3.#sk = q3.#_sk = s2.#sk; s3.#lsb = q3.#_lsb = s2.#lsb
+					s3.#arc = q3.#_arc = s2.#arc; q3.#_m = q2.#_m
+					q2.length = i0
+					if(i1){ if(typeof s == 'number'){
+						q2[i0-1] = i1; appnd&&q3.push(ADV, s-i1)
+					}else{
+						q2[i0-1] = s.slice(0, i1)
+						appnd&&q3.push(s.slice(i1))
+					}}
+					if(ptext) q2.#_m!=RONLY&&q2.push(q2.#_m=RONLY), q2.push(t.sep)
+					lines.push(s2); s2=s3; q2=q3
+					maxW = typeof widths=='number'?widths:typeof widths=='function'?widths(lines.length):widths[min(lines.length,widths.length-1)]
+					_i0 = _i1 = _w = w = _len = 0 // other props are correct
+				}
+				if(ty&8){
+					lines.push(s2); q2.w = w; w = 0
+					s2 = s2.sub(); s2.#q = q2 = new itxtstream()
+					maxW = typeof widths=='number'?widths:typeof widths=='function'?widths(lines.length):widths[min(lines.length,widths.length-1)]
 				}
 			}
-			if(q2.#len) lines.push(q2)
+			q2.#w = w
+			lines.push(s2)
 			return lines
 		}
 		toString(){
 			let str = ''
-			for(const s of this.#q) if(typeof s == 'string') str += s
+			let m = true, i = 0
+			const q = this.#q, l = q.length
+			while(i < l){
+				const s = q[i++]
+				if(typeof s == 'number'){ if(s<0) m = !!(s&2); else i++ }
+				if(typeof s == 'string' && m) str += s
+			}
 			return str
 		}
 		static #_ = $.RichText = (q) => {
@@ -380,6 +723,7 @@ msdf.oldfv = 0
 	
 	class font{
 		_flags = 0; normDistRange = 0; #cb = []; map = new Map; ascend = 0
+		kmap = new Map
 		get then(){return this.#cb?this.#then:undefined}
 		#then(cb,rj){this.#cb?.push(cb,rj)}
 		get isMsdf(){return!!(this._flags&1)}
@@ -393,11 +737,12 @@ msdf.oldfv = 0
 			if(cb) for(let i=1;i<cb.length;i+=2) cb[i]?.(e)
 		}
 		chlumsky(src, atlas){ fetch(src).then(a => (src=a.url,a.json())).then(d => {
-			const {atlas:{type,distanceRange,size,width,height},metrics:{ascender,descender},glyphs} = d
+			const {atlas:{type,distanceRange,size,width,height},metrics:{ascender,descender},glyphs,kerning} = d
 			const fmt = (this.isMsdf = type.toLowerCase().endsWith('msdf')) ? Formats.RGB16F : Formats.R
 			const img = Img(atlas,SMOOTH,fmt)
 			this.normDistRange = distanceRange/size*2 //*2 is a good tradeoff for sharpness
 			this.ascend = ascender/(ascender-descender)
+			for(const {unicode1,unicode2,advance} of kerning) this.kmap.set(unicode2+unicode1*1114112, advance)
 			for(const {unicode,advance,planeBounds:pb,atlasBounds:ab} of glyphs) this.map.set(unicode, pb ? {
 				x: pb.left, y: pb.bottom,
 				w: (pb.right-pb.left), h: (pb.top-pb.bottom),
@@ -406,13 +751,12 @@ msdf.oldfv = 0
 			this.done()
 		}, this.error.bind(this)); return this}
 		bmfont(src, baselineOffset=0){ fetch(src).then(a => (src=a.url,a.json())).then(d => {
-			const {chars,distanceField:df,pages,info:{size:s},common:{base,lineHeight:lh,scaleW,scaleH}} = d
+			const {chars,distanceField:df,pages,info:{size:s},common:{base,lineHeight:sc,scaleW,scaleH},kernings} = d
 			const fmt = (this.isMsdf = df.fieldType.toLowerCase().endsWith('msdf')) ? Formats.RGB : Formats.R
-			this.normDistRange = df.distanceRange/lh*2 //*2 is a good tradeoff for sharpness
-			const b = this.ascend = base/lh
+			this.normDistRange = df.distanceRange/sc*2 //*2 is a good tradeoff for sharpness
+			const b = this.ascend = base/sc
 			const p = pages.map(a => Img(new URL(a,src).href,SMOOTH,fmt))
-			//let min=Infinity
-			//for(const {yoffset} of chars) if(yoffset<min) min = yoffset
+			for(const {first,second,amount} of kernings) this.kmap.set(second+first*1114112, amount/s)
 			for(const {id,x,y,width,height,xoffset,yoffset,xadvance,page} of chars) this.map.set(id, {
 				x: xoffset/s, y: b-(yoffset-baselineOffset+height)/s,
 				w: width/s, h: height/s,
@@ -421,29 +765,39 @@ msdf.oldfv = 0
 			})
 			this.done()
 		}, this.error.bind(this)); return this}
-		draw(ctx, txt, arcRad = Infinity, lsb = 0, ...v){
+		draw(ctx, txt, curve = 0, lsb = 0, ...v){
 			if(this.#cb) return
-			arcRad = .5/arcRad
+			lsb *= .5
 			let pxr = ctx.pixelRatio()*this.normDistRange, sh = ctx.shader
 			if(sh.oldfv === undefined) sh = ctx.shader = msdf
 			const f = (this._flags&1?.5:-.5)/this.normDistRange
 			if(f!=sh.oldfv) sh.uniforms(sh.oldfv=f)
-			let ea = 0
+			let ea = 0, last = -1
+			const {map, kmap} = this
 			for(const ch of txt){
-				const g = this.map.get(ch.codePointAt())
+				const c = ch.codePointAt()
+				const g = map.get(c)
 				if(!g) continue
-				const w = g.xadv+lsb
-				if(arcRad) ctx.rotate(ea+(ea=-asin(w*arcRad)||0))
-				if(g.tex) ctx.drawRect(g.x,g.y,g.w,g.h,g.tex,pxr,...v)
+				const ker = kmap.get(c+last*1114112) ?? 0; last = c
+				const w = g.xadv + lsb + lsb + ker
+				if(curve) ctx.rotate(ea+(ea=-asin(w*curve)||0))
+				if(g.tex) ctx.drawRect(g.x+lsb+ker,g.y,g.w,g.h,g.tex,pxr,...v)
 				ctx.translate(w,0)
 			}
+			ctx.rotate(ea)
 		}
-		measure(txt, lsb = 0){
+		measure(txt, curve=0, lsb = 0){
 			if(this.#cb) return
-			let w = 0
+			const ar1 = 1/curve
+			let w = 0, last = -1
+			const {map, kmap} = this
 			for(const ch of txt){
-				const g = this.map.get(ch.codePointAt())
-				if(g) w += g.xadv+lsb
+				const c = ch.codePointAt()
+				const g = map.get(c)
+				if(!g) continue
+				const ker = kmap.get(c+last*1114112) ?? 0; last = c
+				const cw = g.xadv + lsb + ker
+				w += curve ? asin(cw*curve)*ar1||cw : cw
 			}
 			return w-lsb
 		}
