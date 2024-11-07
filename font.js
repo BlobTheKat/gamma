@@ -7,7 +7,7 @@ void main(){
 	color = arg3*o;
 }`, [COLOR, FLOAT, FLOAT, VEC4], [FLOAT], _, [_, 1, 0, vec4.one])
 msdf.oldfv = 0
-	const T = $.Token = (regex, type = 0, sep = '', next = undefined, push = 0) => {
+	const T = $.Token = (regex, type = 0, sep = '', next = undefined) => {
 		if(regex instanceof RegExp){
 			let f = regex.flags, g = f.indexOf('g')
 			if(g>-1) f=f.slice(0,g)+f.slice(g+1)
@@ -24,7 +24,6 @@ msdf.oldfv = 0
 		regex.type = type
 		regex.sep = sep
 		regex.next = next
-		regex.ret = push
 		regex.sepW = regex.sepA = regex.sepS = 0
 		regex.sepL = null
 		return regex
@@ -52,9 +51,7 @@ msdf.oldfv = 0
 	// Token is never rendered
 	T.INVISIBLE = 32
 
-	// Used by next and push parameter
-	T.POP = 0
-	const defaultSet = [T(/\r\n?|\n/y, 24, ''), T(/[$£"+]?[\w'-]+[,.!?:;"^%€*]?/yi, 0, '-'), T(/\s+/y, 4)]
+	const defaultSet = [T(/\r\n?|\n/y, 48, ''), T(/[$£"+]?[\w'-]+[,.!?:;"^%€*]?/yi, 0, '-'), T(/\s+/y, 4)]
 	const defaultToken = T(/[^]/y)
 	const M = new Map
 	const ADV = 1, SH = 2, SC = 3, YO = 4, ST = 5, SK = 6, LSB = 7, ARC = 8, RONLY = -3, IONLY = -2
@@ -106,6 +103,8 @@ msdf.oldfv = 0
 				}else if(typeof s == 'string') if(!o) o = 2
 			}
 			if(o != 1) q.unshift(SC, a)
+			this.#sc *= a; if(yo) this.#yo *= a
+			q.#w=NaN
 		}
 		#yo = 0
 		get yOffset(){return this.#yo}
@@ -125,6 +124,7 @@ msdf.oldfv = 0
 				}else if(typeof s == 'string') if(!o) o = 2
 			}
 			if(o != 1) q.unshift(YO, a)
+			this.#yo += a
 		}
 		#st = 1
 		get stretch(){return this.#st}
@@ -144,6 +144,8 @@ msdf.oldfv = 0
 				}else if(typeof s == 'string') if(!o) o = 2
 			}
 			if(o != 1) sk ? q.unshift(SK, a, ST, a) : q.unshift(ST, a)
+			this.#st *= a; if(sk) this.#sk *= a
+			q.#w=NaN
 		}
 		get letterWidth(){return this.#sc*this.stretch}
 		set letterWidth(a){this.stretch=a/this.#sc}
@@ -165,10 +167,11 @@ msdf.oldfv = 0
 				}else if(typeof s == 'string') if(!o) o = 2
 			}
 			if(o != 1) q.unshift(SK, a)
+			this.#sk += a
 		}
 		#lsb = 0
-		get letterSpacingBias(){return this.#lsb}
-		set letterSpacingBias(a){this.#lsb=+a;this.#q.#l==this&&(this.#q.#l=null)}
+		get letterSpacing(){return this.#lsb}
+		set letterSpacing(a){this.#lsb=+a;this.#q.#l==this&&(this.#q.#l=null)}
 		spaceBy(a = 0){
 			if(!a) return
 			const q = this.#q, len = q.length
@@ -184,6 +187,8 @@ msdf.oldfv = 0
 				}else if(typeof s == 'string') if(!o) o = 2
 			}
 			if(o != 1) q.unshift(LSB, a)
+			this.#lsb += a
+			q.#w=NaN
 		}
 		#arc = 0
 		get curve(){return this.#arc}
@@ -203,6 +208,8 @@ msdf.oldfv = 0
 				}else if(typeof s == 'string') if(!o) o = 2
 			}
 			if(o != 1) q.unshift(ARC, a)
+			this.#arc += a
+			q.#w=NaN
 		}
 		#v = null
 		// Sets the shader's values at this point in the stream
@@ -507,14 +514,14 @@ msdf.oldfv = 0
 			if(ea) ctx.rotate(ea)
 			if(sc!=1) ctx.scale(sc1)
 		}
-		break(widths = Infinity, toks = defaultSet, tokss = []){
+		break(widths = Infinity, toks = defaultSet, offs = {scale: 1, letterSpacing: 0, curve: 0}){
 			const q = this.#q, str = this.toString()
 			const lines = []
-			let maxW = typeof widths=='number'?widths:typeof widths=='function'?widths(lines.length):widths[min(lines.length,widths.length-1)]
+			let maxW = typeof widths=='number'?widths:typeof widths=='function'?widths(lines.length, offs):widths[min(lines.length,widths.length-1)]
 			let q2 = new itxtstream()
 			let s2 = q2.l = new txtstream(q2)
 			let i = 0, idx = 0, l = ''
-			let cmap = M, kmap = M, chw = 1, lastCw = 1, last = -1, w = 0
+			let cmap = M, kmap = M, chw = 1, lastCw = 1, last = -1, w = 0, tainted = false
 			while(i < str.length){
 				let j = 0, t
 				let _i0 = q2.length, _i1 = 0, _w = w, _sh = s2.#sh, _sc = s2.#sc, _yo = s2.#yo, _st = s2.#st, _sk = s2.#sk, _lsb = s2.#lsb, _f = s2.#f, _arc = s2.#arc, _v = s2.#v, _m = q2.#_m, _len = q2.#len
@@ -525,11 +532,7 @@ msdf.oldfv = 0
 						if(!m) continue
 						// Match!
 						i += j = m[0].length
-						const ret = t.ret ?? toks
-						if(ret) tokss.push(ret)
-						const nex = t.next ?? toks
-						if(!nex) toks = tokss.pop() ?? toks
-						else toks = nex
+						toks = t.next ?? toks
 						break a
 					}
 					i += j = 1
@@ -537,9 +540,14 @@ msdf.oldfv = 0
 				}
 				const ty = t.type
 				if(ty&16){
-					lines.push(s2); q2.w = w; w = 0
+					lines.push(s2)
+					q2.#w = tainted ? NaN : w
+					tainted = false
 					s2 = s2.sub(); s2.#q = q2 = new itxtstream()
-					maxW = typeof widths=='number'?widths:typeof widths=='function'?widths(lines.length):widths[min(lines.length,widths.length-1)]
+					maxW = typeof widths=='number'?widths:typeof widths=='function'?widths(lines.length, offs):widths[min(lines.length,widths.length-1)]
+					_i0 = _w = w = _len = 0
+					if(_m != -1) q2.push(q2.#_m = _m)
+					s2.#setv(q2)
 				}
 				const iOnly = (ty&32) && q2.#_m != IONLY
 				if(l){
@@ -585,7 +593,11 @@ msdf.oldfv = 0
 				while(1){
 					let i0 = _i0, i1 = _i1, sh = _sh, sc = _sc, yo = _yo, st = _st, sk = _sk, lsb = _lsb, f = _f, v = _v, m = _m, len = _len, arc = _arc, ar1 = 1/arc, overran = false, ptext = false
 					let sepw = t.sepL == f && t.sepA == arc && t.sepS == lsb ? t.sepW : getSw(t, f, arc, lsb)
-					const {type} = t, canBreak = !type ? _w*2 < maxW : (36>>type&1)!=0
+					const canBreak = !ty ? _w*2 < maxW : (36>>ty&1)!=0
+					const {scale = 1, letterSpacing = 0, curve = 0} = offs
+					tainted ||= scale != 1 || letterSpacing != 0 || curve != 0
+					let tarc = arc + curve, tlsb = lsb + letterSpacing
+					if(curve) ar1 = 1/tarc
 					while(i0 < q2.length){
 						const s = q2[i0++]
 						if(typeof s == 'number'){
@@ -602,12 +614,12 @@ msdf.oldfv = 0
 									_w = w, _sh = sh, _sc = sc, _yo = yo, _st = st, _sk = sk, _lsb = lsb, _f = f, _arc = arc, _v = v, _m = m, _len = len
 									break
 								case SH: sh = s1; break
-								case SC: sc = s1; chw=s1*st; break
+								case SC: sc = s1; chw=s1*st*scale; break
 								case YO: yo = s1; break
-								case ST: st = s1; chw=s1*sc; break
+								case ST: st = s1; chw=s1*sc*scale; break
 								case SK: sk = s1; break
 								case LSB: lsb = s1; break
-								case ARC: ar1 = 1/s1; arc = s1; break
+								case ARC: tarc = s1+curve; ar1 = 1/tarc; arc = s1; break
 							}
 						}else if(typeof s == 'string'){
 							if(m&1) for(const ch of s){
@@ -616,8 +628,8 @@ msdf.oldfv = 0
 								if(!g) continue
 								const ker = (kmap.get(c + last*1114112) ?? 0) * min(chw, lastCw)
 								lastCw = chw; last = c
-								const cw = (g.xadv+lsb)*chw + ker
-								w += arc ? asin(cw*arc)*ar1||cw : cw
+								const cw = (g.xadv+tlsb)*chw + ker
+								w += tarc ? asin(cw*tarc)*ar1||cw : cw
 								if(!(overran = w > (maxW - (sepw - (kmap.get(t.sep.codePointAt() + c*1114112)??0))*chw)) && canBreak){
 									ptext = true
 									_i0 = i0-1, _i1 = i1
@@ -628,10 +640,10 @@ msdf.oldfv = 0
 						else if(f = s) cmap = s.map, kmap = s.kmap, sepw = t.sepL == s && t.sepA == arc && t.sepS == lsb ? t.sepW : getSw(t, s, arc, lsb)
 						else cmap = kmap = M, sepw = 0
 					}
-					if(!_w || w <= maxW || !_i0 || type == 3) break
+					if(!_w || w <= maxW || !_i0 || ty == 3) break
 					// restore and split/break
 					i0 = _i0, i1 = _i1, sh = _sh, sc = _sc, yo = _yo, st = _st, sk = _sk, lsb = _lsb, f = _f, v = _v, m = _m, arc = _arc, len = _len
-					if(type == 6 || (type == 7 && maxW-_w >= w-maxW)){
+					if(ty == 6 || (ty == 7 && maxW-_w >= w-maxW)){
 						// squish
 						const squish = (maxW-_w)/(w-_w), q2l = q2.length
 						q2.splice(i0, 0, ST, squish*st); i0 += 2
@@ -650,7 +662,7 @@ msdf.oldfv = 0
 					s3.#sh = sh; s3.#sc = sc; s3.#yo = yo; s3.#st = st; s3.#sk = sk; s3.#lsb = lsb;
 					s3.#f = f; s3.#v = v; s3.#arc = arc; q3.#_m = m
 					let idx = i0 += !!i1
-					const appnd = type != 4 && type != 5
+					const appnd = ty != 4 && ty != 5
 					w: while(idx < q2l){
 						const s = q2[idx++]
 						if(typeof s=='number'){
@@ -673,7 +685,9 @@ msdf.oldfv = 0
 					s3.#setv(q3)
 					while(idx < q2l) q3.push(q2[idx++])
 					q3.#len = q2.#len - len
-					q2.#len = appnd ? len : 0; q2.#w = w
+					q2.#len = appnd ? len : 0
+					q2.#w = tainted ? NaN : w
+					tainted = false
 					if(q3.#_m != -1) q3.push(q3.#_m)
 					s3.#sh = q3.#_sh = s2.#sh; s3.#sc = q3.#_sc = s2.#sc
 					s3.#yo = q3.#_yo = s2.#yo; s3.#st = q3.#_st = s2.#st
@@ -688,16 +702,21 @@ msdf.oldfv = 0
 					}}
 					if(ptext) q2.#_m!=RONLY&&q2.push(q2.#_m=RONLY), q2.push(t.sep)
 					lines.push(s2); s2=s3; q2=q3
-					maxW = typeof widths=='number'?widths:typeof widths=='function'?widths(lines.length):widths[min(lines.length,widths.length-1)]
+					maxW = typeof widths=='number'?widths:typeof widths=='function'?widths(lines.length, offs):widths[min(lines.length,widths.length-1)]
 					_i0 = _i1 = _w = w = _len = 0 // other props are correct
 				}
 				if(ty&8){
-					lines.push(s2); q2.w = w; w = 0
+					lines.push(s2)
+					q2.#w = tainted ? NaN : w
+					tainted = false
+					const _m = q2.#_m; w = 0
 					s2 = s2.sub(); s2.#q = q2 = new itxtstream()
-					maxW = typeof widths=='number'?widths:typeof widths=='function'?widths(lines.length):widths[min(lines.length,widths.length-1)]
+					maxW = typeof widths=='number'?widths:typeof widths=='function'?widths(lines.length, offs):widths[min(lines.length,widths.length-1)]
+					if(_m != -1) q2.push(q2.#_m = _m)
+					s2.#setv(q2)
 				}
 			}
-			q2.#w = w
+			q2.#w = tainted ? NaN : w
 			lines.push(s2)
 			return lines
 		}
