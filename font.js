@@ -1,5 +1,5 @@
 Gamma.font = $ => {
-	const msdf = $.Shader(`
+	const msdf = $.Shader.MSDF = $.Shader(`
 void main(){
 	vec3 c = arg0().rgb;
 	float sd = (uni0 < 0. ? c.r : max(min(c.r, c.g), min(max(c.r, c.g), c.b)))-.5+arg2*abs(uni0);
