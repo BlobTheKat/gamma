@@ -4,7 +4,7 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 	<title>&#78844;</title>
-	<link rel="shortcut icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg" />
+	<link rel="shortcut icon" id="icon" />
 </head>
 <script src="src/monolith.min.js"></script>
 <script src="src/textfield.js"></script>
@@ -36,12 +36,13 @@
 	Gamma.font($)
 	Gamma.capture($)
 	Gamma.textfield($)
-	let t = ''
+	let t = '', i = icon, ic = null
 	Object.defineProperties($, {
-		title: {get:()=>t,set:a=>document.title=(t=a)||'\ud80c\udffc'},
-		icon: {get:()=>null,set:a=>1},
+		title: {get:()=>t,set:a=>document.title=(t=a+'')||'\ud80c\udffc'},
+		icon: {get:()=>ic,set:a=>i.href=(ic=typeof a=='string'?a:null)||'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg'},
 		[Symbol.toStringTag]: {value: 'Global', writable: false}
 	})
+	icon = null
 	if(!opener) import('./index.js')
 }</script>
 </html>
