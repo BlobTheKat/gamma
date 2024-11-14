@@ -7,7 +7,7 @@ void main(){
 	color = arg3*o;
 }`, [COLOR, FLOAT, FLOAT, VEC4], [FLOAT], _, [_, 1, 0, vec4.one])
 msdf.oldfv = 0
-	const T = $.Token = (regex, type = 0, sep = '', next = undefined) => {
+	const T = $.BreakToken = (regex, type = 0, sep = '', next = undefined) => {
 		if(regex instanceof RegExp){
 			let f = regex.flags, g = f.indexOf('g')
 			if(g>-1) f=f.slice(0,g)+f.slice(g+1)
@@ -53,8 +53,8 @@ msdf.oldfv = 0
 
 	const defaultSet = [T(/\r\n?|\n/y, 48, ''), T(/[$£"+]?[\w'-]+[,.!?:;"^%€*]?/yi, 0, '-'), T(/\s+/y, 4)]
 	const defaultToken = T(/[^]/y)
-	const M = new Map
-	const ADV = 1, SH = 2, SC = 3, YO = 4, ST = 5, SK = 6, LSB = 7, ARC = 8, RONLY = -3, IONLY = -2
+	const M = new Map, E = []
+	const ADV = 1, SH = 2, SC = 3, YO = 4, ST = 5, SK = 6, LSB = 7, ARC = 8, BL = 9, FL = 10, RONLY = -3, IONLY = -2
 	const getSw = (t, f, ar, lsb = 0) => {
 		t.sepL = f; t.sepA = ar; t.sepS = lsb
 		if(!f) return t.sepW = 0
@@ -72,7 +72,7 @@ msdf.oldfv = 0
 	}
 	class itxtstream extends Array{
 		#_f=null;#_sh=msdf;#_sc=1;#_yo=0;#_st=1;#_sk=0;#_lsb=0;#_arc=0
-		#_v=null;#len=0;#w=NaN;#l=null;#_m=-1
+		#_v=null;#_bl=null;#_fl=null;#len=0;#w=NaN;#l=null;#_m=-1
 		get width(){return this.#w}
 		get length(){return this.#len}
 		static #_ = class txtstream{
@@ -215,6 +215,16 @@ msdf.oldfv = 0
 		// Sets the shader's values at this point in the stream
 		get values(){ return this.#v }
 		set values(a){ this.#v = a?.length ? a : null; this.#q.#l==this&&(this.#q.#l=null) }
+
+		#bl = null
+		// Sets the shader's values at this point in the stream
+		get backLines(){ return this.#bl }
+		set backLines(a){ this.#bl = a?.length ? a : null; this.#q.#l==this&&(this.#q.#l=null) }
+
+		#fl = null
+		// Sets the shader's values at this point in the stream
+		get frontLines(){ return this.#fl }
+		set frontLines(a){ this.#fl = a?.length ? a : null; this.#q.#l==this&&(this.#q.#l=null) }
 		drawOnly(){this.#q.push(this.#q._m = RONLY)}
 		indexOnly(){this.#q.push(this.#q._m = IONLY)}
 		drawAndIndex(){this.#q.push(this.#q._m = RONLY|IONLY)}
@@ -232,7 +242,9 @@ msdf.oldfv = 0
 			if(this.#sk!=q.#_sk)q.push(SK,q.#_sk=this.#sk)
 			if(this.#lsb!=q.#_lsb)q.push(LSB,q.#_lsb=this.#lsb)
 			if(this.#arc!=q.#_arc)q.push(ARC,q.#_arc=this.#arc)
-			if(this.#v!=q.#_v)q.push(this.#v??[]),q.#_v=this.#v
+			if(this.#v!=q.#_v)q.push(this.#v??E),q.#_v=this.#v
+			if(this.#bl!=q.#_bl)q.push(BL,this.#bl??E),q.#_bl=this.#bl
+			if(this.#fl!=q.#_fl)q.push(FL,this.#fl??E),q.#_fl=this.#fl
 			q.#l=this
 		}
 		slice(i=0, j=this.#q.#len){
@@ -256,6 +268,8 @@ msdf.oldfv = 0
 						case SK: st.#sk = v; break
 						case LSB: st.#lsb = v; break
 						case ARC: st.#arc = v; break
+						case BL: st.#bl = v; break
+						case FL: st.#fl = v; break
 					}
 				}else if(typeof s == 'string'){
 					if(!(q2.#_m&2)) continue
@@ -285,6 +299,8 @@ msdf.oldfv = 0
 						case SK: st.#sk = v; break
 						case LSB: st.#lsb = v; break
 						case ARC: st.#arc = v; break
+						case BL: st.#bl = v; break
+						case FL: st.#fl = v; break
 					}
 				}else if(typeof s == 'string'){
 					if(!(q2.#_m&2)) continue
@@ -317,6 +333,8 @@ msdf.oldfv = 0
 						case SK: q.#_sk = v; break
 						case LSB: q.#_lsb = v; break
 						case ARC: q.#_arc = v; break
+						case BL: q.#_bl = v; break
+						case FL: q.#_fl = v; break
 					}
 				}else if(typeof s == 'string'){
 					if(!(mask&2)) continue
@@ -334,6 +352,8 @@ msdf.oldfv = 0
 			this.#lsb = q.#_lsb
 			this.#arc = q.#_arc
 			this.#v = q.#_v
+			this.#bl = q.#_bl
+			this.#fl = q.#_fl
 			q.length = idx
 			q.#w=NaN
 		}
@@ -360,6 +380,8 @@ msdf.oldfv = 0
 						case SK: this.#sk = v; break
 						case LSB: this.#lsb = v; break
 						case ARC: this.#arc = v; break
+						case BL: this.#bl = v; break
+						case FL: this.#fl = v; break
 					}
 				}else if(typeof s == 'string'){ if(mask&2){ str = s; break } }
 				else if(!Array.isArray(s)) this.#f = s
@@ -383,6 +405,8 @@ msdf.oldfv = 0
 						case SK: this.#sk = v; break
 						case LSB: this.#lsb = v; break
 						case ARC: this.#arc = v; break
+						case BL: this.#bl = v; break
+						case FL: this.#fl = v; break
 					}
 				}else if(typeof s == 'string'){
 					if(!(q.#_m&2)) continue
@@ -445,11 +469,52 @@ msdf.oldfv = 0
 			q.push(str)
 			q.#w=NaN
 		}
-		draw(ctx){
+		indexAt(x = 0){
 			const q = this.#q
 			let cmap = M, kmap = M
 			let idx = 0
-			let sc = 1, sc1 = 1, st = 1, lsb = 0, sk = 0, yo = 0, xo = 0, ar = 0, mask = -1
+			let sc = 1, st = 1, lsb = 0, mask = -1, ar = 0, ar1 = 0
+			let chw = 1
+			let last = -1, lastCw = 1
+			let i = 0
+			while(idx < q.length){
+				let s = q[idx++]
+				if(typeof s=='number'){
+					if(s<0){ mask=s; continue}
+					const v = q[idx++]
+					switch(s){
+						case ADV: w += chw*v; break
+						case SC: chw = (sc = v) * st; break
+						case ST: chw = (st = v) * sc; break
+						case LSB: lsb = v; break
+						case ARC: ar1 = 1/v; ar = v; break
+					}
+				}else if(typeof s == 'string'){
+					if(mask&1) for(const ch of s){
+						const c = ch.codePointAt()
+						const g = cmap.get(c)
+						if(!g){ if(mask&2) i += ch.length; continue }
+						const ker = (kmap.get(c+last*1114112) ?? 0) * min(chw, lastCw)
+						last = c; lastCw = chw
+						const w = (g.xadv+lsb)*chw + ker
+						const fw = ar ? asin(w*ar)*ar1||w : w
+						x -= fw
+						if(!(mask&2)) continue
+						if(x <= fw*-.5) return i
+						i += ch.length
+					}else if(mask&2) i += s.length
+				}else if(typeof s == 'object'){
+					if(!s){cmap=kmap=M;continue}
+					if(Array.isArray(s)) continue
+					cmap = s.map; kmap = s.kmap
+				}
+			}
+		}
+		draw(ctx, breaks = null){
+			const q = this.#q
+			let cmap = M, kmap = M
+			let idx = 0, i = 0, bi = 0
+			let sc = 1, sc1 = 1, st = 1, lsb = 0, sk = 0, yo = 0, xo = 0, ar = 0, mask = -1, bl = null, fl = null
 			let sh = ctx.shader = msdf
 			let v = null, font = null
 			let last = -1, lastSt = 1
@@ -480,23 +545,48 @@ msdf.oldfv = 0
 						case SK: ctx.skew(v-sk, 0); sk = v; xo=yo*v; continue w
 						case LSB: lsb = v*.5; continue w
 						case ARC: ar = v*sc; continue w
+						case BL: bl = v; continue w
+						case FL: fl = v; continue w
 						default: continue w
 					}
 				}else if(typeof s == 'string'){
 					if(mask&1) for(const ch of s){
 						const c = ch.codePointAt()
 						const g = cmap.get(c)
+						if(breaks&&(mask&2)){
+							while(i >= breaks[bi]){
+								const c2 = breaks[bi++] = ctx.sub()
+								if(sk) c2.skew(-sk,0)
+								if(ea) c2.rotate(ea)
+							}
+							i += ch.length
+						}
 						if(!g) continue
 						const ker = (kmap.get(c+last*1114112) ?? 0) * min(lastSt, st)
 						last = c; lastSt = st
-						const w = (g.xadv+lsb+lsb)*st
+						const w = (g.xadv+lsb+lsb)*st + ker, x = ker-xo
 						if(ar){
 							if(sk) ctx.skew(-sk,0)
-							ctx.rotate(ea+(ea=-asin((w+ker)*ar)||0))
+							ctx.rotate(ea+(ea=-asin(w*ar)||0))
 							if(sk) ctx.skew(sk,0)
 						}
-						if(g.tex) v?ctx.drawRect((g.x+lsb)*st+ker-xo,g.y+yo,g.w*st,g.h,g.tex,pxr,...v):ctx.drawRect((g.x+lsb)*st+ker-xo,g.y+yo,g.w*st,g.h,g.tex,pxr)
-						ctx.translate(w+ker,0)
+						if(bl) for(let i=0;i<bl.length; i+=2){
+							const y = bl[i], ox = ar*w*y
+							v?ctx.drawRect(x+ox,y,w-ox-ox,bl[i+1],vec4.one,pxr,...v):ctx.drawRect(x+ox,y,w-ox-ox,bl[i+1],vec4.one,pxr)
+						}
+						if(g.tex) v?ctx.drawRect((g.x+lsb)*st+x,g.y+yo,g.w*st,g.h,g.tex,pxr,...v):ctx.drawRect((g.x+lsb)*st+x,g.y+yo,g.w*st,g.h,g.tex,pxr)
+						if(fl) for(let i=0;i<fl.length; i+=2){
+							const y = fl[i], ox = ar*w*y
+							v?ctx.drawRect(x+ox,fl[i],w-ox-ox,fl[i+1],vec4.one,pxr,...v):ctx.drawRect(x+ox,fl[i],w-ox-ox,fl[i+1],vec4.one,pxr)
+						}
+						ctx.translate(w, 0)
+					}else if(ret&&(mask&2)){
+						while(i >= breaks[ret.length]){
+							const c2 = breaks[bi++] = ctx.sub()
+							if(sk) c2.skew(-sk,0)
+							if(ea) c2.rotate(ea)
+						}
+						i += s.length
 					}
 					continue
 				}else{
@@ -524,7 +614,7 @@ msdf.oldfv = 0
 			let cmap = M, kmap = M, chw = 1, lastCw = 1, last = -1, w = 0, tainted = false
 			while(i < str.length){
 				let j = 0, t
-				let _i0 = q2.length, _i1 = 0, _w = w, _sh = s2.#sh, _sc = s2.#sc, _yo = s2.#yo, _st = s2.#st, _sk = s2.#sk, _lsb = s2.#lsb, _f = s2.#f, _arc = s2.#arc, _v = s2.#v, _m = q2.#_m, _len = q2.#len
+				let _i0 = q2.length, _i1 = 0, _w = w, _sh = s2.#sh, _sc = s2.#sc, _yo = s2.#yo, _st = s2.#st, _sk = s2.#sk, _lsb = s2.#lsb, _f = s2.#f, _arc = s2.#arc, _v = s2.#v, _m = q2.#_m, _len = q2.#len, _bl = s2.#bl, _fl = s2.#fl
 				a: {
 					if(toks) for(t of toks){
 						t.lastIndex = i
@@ -575,6 +665,8 @@ msdf.oldfv = 0
 							case SK: s2.#sk = v; break
 							case LSB: s2.#lsb = v; break
 							case ARC: s2.#arc = v; break
+							case BL: s2.#bl = v; break
+							case FL: s2.#fl = v; break
 						}
 					}else if(typeof s == 'string'){
 						if(!(q2.#_m&2)){ q2.push(s); continue }
@@ -591,7 +683,7 @@ msdf.oldfv = 0
 				}
 				if(ch) s2.#setv(q2)
 				while(1){
-					let i0 = _i0, i1 = _i1, sh = _sh, sc = _sc, yo = _yo, st = _st, sk = _sk, lsb = _lsb, f = _f, v = _v, m = _m, len = _len, arc = _arc, ar1 = 1/arc, overran = false, ptext = false
+					let i0 = _i0, i1 = _i1, sh = _sh, sc = _sc, yo = _yo, st = _st, sk = _sk, lsb = _lsb, f = _f, v = _v, m = _m, len = _len, arc = _arc, bl = _bl, fl = _fl, ar1 = 1/arc, overran = false, ptext = false
 					let sepw = t.sepL == f && t.sepA == arc && t.sepS == lsb ? t.sepW : getSw(t, f, arc, lsb)
 					const canBreak = !ty ? _w*2 < maxW : (36>>ty&1)!=0
 					const {scale = 1, letterSpacing = 0, curve = 0} = offs
@@ -611,15 +703,17 @@ msdf.oldfv = 0
 									if(overran = exc>0) _i0 = i0-1, _i1 = v - exc
 									else _i0 = i0, _i1 = 0
 									ptext = true
-									_w = w, _sh = sh, _sc = sc, _yo = yo, _st = st, _sk = sk, _lsb = lsb, _f = f, _arc = arc, _v = v, _m = m, _len = len
+									_w = w, _sh = sh, _sc = sc, _yo = yo, _st = st, _sk = sk, _lsb = lsb, _f = f, _arc = arc, _v = v, _bl = bl, _fl = fl, _m = m, _len = len
 									break
 								case SH: sh = s1; break
 								case SC: sc = s1; chw=s1*st*scale; break
 								case YO: yo = s1; break
 								case ST: st = s1; chw=s1*sc*scale; break
 								case SK: sk = s1; break
-								case LSB: lsb = s1; break
+								case LSB: lsb = s1; tlsb = s1 + letterSpacing; break
 								case ARC: tarc = s1+curve; ar1 = 1/tarc; arc = s1; break
+								case BL: bl = s1; break
+								case FL: fl = s1; break
 							}
 						}else if(typeof s == 'string'){
 							if(m&1) for(const ch of s){
@@ -633,7 +727,7 @@ msdf.oldfv = 0
 								if(!(overran = w > (maxW - (sepw - (kmap.get(t.sep.codePointAt() + c*1114112)??0))*chw)) && canBreak){
 									ptext = true
 									_i0 = i0-1, _i1 = i1
-									_w = w, _sh = sh, _sc = sc, _yo = yo, _st = st, _sk = sk, _lsb = lsb, _f = f, _arc = arc, _v = v, _m = m, _len = len
+									_w = w, _sh = sh, _sc = sc, _yo = yo, _st = st, _sk = sk, _lsb = lsb, _f = f, _arc = arc, _v = v, _bl = bl, _fl = fl, _m = m, _len = len
 								}
 							}
 						}else if(Array.isArray(s)) v = s
@@ -642,7 +736,7 @@ msdf.oldfv = 0
 					}
 					if(!_w || w <= maxW || !_i0 || ty == 3) break
 					// restore and split/break
-					i0 = _i0, i1 = _i1, sh = _sh, sc = _sc, yo = _yo, st = _st, sk = _sk, lsb = _lsb, f = _f, v = _v, m = _m, arc = _arc, len = _len
+					i0 = _i0, i1 = _i1, sh = _sh, sc = _sc, yo = _yo, st = _st, sk = _sk, lsb = _lsb, f = _f, v = _v, bl = _bl, fl = _fl, m = _m, arc = _arc, len = _len
 					if(ty == 6 || (ty == 7 && maxW-_w >= w-maxW)){
 						// squish
 						const squish = (maxW-_w)/(w-_w), q2l = q2.length
@@ -659,7 +753,8 @@ msdf.oldfv = 0
 					w = _w
 					const s = q2[i0]
 					const q3 = new itxtstream(), s3 = new txtstream(q3), q2l = q2.length
-					s3.#sh = sh; s3.#sc = sc; s3.#yo = yo; s3.#st = st; s3.#sk = sk; s3.#lsb = lsb;
+					s3.#sh = sh; s3.#sc = sc; s3.#yo = yo; s3.#st = st
+					s3.#sk = sk; s3.#lsb = lsb; s3.#bl = bl; s3.#fl = fl
 					s3.#f = f; s3.#v = v; s3.#arc = arc; q3.#_m = m
 					let idx = i0 += !!i1
 					const appnd = ty != 4 && ty != 5
@@ -677,6 +772,8 @@ msdf.oldfv = 0
 								case SK: s3.#sk = v; break
 								case LSB: s3.#lsb = v; break
 								case ARC: s3.#arc = v; break
+								case BL: s3.#bl = v; break
+								case FL: s3.#fl = v; break
 							}
 						}else if(typeof s == 'string'){ if(appnd){ idx--; break } }
 						else if(!Array.isArray(s)) s3.#f = s
@@ -692,6 +789,7 @@ msdf.oldfv = 0
 					s3.#sh = q3.#_sh = s2.#sh; s3.#sc = q3.#_sc = s2.#sc
 					s3.#yo = q3.#_yo = s2.#yo; s3.#st = q3.#_st = s2.#st
 					s3.#sk = q3.#_sk = s2.#sk; s3.#lsb = q3.#_lsb = s2.#lsb
+					s3.#bl = q3.#_bl = s2.#bl; s3.#fl = q3.#_fl = s2.#fl
 					s3.#arc = q3.#_arc = s2.#arc; q3.#_m = q2.#_m
 					q2.length = i0
 					if(i1){ if(typeof s == 'number'){
@@ -757,7 +855,7 @@ msdf.oldfv = 0
 		}
 		chlumsky(src, atlas){ fetch(src).then(a => (src=a.url,a.json())).then(d => {
 			const {atlas:{type,distanceRange,size,width,height},metrics:{ascender,descender},glyphs,kerning} = d
-			const fmt = (this.isMsdf = type.toLowerCase().endsWith('msdf')) ? Formats.RGB16F : Formats.R
+			const fmt = (this.isMsdf = type.toLowerCase().endsWith('msdf')) ? Formats.RGB : Formats.R
 			const img = Img(atlas,SMOOTH,fmt)
 			this.normDistRange = distanceRange/size*2 //*2 is a good tradeoff for sharpness
 			this.ascend = ascender/(ascender-descender)
@@ -784,31 +882,38 @@ msdf.oldfv = 0
 			})
 			this.done()
 		}, this.error.bind(this)); return this}
-		draw(ctx, txt, curve = 0, lsb = 0, ...v){
+		draw(ctx, txt, curve = 0, sk = 0, lsb = 0, last = -1, ...v){
 			if(this.#cb) return
 			lsb *= .5
 			let pxr = ctx.pixelRatio()*this.normDistRange, sh = ctx.shader
 			if(sh.oldfv === undefined) sh = ctx.shader = msdf
 			const f = (this._flags&1?.5:-.5)/this.normDistRange
 			if(f!=sh.oldfv) sh.uniforms(sh.oldfv=f)
-			let ea = 0, last = -1
+			let ea = 0
 			const {map, kmap} = this
+			if(sk) ctx.skew(sk,0)
 			for(const ch of txt){
 				const c = ch.codePointAt()
 				const g = map.get(c)
 				if(!g) continue
 				const ker = kmap.get(c+last*1114112) ?? 0; last = c
 				const w = g.xadv + lsb + lsb + ker
-				if(curve) ctx.rotate(ea+(ea=-asin(w*curve)||0))
+				if(curve){
+					if(sk) ctx.skew(-sk,0)
+					ctx.rotate(ea+(ea=-asin(w*curve)||0))
+					if(sk) ctx.skew(sk,0)
+				}
 				if(g.tex) ctx.drawRect(g.x+lsb+ker,g.y,g.w,g.h,g.tex,pxr,...v)
-				ctx.translate(w,0)
+				ctx.translate(w, 0)
 			}
-			ctx.rotate(ea)
+			if(sk) ctx.skew(-sk,0)
+			if(ea) ctx.rotate(ea)
+			return last
 		}
-		measure(txt, curve=0, lsb = 0){
+		measure(txt, curve=0, lsb = 0, last = -1){
 			if(this.#cb) return
 			const ar1 = 1/curve
-			let w = 0, last = -1
+			let w = 0
 			const {map, kmap} = this
 			for(const ch of txt){
 				const c = ch.codePointAt()
@@ -818,7 +923,7 @@ msdf.oldfv = 0
 				const cw = g.xadv + lsb + ker
 				w += curve ? asin(cw*curve)*ar1||cw : cw
 			}
-			return w-lsb
+			return w
 		}
 	}
 	$.Font = () => new font()

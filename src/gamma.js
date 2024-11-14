@@ -705,17 +705,17 @@ $.flush = () => i&&draw()
 $.gl = gl
 $.ctx = new can(ca={tex:gl.canvas,img:null,layer:0,stencil:0,stencilBuf:null,w:0,h:0})
 $.loop = (render = null) => {
-	if('t'in $) return $.render = render, $
-	$.render = render
+	if(render) $.render = render; else $.render ??= null
+	if('t'in $) return $
 	$.frameDrawCalls = 0
 	$.frameSprites = 0
 	$.frameData = 0
 	$.t = performance.now()/1000; $.dt = 0
-	$.ctxSupersample = 1
-	$.ctxFramerate = -1
+	$.ctxSupersample ??= 1
+	$.ctxFramerate ??= -1
 	$.pixelRatio = 1
 	$.timeToFrame = 0
-	$.glLost = null
+	$.glLost ??= null
 	let nextF = 0
 	setInterval(function g(){
 		if($.ctxFramerate<0||!gl) return
@@ -733,7 +733,7 @@ $.loop = (render = null) => {
 		if(gl.isContextLost?.()) return $.glLost?.(),$.glLost=null
 		requestAnimationFrame(f)
 		i&&draw()
-		pixelRatio = devicePixelRatio * $.ctxSupersample
+		$.pixelRatio = devicePixelRatio * $.ctxSupersample
 		gl.canvas.style.imageRendering = $.ctxSupersample > 1 ? 'auto' : 'pixelated'
 		gl.viewport(0, 0, ctx.t.w = gl.canvas.width = round(gl.canvas.offsetWidth*pixelRatio), ctx.t.h = gl.canvas.height = round(gl.canvas.offsetHeight*pixelRatio))
 		gl.bindFramebuffer(36160,null); ca=ctx.t
