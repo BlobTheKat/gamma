@@ -3,7 +3,8 @@
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
-	<title>&#8203;</title>
+	<title>&#78844;</title>
+	<link rel="shortcut icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg" />
 </head>
 <script src="src/monolith.min.js"></script>
 <script src="src/textfield.js"></script>
@@ -35,11 +36,12 @@
 	Gamma.font($)
 	Gamma.capture($)
 	Gamma.textfield($)
+	let t = ''
 	Object.defineProperties($, {
-		title: {get:()=>document.title,set:a=>document.title=a},
+		title: {get:()=>t,set:a=>document.title=(t=a)||'\ud80c\udffc'},
 		icon: {get:()=>null,set:a=>1},
 		[Symbol.toStringTag]: {value: 'Global', writable: false}
 	})
-	if(!opener) import('./cool_effect.js')
+	if(!opener) import('./index.js')
 }</script>
 </html>
