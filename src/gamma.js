@@ -561,7 +561,7 @@ const treeIf = (s=0, e=maxTex,o=0) => {
 }
 const names = ['float','vec2','vec3','vec4','int','ivec2','ivec3','ivec4','uint','uvec2','uvec3','uvec4']
 T = $.Shader = (src, inputs, uniforms, output=4, defaults, uDefaults, frat=0.5) => {
-	const fnParams = ['(function({'], fnBody = ['',''], shaderHead = ['#version 300 es\nprecision mediump float;precision highp int;in vec4 _pos;out vec2 uv,xy;in mat2x3 m;',''], shaderBody = ['void main(){gl_PointSize=1.0;uv=_pos.zw;gl_Position=vec4((xy=vec3(_pos.xy,1.)*m)*2.-1.,0.,1.);'], shaderHead2 = ['#version 300 es\nprecision mediump float;precision highp int;in vec2 uv,xy;uniform vec2 viewport;out '+(output==0?'highp vec4 color;':output==16||output==32?'uvec4 color;':'lowp vec4 color;'),'']
+	const fnParams = ['(function({'], fnBody = ['',''], shaderHead = ['#version 300 es\nprecision mediump float;precision highp int;layout(location=0)in vec4 _pos;out vec2 uv,xy;layout(location=1)in mat2x3 m;',''], shaderBody = ['void main(){gl_PointSize=1.0;uv=_pos.zw;gl_Position=vec4((xy=vec3(_pos.xy,1.)*m)*2.-1.,0.,1.);'], shaderHead2 = ['#version 300 es\nprecision mediump float;precision highp int;in vec2 uv,xy;uniform vec2 viewport;out '+(output==0?'highp vec4 color;':output==16||output==32?'uvec4 color;':'lowp vec4 color;'),'']
 	let j = 6, o = 0, fCount = 0, iCount = 0
 	const types = [3,3]
 	const texCheck = []
@@ -587,7 +587,7 @@ T = $.Shader = (src, inputs, uniforms, output=4, defaults, uDefaults, frat=0.5) 
 			texCheck.push(`let a${j+1}=${t==4?`-1;if(a${j}.t&&(a${j+1}=img.auto(a${j}.t,0))==-1)`:`img.auto(a${j+(t==8?'.t,-1':'.t,0')});if(a${j+1}==-1)`}{i&&draw(b^boundUsed);a${j+1}=img.auto(a${j+(t==8?'.t,-1':'.t,0')})}`)
 			fCount++
 			const n = `arg${id}raw`
-			shaderHead.push(`in int i${j};in vec4 i${j+1};centroid out vec4 ${n};`)
+			shaderHead.push(`layout(location=${types.length+1})in int i${j};layout(location=${types.length+2})in vec4 i${j+1};centroid out vec4 ${n};`)
 			shaderBody.push(t!=4?`${n}=vec4(i${j+1}.xy+uv*i${j+1}.zw,i${j}&255,i${j}>>8);`:`if(i${j}<0){${n}=i${j+1};${n}.w=max(-15856.,${n}.w);}else{${n}=vec4(i${j+1}.xy+uv*i${j+1}.zw,i${j}&255,i${j}<256?-15872:(i${j}>>8<<4)-16384);}`)
 			shaderHead2.push(`centroid in vec4 ${n};${t==4?'lowp ':t==8?'u':'highp '}vec4 arg${id}(){`+(t==4?`if(${n}.w>-15872.)return ${n};return getCol(int(${n}.w)>>4&31,${n}.xyz);}`:t==8?`return uGetCol(int(${n}.w),${n}.xyz);}`:`return fGetCol(int(${n}.w),${n}.xyz);}`))
 			o|=(1<<(t>>2)+1)
@@ -597,7 +597,7 @@ T = $.Shader = (src, inputs, uniforms, output=4, defaults, uDefaults, frat=0.5) 
 			fnBody.push(`if(a${j+1}>=0)${A+(j+3)}]=a${j}.w,${A+(j+4)}]=a${j}.h;else ${A+(j+3)}]=a${j}.z,${A+(j+4)}]=a${j}.w`)
 			c=5
 		}else{
-			shaderHead.push('in '+n+' i'+j+';flat out '+n+' arg'+id+';')
+			shaderHead.push('layout(location='+(types.length+1)+')in '+n+' i'+j+';flat out '+n+' arg'+id+';')
 			shaderBody.push('arg'+id+'=i'+j+';')
 			shaderHead2.push('flat in '+n+' arg'+id+';')
 			types.push(c|t&48)

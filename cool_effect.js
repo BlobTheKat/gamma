@@ -31,9 +31,7 @@ render = () => {
 	cam.z = cam.z**d*zoom**(1-d)
 	wheel.y=0
 
-	ctx.scale(1/ctx.width,1/ctx.height)
-	ctx.translate(ctx.width*.5, ctx.height*.5)
-	ctx.scale(cam.z)
+	ctx.reset(cam.z/ctx.width, 0, 0, cam.z/ctx.height, .5, .5)
 	ctx.translate(-cam.x,-cam.y)
 
 	ctx.translate(0, -INNER_RING)
