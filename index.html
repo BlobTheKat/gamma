@@ -6,21 +6,33 @@
 	<title>&#78844;</title>
 	<link rel="shortcut icon" id="icon" />
 </head>
-<script src="src/monolith.min.js"></script>
+<body>
+<script src="src/gamma.min.js"></script>
+<script src="src/input.js"></script>
+<script src="src/font.min.js"></script>
 <script src="src/textfield.js"></script>
 <script src="src/utils.js"></script>
 <script>;{
 	const $ = globalThis
-	Gamma($).loop()
+	Gamma(undefined, $).loop(() => {
+		const s = visualViewport.scale, px = devicePixelRatio
+		const w = visualViewport.width*s, h = visualViewport.height*s
+		$.pixelRatio = px
+		setSize(round(w*px), round(h*px))
+		$.canvas.style.transform = `scale(${1/px})`
+		$.canvas.style.imageRendering = $.pixelRatio>px ? 'auto' : 'pixelated'
+	})
+	$.pixelRatio = 1
 	const unint = `user-select:none;-webkit-user-select:none;touch-action: none;`
-	glLost = () => {
+	$.canvas.style = `position: fixed; inset: 0;`+unint
+	$.glLost = () => {
+		$.canvas.replaceWith(document.body = document.createElement('body'))
 		document.body.textContent = 'WebGL2 context lost :('
 		document.body.style = 'color:white;background:#000;text-align:center;line-height:90vh;font-size:32px;font-family:monospace;cursor:normal;'+unint
-		canvas.remove()
 	}
-	if(!gl) throw glLost(), 'Please reload app'
-	document.documentElement.append(canvas)
-	canvas.style = `position: fixed; inset: 0; width: 100%; height: 100%;`+unint
+	if(!$.gl) throw $.glLost(), 'Please reload app'
+	document.body.replaceWith($.canvas)
+	
 	$.resolver = (a) => {
 		const url = new URL('.', a.url ?? a.href).href
 		return (src, ...p) => {
@@ -44,5 +56,5 @@
 	})
 	icon = null
 	if(!opener) import('./index.js')
-}</script>
+}</script></body>
 </html>

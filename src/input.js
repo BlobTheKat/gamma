@@ -214,8 +214,8 @@ Gamma.input = ($, T = $.canvas) => {
 		SCROLL_LOCK: 145,
 	})
 	$.GAMEPAD = Object.freeze({ A: 256, B: 257, X: 258, Y: 259, LB: 260, RB: 261, LT: 262, RT: 263, UP: 268, DOWN: 269, LEFT: 270, RIGHT: 271, MENU: 300 })
-	$.cursor = $.vec2()
-	$.mouse = $.vec2()
+	$.cursor = $.vec2(.5)
+	$.mouse = $.vec2(.5)
 	$.wheel = $.vec2()
 	const dcbs = new Map
 	;($.onKey = (key, fn) => {
@@ -284,7 +284,7 @@ Gamma.input = ($, T = $.canvas) => {
 }
 document.addEventListener('keydown', e => {
 	if(!_keys) return
-	e.preventDefault()
+	if(document.activeElement == document.body) e.preventDefault()
 	if(e.repeat) return
 	const n = e.keyCode
 	_keys.set(n)
@@ -293,7 +293,7 @@ document.addEventListener('keydown', e => {
 })
 document.addEventListener('keyup', e => {
 	if(!_keys) return
-	e.preventDefault()
+	if(document.activeElement == document.body) e.preventDefault()
 	const n = e.keyCode
 	if(!_keys.pop(n)) return
 	const a = _dcbs.get(~n)

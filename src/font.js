@@ -882,7 +882,7 @@ msdf.oldfv = 0
 			})
 			this.done()
 		}, this.error.bind(this)); return this}
-		draw(ctx, txt, curve = 0, sk = 0, lsb = 0, last = -1, ...v){
+		draw(ctx, txt, last = -1, curve = 0, sk = 0, lsb = 0, ...v){
 			if(this.#cb) return
 			lsb *= .5
 			let pxr = ctx.pixelRatio()*this.normDistRange, sh = ctx.shader

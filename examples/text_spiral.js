@@ -13,25 +13,21 @@ const lines = paragraph.break((i, offs) => {
 	curves.push(offs.curve = .5/l)
 	return l*PI2
 }, [BreakToken(/[^]*/y, BreakToken.ALWAYS_SPLIT)])
-for(let i=0;i<lines.length;i++){
+for(let i=0;i<lines.length;i++)
 	lines[i].curveBy(curves[i])
-}
 
 const img = Img('creo5.png')
-let zoom = 50, w = 20, wid = 20
-cursor.x = cursor.y = .5
+let zoom = 50
 let cam = globalThis.cam = {x: 0, y: 0, z: 50}
-const punchBlend = Blend(ONE, REVERSE_SUBTRACT, ONE)
 render = () => {
-	if(keys.has(KEY.SHIFT)) w += wheel.y*.01
-	else zoom *= .999**wheel.y
+	zoom *= .999**wheel.y
 	const d = .002**dt
 	cam.x = (cursor.x-.5)*-64*(1-d)+cam.x*d; cam.y = (cursor.y-.5)*-36*(1-d)+cam.y*d
-	wid = w*(1-d)+wid*d
 	cam.z = cam.z**d*zoom**(1-d)
 	wheel.y=0
 
-	ctx.reset(cam.z/ctx.width, 0, 0, cam.z/ctx.height, .5, .5)
+	ctx.reset(pixelRatio/ctx.width, 0, 0, pixelRatio/ctx.height, .5, .5)
+	ctx.scale(cam.z)
 	ctx.translate(-cam.x,-cam.y)
 
 	ctx.translate(0, -INNER_RING)
@@ -45,30 +41,5 @@ render = () => {
 		const w = img.width*scale, h = img.height*scale
 		c2.blend = Blend.MULTIPLY
 		c2.drawRect(w*-.5, h*-.5, w, h, img)
-	}
-	return
-	const {x,y} = ctx.from(0, 0)
-	ctx.drawRect(x, 0, ctx.fromDelta(1, 0).x, y, vec4(.2,.2,.2,.4))
-	{	const c2 = ctx.sub()
-		c2.blend = punchBlend
-		c2.scale(.5)
-		c2.translate(-20, -.5-font.ascend)
-		font.draw(c2, 'Hint: SHIFT+wheel to break text')
-	}
-	{	const c2 = ctx.sub()
-		c2.blend = Blend.BEHIND
-		p.draw(c2)
-	}
-	{	const c2 = ctx.sub()
-		c2.translate(7, 0)
-		c2.blend = Blend.BEHIND
-		// It's usually a good idea to cache result
-		// TODO: cache `lines` if `wid` doesn't change
-		const lines = p2.break(wid)
-		for(const l of lines){
-			l.draw(c2.sub())
-			c2.translate(0, -1.4)
-		}
-		c2.drawRect(wid, 1.4, .1, lines.length*1.4 - .9, vec4(1,0,0,1))
 	}
 }

@@ -5,10 +5,9 @@ if(!('setImmediate'in $)){let i=0,m=new MessageChannel,c=new Map;m.port1.onmessa
 if(!('sin'in $))Object.defineProperties($,Object.getOwnPropertyDescriptors(Math))
 const ibo = {imageOrientation: 'flipY', premultiplyAlpha: 'none'}
 const resolveData = (a, cb, err) => typeof a == 'string' ? fetch(a).then(a=>a.blob()).then(a=>createImageBitmap(a, ibo)).then(cb, err) : a instanceof Blob ? createImageBitmap(a, ibo).then(cb, err) : a instanceof ImageBitmap ? cb(a) : (err??Promise.reject)(new TypeError('Invalid src'))
-$.Gamma=($={})=>{
-let T = $.canvas = document.createElement('canvas')
+$.Gamma=(T = document.createElement('canvas'), $={})=>{
 /** @type WebGL2RenderingContext */
-const gl = T.getContext('webgl2', {preserveDrawingBuffer: false, antialias: false, depth: false, premultipliedAlpha: true, stencil: true})
+const gl = $.gl = ($.canvas = T).getContext('webgl2', {preserveDrawingBuffer: false, antialias: false, depth: false, premultipliedAlpha: true, stencil: true})
 gl.pixelStorei(37440,1) // unpack flip-y
 gl.stencilMask(1)
 gl.clearStencil(0)
@@ -528,6 +527,10 @@ function draw(b=shuniBind){
 	fd += i; i /= sh.count; fdc++; fs += i
 	gl.drawArraysInstanced(type, s, l, i)
 	i = 0; boundUsed = b
+	if(pendingFences.length){ fencetail ??= pendingFences[0]; for(const f of pendingFences){
+		f.sync = gl.fenceSync(37143,0)
+		fencehead = fencehead ? fencehead.next = f : f
+	} pendingFences.length = 0 }
 }
 let sh=null,ca=null,fbTex=null,fbSte=null,fbLayer=0,shfCount=0,shfMask=0;
 const fb = gl.createFramebuffer()
@@ -702,24 +705,37 @@ T.NONE = T(`void main(){color=vec4(0,0,0,1);}`)
 gl.useProgram(sh.program)
 gl.bindVertexArray(sh.vao)
 $.flush = () => i&&draw()
-$.gl = gl
 $.ctx = new can(ca={tex:gl.canvas,img:null,layer:0,stencil:0,stencilBuf:null,w:0,h:0})
-$.loop = (render = null) => {
-	if(render) $.render = render; else $.render ??= null
+$.setSize = (w = 0, h = 0) => gl.viewport(0, 0, ctx.t.w = gl.canvas.width = w, ctx.t.h = gl.canvas.height = h)
+let fencetail = null, fencehead = null
+const pendingFences = []
+$.wait=()=>{
+	let r,p=new Promise(a=>r=a)
+	if(i) p.sync=null,pendingFences.push(p)
+	else{
+		p.sync = gl.fenceSync(37143,0)
+		fencetail ??= p
+		fencehead = fencehead ? fencehead.next = p : p
+	}
+	p._r = r; p.done=false
+	return p
+}
+$.loop = (pf = null) => {
 	if('t'in $) return $
+	$.render ??= null
 	$.frameDrawCalls = 0
 	$.frameSprites = 0
 	$.frameData = 0
 	$.t = performance.now()/1000; $.dt = 0
-	$.ctxSupersample ??= 1
 	$.ctxFramerate ??= -1
-	$.pixelRatio = 1
 	$.timeToFrame = 0
 	$.glLost ??= null
 	let nextF = 0
 	setInterval(function g(){
-		if($.ctxFramerate<0||!gl) return
-		if(gl.isContextLost?.()) return $.glLost?.(),$.glLost=null
+		while(fencetail&&gl.getSyncParameter(fencetail.sync,37140)==37145)gl.deleteSync(fencetail.sync),fencetail.done=true,fencetail._r(),fencetail=fencetail.next
+		if(!fencetail) fencehead = null
+		if($.ctxFramerate<0) return
+		if(gl.isContextLost?.()) return $.glLost?.(),$.glLost=fencetail=fencehead=null
 		let now = performance.now()/1000
 		if(now < nextF) return
 		dt = max(.01/$.ctxFramerate, -($.t-($.t=now)))
@@ -730,17 +746,14 @@ $.loop = (render = null) => {
 		timeToFrame = now-$.t
 	}, 0)
 	requestAnimationFrame(function f(){
-		if(gl.isContextLost?.()) return $.glLost?.(),$.glLost=null
 		requestAnimationFrame(f)
-		i&&draw()
-		$.pixelRatio = devicePixelRatio * $.ctxSupersample
-		gl.canvas.style.imageRendering = $.ctxSupersample > 1 ? 'auto' : 'pixelated'
-		gl.viewport(0, 0, ctx.t.w = gl.canvas.width = round(gl.canvas.offsetWidth*pixelRatio), ctx.t.h = gl.canvas.height = round(gl.canvas.offsetHeight*pixelRatio))
-		gl.bindFramebuffer(36160,null); ca=ctx.t
+		if(gl.isContextLost?.()) return $.glLost?.(),$.glLost=fencetail=fencehead=null
+		i&&draw(); pf?.()
 		if($.ctxFramerate>=0) return
+		gl.bindFramebuffer(36160,null); ca=ctx.t
 		dt = max(.001, min(-($.t-($.t=performance.now()/1000)), .5))
 		$.frameDrawCalls = fdc; $.frameSprites = fs; $.frameData = fd*4+fdc*24; fdc = fs = fd = 0
-		ctx.reset(); try{$.render?.(dt)}catch(e){Promise.reject(e)}; i&&draw()
+		ctx.reset(); try{$.render?.()}catch(e){Promise.reject(e)}; i&&draw()
 		timeToFrame = performance.now()/1000-$.t
 	})
 	return gl.canvas
