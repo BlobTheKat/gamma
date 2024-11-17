@@ -2,10 +2,10 @@ Gamma.font = $ => {
 	const msdf = $.Shader.MSDF = $.Shader(`
 void main(){
 	vec3 c = arg0().rgb;
-	float sd = (uni0 < 0. ? c.r : max(min(c.r, c.g), min(max(c.r, c.g), c.b)))-.5+arg3*abs(uni0);
+	float sd = (uni0 < 0. ? c.r : max(min(c.r, c.g), min(max(c.r, c.g), c.b)))-.5+arg2*abs(uni0);
 	float o = clamp(arg1*sd+.5,0.,1.);
-	color = arg2*o;
-}`, [COLOR, FLOAT, VEC4, FLOAT], [FLOAT], _, [_, 1, vec4.one, 0])
+	color = arg3*o;
+}`, [COLOR, FLOAT, FLOAT, VEC4], [FLOAT], _, [_, 1, 0, vec4.one])
 msdf.oldfv = 0
 	const T = $.BreakToken = (regex, type = 0, sep = '', next = undefined) => {
 		if(regex instanceof RegExp){
@@ -53,7 +53,7 @@ msdf.oldfv = 0
 
 	const defaultSet = [T(/\r\n?|\n/y, 48, ''), T(/[$£"+]?[\w'-]+[,.!?:;"^%€*]?/yi, 0, '-'), T(/\s+/y, 4)]
 	const defaultToken = T(/[^]/y)
-	const M = new Map, E = [], O = {0:null,1:0}, E1 = [0,0,0,O]
+	const M = new Map, E = [], E1 = [0,0,0,null]
 	const ADV = 1, SH = 2, SC = 3, YO = 4, ST = 5, SK = 6, LSB = 7, ARC = 8, RONLY = -3, IONLY = -2
 	const getSw = (t, f, ar, lsb = 0) => {
 		t.sepL = f; t.sepA = ar; t.sepS = lsb
@@ -98,11 +98,11 @@ msdf.oldfv = 0
 						if(!o) o = 1
 						q[idx-1] *= a
 					}else if(s == ADV && adv) q[idx-1] *= a
-				}else if(typeof s == 'string' || typeof s == 'function') if(!o) o = 2
+				}else if(typeof s == 'string') if(!o) o = 2
 			}
 			if(o != 1) q.unshift(SC, a)
-			q.#_sc *= a; if(yo) q.#_yo *= a
-			q.#w=NaN; q.#l = null
+			this.#sc *= a; if(yo) this.#yo *= a
+			q.#w=NaN
 		}
 		#yo = 0
 		get yOffset(){return this.#yo}
@@ -119,10 +119,10 @@ msdf.oldfv = 0
 						if(!o) o = 1
 						q[idx-1] += a
 					}
-				}else if(typeof s == 'string' || typeof s == 'function') if(!o) o = 2
+				}else if(typeof s == 'string') if(!o) o = 2
 			}
 			if(o != 1) q.unshift(YO, a)
-			q.#_yo += a; q.#l = null
+			this.#yo += a
 		}
 		#st = 1
 		get stretch(){return this.#st}
@@ -139,11 +139,11 @@ msdf.oldfv = 0
 						if(!o) o = 1
 						q[idx-1] *= a
 					}else if(s == ADV && adv) q[idx-1] *= a
-				}else if(typeof s == 'string' || typeof s == 'function') if(!o) o = 2
+				}else if(typeof s == 'string') if(!o) o = 2
 			}
 			if(o != 1) sk ? q.unshift(SK, a, ST, a) : q.unshift(ST, a)
-			q.#_st *= a; if(sk) q.#_sk *= a
-			q.#w=NaN; q.#l = null
+			this.#st *= a; if(sk) this.#sk *= a
+			q.#w=NaN
 		}
 		get letterWidth(){return this.#sc*this.stretch}
 		set letterWidth(a){this.stretch=a/this.#sc}
@@ -162,10 +162,10 @@ msdf.oldfv = 0
 						if(!o) o = 1
 						q[idx-1] += a
 					}
-				}else if(typeof s == 'string' || typeof s == 'function') if(!o) o = 2
+				}else if(typeof s == 'string') if(!o) o = 2
 			}
 			if(o != 1) q.unshift(SK, a)
-			q.#_sk += a; q.#l = null
+			this.#sk += a
 		}
 		#lsb = 0
 		get letterSpacing(){return this.#lsb}
@@ -182,11 +182,11 @@ msdf.oldfv = 0
 						if(!o) o = 1
 						q[idx-1] += a
 					}
-				}else if(typeof s == 'string' || typeof s == 'function') if(!o) o = 2
+				}else if(typeof s == 'string') if(!o) o = 2
 			}
 			if(o != 1) q.unshift(LSB, a)
-			q.#_lsb += a
-			q.#w=NaN; q.#l = null
+			this.#lsb += a
+			q.#w=NaN
 		}
 		#arc = 0
 		get curve(){return this.#arc}
@@ -203,35 +203,31 @@ msdf.oldfv = 0
 						if(!o) o = 1
 						q[idx-1] += a
 					}else if(s == ADV && !o) o = 2
-				}else if(typeof s == 'string' || typeof s == 'function') if(!o) o = 2
+				}else if(typeof s == 'string') if(!o) o = 2
 			}
 			if(o != 1) q.unshift(ARC, a)
-			q.#_arc += a
-			q.#w=NaN; q.#l = null
+			this.#arc += a
+			q.#w=NaN
 		}
 		#v = E1
 		// Sets the shader's values at this point in the stream
 		addTextPass(ord, x, y, ...a){
-			const o = a.length ? {0:null,1:0} : O
-			for(let i=0;i<a.length;i++) o[i+2]=a[i]
 			const v = this.#v, v2 = this.#v = []
 			let i = 0
 			for(; i < v.length; i += 4) if(v[i] < ord){
 				v2.push(v[i],v[i+1],v[i+2],v[i+3])
 			}else{ if(v[i]==ord) i+=4; break }
-			v2.push(ord, +x, +y, o)
+			v2.push(ord, +x, +y, a.length?a:null)
 			while(i < v.length) v2.push(v[i], v[i+1], v[i+2], v[i+3]), i += 4
 			this.#q.#l = null
 		}
 		addLinePass(ord, y0, h, ...a){
-			const o = a.length ? {0:null,1:0} : O
-			for(let i=0;i<a.length;i++) o[i+2]=a[i]
 			const v = this.#v, v2 = this.#v = []
 			let i = 0
 			for(; i < v.length; i += 4) if(v[i] < ord){
 				v2.push(v[i],v[i+1],v[i+2],v[i+3])
 			}else{ if(v[i]==ord) i+=4; break }
-			v2.push(ord, o, +y0, +h)
+			v2.push(ord, a.length?a:null, +y0, +h)
 			while(i < v.length) v2.push(v[i], v[i+1], v[i+2], v[i+3]), i += 4
 			this.#q.#l = null
 		}
@@ -240,16 +236,15 @@ msdf.oldfv = 0
 			for(let i = 0; i < v.length; i += 4) if(v[i] == ord){
 				let a2 = v[i+=3]
 				if(typeof a2=='number') a2 = v[i-=2]
-				v[i] = a2 = a2 ? Object.assign({}, a2) : {0:null,1:0}
-				for(let i=a.length-1;i>=0;i--){
+				if(Array.isArray(a2)) for(let i=a.length-1;i>=0;i--){
 					const a1 = a[i]
-					if(a1 !== undefined) a2[i+2] = a1
-				}
+					if(a1 !== undefined) v[i+3] = a1
+				} else v[i] = a.length?a:null
 				break
 			}else if(v[i] > ord) break
 			this.#q.#l = null
 		}
-		delPass(ord){
+		unsetPass(ord){
 			const v = this.#v, v2 = this.#v = []
 			for(let i = 0; i < v.length; i += 4) if(v[i] < ord){
 				v2.push(v[i],v[i+1],v[i+2],v[i+3])
@@ -258,95 +253,14 @@ msdf.oldfv = 0
 			this.#q.#l = null
 		}
 
-		insertTextPass(ord, x, y, ...a){
-			const o = a.length ? {0:null,1:0} : O
-			for(let i=0;i<a.length;i++) o[i+2]=a[i]
-			const q = this.#q, len = q.length
-			let idx = 0, p = 0
-			while(idx < len){
-				let s = q[idx++]
-				if(typeof s == 'number' && s>0) idx++
-				else if(typeof s == 'string' || typeof s == 'function'){ if(!p) p = 2 }
-				else if(Array.isArray(s)){
-					if(!p) p = 1
-					const s2 = q[idx-1] = []
-					let i = 0
-					for(; i < s.length; i += 4) if(s[i] < ord){
-						s2.push(s[i],s[i+1],s[i+2],s[i+3])
-					}else{ if(s[i]==ord) i+=4; break }
-					s2.push(ord, +x, +y, o)
-					while(i < s.length) s2.push(s[i], s[i+1], s[i+2], s[i+3]), i += 4
-				}
-			}
-			if(p != 1) q.unshift(ord>0?[0,0,0,O,ord,x,y,o]:ord<0?[ord,x,y,o,0,0,0,O]:[ord,x,y,o])
-			q.#l = null
+		insertLinePass(ord, x, y, ...v){
+
 		}
-		insertLinePass(ord, y0, h, ...a){
-			const o = a.length ? {0:null,1:0} : O
-			for(let i=0;i<a.length;i++) o[i+2]=a[i]
-			const q = this.#q, len = q.length
-			let idx = 0, p = 0
-			while(idx < len){
-				let s = q[idx++]
-				if(typeof s == 'number' && s>0) idx++
-				else if(typeof s == 'string' || typeof s == 'function'){ if(!p) p = 2 }
-				else if(Array.isArray(s)){
-					if(!p) p = 1
-					const s2 = q[idx-1] = []
-					let i = 0
-					for(; i < s.length; i += 4) if(s[i] < ord){
-						s2.push(s[i],s[i+1],s[i+2],s[i+3])
-					}else{ if(s[i]==ord) i+=4; break }
-					s2.push(ord, o, y0, h)
-					while(i < s.length) s2.push(s[i], s[i+1], s[i+2], s[i+3]), i += 4
-				}
-			}
-			if(p != 1) q.unshift(ord>0?[0,0,0,O,ord,o,y0,h]:ord<0?[ord,o,y0,h,0,0,0,O]:[ord,o,y0,h])
-			q.#l = null
-		}
-		adjustValues(ord, ...a){
-			const q = this.#q, len = q.length
-			let idx = 0, p = 0
-			while(idx < len){
-				const s = q[idx++]
-				if(typeof s == 'number' && s>0) idx++
-				else if(typeof s == 'string' || typeof s == 'function'){ if(!p) p = 2 }
-				else if(Array.isArray(s)){
-					const v = q[idx-1] = s.slice()
-					if(s == q.#_v) q.#_v = v
-					let i = 0
-					for(; i < v.length; i += 4) if(v[i] == ord){
-						let a2 = v[i+=3]
-						if(typeof a2=='number') a2 = v[i-=2]
-						v[i] = a2 = a2 ? Object.assign({}, a2) : {0:null,1:0}
-						for(let i=a.length-1;i>=0;i--){
-							const a1 = a[i]
-							if(a1 !== undefined) a2[i+2] = a1
-						}
-						break
-					}
-				}
-			}
-			q.#l = null
+		adjustValues(ord, ...v){
+
 		}
 		removePass(ord){
-			const q = this.#q, len = q.length
-			let idx = 0
-			w: while(idx < len){
-				let s = q[idx++]
-				if(typeof s == 'number' && s>0) idx++
-				else if(Array.isArray(s)){
-					let i = 0
-					for(; i < s.length; i += 4) if(s[i] > ord) continue w
-					else if(s[i]==ord){
-						i += 4
-						while(i < s.length)
-							s[i-4]=s[i],s[i-3]=s[i+1],s[i-2]=s[i+2],s[i-1]=s[i+3], i += 4
-						s.length -= 4
-						break
-					}
-				}
-			}
+
 		}
 		get values(){ return this.#v }
 		set values(a){ this.#v = a?.length ? a : null; this.#q.#l==this&&(this.#q.#l=null) }
@@ -558,9 +472,10 @@ msdf.oldfv = 0
 						case LSB: this.#lsb = v; break
 						case ARC: this.#arc = v; break
 					}
-				}else if(typeof s == 'string' || typeof s == 'function'){ idx--; break }
+				}else if(typeof s == 'string'){ if(mask&2){ idx--; break } }
 				else if(Array.isArray(s)) this.#v = s
-				else this.#f = s
+				else if(typeof s == 'object') this.#f = s
+				else{ idx--; break }
 			}
 			this.#setv(q)
 			mask!=q.#_m&&q.push(q.#_m = mask)
@@ -692,7 +607,6 @@ msdf.oldfv = 0
 			let sc = 1, sc1 = 1, st = 1, lsb = 0, sk = 0, yo = 0, xo = 0, ar = 0, mask = -1
 			let sh = ctx.shader = msdf
 			let v = E1, vlen = 3, font = null, dsc = 0
-			v[3][1] = 1
 			let last = -1, lastSt = 1
 			const pxr0 = ctx.pixelRatio(); let pxr = 1
 			let ea = 0
@@ -715,10 +629,7 @@ msdf.oldfv = 0
 							continue w
 						case SC:
 							const a = v*sc1; sc1 = 1/v; ctx.scale(a); yo *= sc *= sc1; xo *= sc;
-							lastSt *= a; ar *= a; sc = v;
-							if(font) pxr=pxr0*font.normDistRange*sc
-							for(let i=0;i<vlen;i+=4) (typeof v[i+3]=='object'?v[i+3]:v[i+1])[1]=pxr
-							continue w
+							lastSt *= a; ar *= a; sc = v; if(font) pxr=pxr0*font.normDistRange*sc; continue w
 						case YO: yo = v*sc1; xo = yo*sk; continue w
 						case SH: ctx.shader = sh = s; break
 						case ST: st = v; continue w
@@ -752,11 +663,9 @@ msdf.oldfv = 0
 							const x = v[i+1], y = v[i+2]+yo, v1 = v[i+3]
 							if(typeof x == 'object'){
 								const ox = ar*w*(y+dsc)
-								x[0] = vec4.one
-								ctx.drawRectv(xr+ox,y+dsc,w-ox-ox,v1,x)
+								x?ctx.drawRect(xr+ox,y+dsc,w-ox-ox,v1,vec4.one,pxr,...x):ctx.drawRect(xr+ox,y+dsc,w-ox-ox,v1,vec4.one,pxr)
 							}else if(g.tex){
-								v1[0] = g.tex
-								ctx.drawRectv((g.x+lsb)*st+x+xr,g.y+y,g.w*st,g.h,v1)
+								v1?ctx.drawRect((g.x+lsb)*st+x+xr,g.y+y,g.w*st,g.h,g.tex,pxr,...v1):ctx.drawRect((g.x+lsb)*st+x+xr,g.y+y,g.w*st,g.h,g.tex,pxr)
 							}
 						}
 						ctx.translate(w, 0)
@@ -776,14 +685,9 @@ msdf.oldfv = 0
 					s(c2, dsc)
 				}else{
 					if(!s){cmap=kmap=M;continue}
-					if(Array.isArray(s)){
-						vlen=(v=s).length
-						for(let i=0;i<vlen;i+=4) (typeof v[i+3]=='object'?v[i+3]:v[i+1])[1]=pxr
-						continue
-					}
+					if(Array.isArray(s)){vlen=(v=s).length;continue}
 					font = s; dsc = font.ascend-1; cmap = s.map; kmap = s.kmap
 					pxr = pxr0*font.normDistRange*sc
-					for(let i=0;i<vlen;i+=4) (typeof v[i+3]=='object'?v[i+3]:v[i+1])[1]=pxr
 				}
 				if(font){
 					const f = (font._flags&1?.5:-.5)/font.normDistRange

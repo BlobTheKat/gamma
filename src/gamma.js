@@ -426,6 +426,22 @@ class can{
 		arr[i  ] = ta*a+tc*b; arr[i+1] = ta*c+tc*d; arr[i+2] = ta*e+tc*f+te
 		arr[i+3] = tb*a+td*b; arr[i+4] = tb*c+td*d; arr[i+5] = tb*e+td*f+tf
 	}
+	drawv(values){
+		setv(this.t,this.#m); const i = this.#shader(values)
+		arr[i  ] = this.#a; arr[i+1] = this.#c; arr[i+2] = this.#e
+		arr[i+3] = this.#b; arr[i+4] = this.#d; arr[i+5] = this.#f
+	}
+	drawRectv(x=0, y=0, w=1, h=1, values){
+		setv(this.t,this.#m); const i = this.#shader(values)
+		arr[i  ] = this.#a*w; arr[i+1] = this.#c*h; arr[i+2] = this.#e+x*this.#a+y*this.#c
+		arr[i+3] = this.#b*w; arr[i+4] = this.#d*h; arr[i+5] = this.#f+x*this.#b+y*this.#d
+	}
+	drawMatv(a=1, b=0, c=0, d=1, e=0, f=0, values){
+		setv(this.t,this.#m); const i = this.#shader(values)
+		const ta=this.#a,tb=this.#b,tc=this.#c,td=this.#d,te=this.#e,tf=this.#f
+		arr[i  ] = ta*a+tc*b; arr[i+1] = ta*c+tc*d; arr[i+2] = ta*e+tc*f+te
+		arr[i+3] = tb*a+td*b; arr[i+4] = tb*c+td*d; arr[i+5] = tb*e+td*f+tf
+	}
 	dup(){
 		if(!i) return
 		const s = sh.count

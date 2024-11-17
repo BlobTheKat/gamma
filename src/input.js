@@ -241,6 +241,8 @@ Gamma.input = ($, T = $.canvas) => {
 	const wcb = [], mcb = []
 	;($.onWheel = fn => void wcb.push(fn)).remove = fn => void wcb.remove(fn)
 	;($.onMouse = fn => void mcb.push(fn)).remove = fn => void mcb.remove(fn)
+	T.style.cursor = 'default'
+	Object.defineProperty($, 'cursorType', {get(){return T.style.cursor},set(a){T.style.cursor=a||'default'}})
 	T.addEventListener('mouseover', _ => {
 		if(_keys) return
 		_keys = keys; _dcbs = dcbs
@@ -282,18 +284,33 @@ Gamma.input = ($, T = $.canvas) => {
 		for(const f of wcb) f(e.movementX, e.movementY)
 	})
 }
-document.addEventListener('keydown', e => {
+const doc = document
+doc.addEventListener('input', e => {
+	const f = e.target._field
+	if(f) f._f|=256, f.recalc()
+})
+doc.addEventListener('selectionchange', e => e.target._field?.recalc())
+doc.addEventListener('keydown', e => {
 	if(!_keys) return
-	if(document.activeElement == document.body) e.preventDefault()
+	const i = doc.activeElement
+	if(i == doc.body || !i) e.preventDefault()
+	else if(e.keyCode == 9){
+		if(i._field.flags&1){
+			const s = i.selectionStart
+			i.value = i.value.slice(0,s)+'\t'+i.value.slice(i.selectionEnd)
+			i.selectionStart=i.selectionEnd=s+1
+		}
+		e.preventDefault()
+	}
 	if(e.repeat) return
 	const n = e.keyCode
 	_keys.set(n)
 	const a = _dcbs.get(n)
 	if(a) for(const f of a)try{f(n)}catch(e){Promise.reject(e)}
 })
-document.addEventListener('keyup', e => {
+doc.addEventListener('keyup', e => {
 	if(!_keys) return
-	if(document.activeElement == document.body) e.preventDefault()
+	if(doc.activeElement == doc.body || !doc.activeElement) e.preventDefault()
 	const n = e.keyCode
 	if(!_keys.pop(n)) return
 	const a = _dcbs.get(~n)

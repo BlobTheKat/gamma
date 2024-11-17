@@ -1,16 +1,20 @@
 const i = TextField()
-i.setFocus()
-i.value = 'Lorem'
-console.log('temp1')
-console.log(globalThis.temp1 = i)
-const font = await Font.chlumsky('marker/index.json', 'marker/atlas.png')
+i.focus = true
+globalThis.temp1 = i
+const font = await Font.chlumsky('cursive/index.json', 'cursive/atlas.png')
 
+i.simpleTransformer(font, 'Write some text...')
+
+let cx = 0, cxi = 0, zoom = 50, zoomi = 50
 render = () => {
+	cursorType = 'default'
 	ctx.reset(pixelRatio/ctx.width, 0, 0, pixelRatio/ctx.height, .5, .5)
-	ctx.scale(50)
-
-	const l = font.draw(ctx, i.value.slice(0, i.sel0))
-	ctx.shader = null
-	ctx.drawRect(0, font.ascend-1, .05, 1, vec4(t%1<.5))
-	font.draw(ctx, i.value.slice(i.sel0), l, _, _, _)
+	ctx.scale(zoomi)
+	zoom *= .995**wheel.y; wheel.y = 0
+	zoomi *= (zoom/zoomi)**(dt*10)
+	cxi += (cx-cxi)*(dt*5)
+	ctx.translate(-cxi,0)
+	if(!i.isSelecting) cx = (i.sel0width + i.sel1width) * .5
+	i.consumeInputs()
+	i.draw(ctx)
 }
