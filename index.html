@@ -14,13 +14,15 @@
 <script src="src/utils.js"></script>
 <script>;{
 	const $ = globalThis
+	let ow = 0, oh = 0
 	Gamma(undefined, $).loop(() => {
 		const s = visualViewport.scale, px = devicePixelRatio
 		const w = visualViewport.width*s, h = visualViewport.height*s
 		$.pixelRatio = px
-		setSize(round(w*px), round(h*px))
+		if(ow!=(ow=round(w*px))|oh!=(oh=round(h*px))) setSize(ow, oh)
 		$.canvas.style.transform = `scale(${1/px})`
 		$.canvas.style.imageRendering = $.pixelRatio>px ? 'auto' : 'pixelated'
+		cursorType = 'default'
 	})
 	$.pixelRatio = 1
 	const unint = `user-select:none;-webkit-user-select:none;touch-action: none;`

@@ -5,7 +5,7 @@ void main(){
 	float sd = (uni0 < 0. ? c.r : max(min(c.r, c.g), min(max(c.r, c.g), c.b)))-.5+arg2*abs(uni0);
 	float o = clamp(arg1*sd+.5,0.,1.);
 	color = arg3*o;
-}`, [COLOR, FLOAT, FLOAT, VEC4], [FLOAT], _, [_, 1, 0, vec4.one])
+}`, [COLOR, FLOAT, FLOAT, VEC4], [_, 1, 0, vec4.one], [FLOAT])
 msdf.oldfv = 0
 	const T = $.BreakToken = (regex, type = 0, sep = '', next = undefined) => {
 		if(regex instanceof RegExp){

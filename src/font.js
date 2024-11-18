@@ -5,7 +5,7 @@ void main(){
 	float sd = (uni0 < 0. ? c.r : max(min(c.r, c.g), min(max(c.r, c.g), c.b)))-.5+arg3*abs(uni0);
 	float o = clamp(arg1*sd+.5,0.,1.);
 	color = arg2*o;
-}`, [COLOR, FLOAT, VEC4, FLOAT], [FLOAT], _, [_, 1, vec4.one, 0])
+}`, [COLOR, FLOAT, VEC4, FLOAT], [_, 1, vec4.one, 0], [FLOAT])
 msdf.oldfv = 0
 	const T = $.BreakToken = (regex, type = 0, sep = '', next = undefined) => {
 		if(regex instanceof RegExp){
@@ -51,7 +51,7 @@ msdf.oldfv = 0
 	// Token is never rendered
 	T.INVISIBLE = 32
 
-	const defaultSet = [T(/\r\n?|\n/y, 48, ''), T(/[$£"+]?[\w'-]+[,.!?:;"^%€*]?/yi, 0, '-'), T(/\s+/y, 4)]
+	const defaultSet = [T(/\r\n?|\n/y, 40, ''), T(/[$£"+]?[\w'-]+[,.!?:;"^%€*]?/yi, 0, '-'), T(/\s+/y, 4)]
 	const defaultToken = T(/[^]/y)
 	const M = new Map, E = [], O = {0:null,1:0}, E1 = [0,0,0,O]
 	const ADV = 1, SH = 2, SC = 3, YO = 4, ST = 5, SK = 6, LSB = 7, ARC = 8, RONLY = -3, IONLY = -2
@@ -650,7 +650,7 @@ msdf.oldfv = 0
 			let sc = 1, st = 1, lsb = 0, mask = -1, ar = 0, ar1 = 0
 			let chw = 1
 			let last = -1, lastCw = 1
-			let i = 0
+			let i = 0, li = 0
 			while(idx < q.length){
 				let s = q[idx++]
 				if(typeof s=='number'){
@@ -667,15 +667,15 @@ msdf.oldfv = 0
 					if(mask&1) for(const ch of s){
 						const c = ch.codePointAt()
 						const g = cmap.get(c)
-						if(!g){ if(mask&2) i += ch.length; continue }
+						if(!g){ if(mask&2) li = i += ch.length; continue }
 						const ker = (kmap.get(c+last*1114112) ?? 0) * min(chw, lastCw)
 						last = c; lastCw = chw
 						const w = (g.xadv+lsb)*chw + ker
 						const fw = ar ? asin(w*ar)*ar1||w : w
 						x -= fw
 						if(!(mask&2)) continue
-						if(x <= fw*-.5) return i
-						i += ch.length
+						if(x <= fw*-.5) return li
+						li = i += ch.length
 					}else if(mask&2) i += s.length
 				}else if(typeof s == 'object'){
 					if(!s){cmap=kmap=M;continue}
@@ -683,12 +683,12 @@ msdf.oldfv = 0
 					cmap = s.map; kmap = s.kmap
 				}
 			}
-			return i
+			return li
 		}
-		draw(ctx, breaks = null){
+		draw(ctx){
 			const q = this.#q
 			let cmap = M, kmap = M
-			let idx = 0, i = 0, bi = 0
+			let idx = 0
 			let sc = 1, sc1 = 1, st = 1, lsb = 0, sk = 0, yo = 0, xo = 0, ar = 0, mask = -1
 			let sh = ctx.shader = msdf
 			let v = E1, vlen = 3, font = null, dsc = 0
@@ -731,14 +731,6 @@ msdf.oldfv = 0
 					if(mask&1) for(const ch of s){
 						const c = ch.codePointAt()
 						const g = cmap.get(c)
-						if(breaks&&(mask&2)){
-							while(i >= breaks[bi]){
-								const c2 = breaks[bi++] = ctx.sub()
-								if(sk) c2.skew(-sk,0)
-								if(ea) c2.rotate(ea)
-							}
-							i += ch.length
-						}
 						if(!g) continue
 						const ker = (kmap.get(c+last*1114112) ?? 0) * min(lastSt, st)
 						last = c; lastSt = st
@@ -760,20 +752,13 @@ msdf.oldfv = 0
 							}
 						}
 						ctx.translate(w, 0)
-					}else if(ret&&(mask&2)){
-						while(i >= breaks[ret.length]){
-							const c2 = breaks[bi++] = ctx.sub()
-							if(sk) c2.skew(-sk,0)
-							if(ea) c2.rotate(ea)
-						}
-						i += s.length
 					}
 					continue
 				}else if(typeof s == 'function'){
 					const c2 = ctx.sub()
 					if(sk) c2.skew(-sk,0)
 					if(ea) c2.rotate(ea)
-					s(c2, dsc)
+					s(c2, font)
 				}else{
 					if(!s){cmap=kmap=M;continue}
 					if(Array.isArray(s)){
@@ -795,16 +780,22 @@ msdf.oldfv = 0
 			if(sc!=1) ctx.scale(sc1)
 		}
 		break(widths = Infinity, toks = defaultSet, offs = {scale: 1, letterSpacing: 0, curve: 0}){
-			const q = this.#q, str = this.toString()
+			const q = this.#q
+			let m = 1, str = '', i = 0
+			while(i < q.length){
+				const s = q[i++]
+				if(typeof s == 'number'){ if(s<0) m = s&1; else i++ }
+				if(typeof s == 'string' && m) str += s
+			}
 			const lines = []
 			let maxW = typeof widths=='number'?widths:typeof widths=='function'?widths(lines.length, offs):widths[min(lines.length,widths.length-1)]
 			let q2 = new itxtstream()
 			let s2 = q2.l = new txtstream(q2)
-			let i = 0, idx = 0, l = ''
+			let idx = 0, l = ''; i = 0
 			let cmap = M, kmap = M, chw = 1, lastCw = 1, last = -1, w = 0, tainted = false
 			while(i < str.length){
 				let j = 0, t
-				let _i0 = q2.length, _i1 = 0, _w = w, _sh = s2.#sh, _sc = s2.#sc, _yo = s2.#yo, _st = s2.#st, _sk = s2.#sk, _lsb = s2.#lsb, _f = s2.#f, _arc = s2.#arc, _v = s2.#v, _m = q2.#_m, _len = q2.#len
+				let _i0 = q2.length, _w = w, _sh = s2.#sh, _sc = s2.#sc, _yo = s2.#yo, _st = s2.#st, _sk = s2.#sk, _lsb = s2.#lsb, _f = s2.#f, _arc = s2.#arc, _v = s2.#v, _m = q2.#_m, _len = q2.#len
 				a: {
 					if(toks) for(t of toks){
 						t.lastIndex = i
@@ -839,39 +830,38 @@ msdf.oldfv = 0
 					if(q2.#_m&2) q2.#len += s.length
 					iOnly&&q2.push(q2.#_m)
 				}
-				let ch = false
 				while(j > 0){
 					const s = q[idx++]
 					if(typeof s == 'number'){
 						if(s < 0){ q2.#_m = s; q2.push(s); continue }
 						const v = q[idx++]
-						ch = true
+						q2.push(s, v)
 						switch(s){
-							case ADV: q2.push(s, v); break
-							case SH: s2.#sh = v; break
-							case SC: s2.#sc = v; v*s2.#st; break
-							case YO: s2.#yo = v; break
-							case ST: s2.#st = v; v*s2.#sc; break
-							case SK: s2.#sk = v; break
-							case LSB: s2.#lsb = v; break
-							case ARC: s2.#arc = v; break
+							case SH: s2.#sh = q2.#_sh = v; break
+							case SC: s2.#sc = q2.#_sc = v; break
+							case YO: s2.#yo = q2.#_yo = v; break
+							case ST: s2.#st = q2.#_st = v; break
+							case SK: s2.#sk = q2.#_sk = v; break
+							case LSB: s2.#lsb = q2.#_lsb = v; break
+							case ARC: s2.#arc = q2.#_arc = v; break
 						}
 					}else if(typeof s == 'string'){
-						if(!(q2.#_m&2)){ q2.push(s); continue }
+						if(!(q2.#_m&1)){ q2.push(s); q2.#len += s.length; continue }
 						j -= s.length
 						let v = s
 						if(j<0) v = s.slice(0,j), l = s.slice(j)
 						else l = ''
-						if(ch) s2.#setv(q2)
 						iOnly&&q2.push(IONLY)
-						q2.push(v); q2.#len += v.length
+						q2.push(v); (q2.#_m&2)&&(q2.#len += v.length)
 						iOnly&&q2.push(q2.#_m)
-					}else if(Array.isArray(s)) s2.#v = s, ch = true
-					else s2.#f = s, ch = true
+					}else{
+						q2.push(s)
+						if(Array.isArray(s)) q2.#_v = s2.#v = s
+						else if(typeof s != 'function') q2.#_f = s2.#f = s
+					}
 				}
-				if(ch) s2.#setv(q2)
 				while(1){
-					let i0 = _i0, i1 = _i1, sh = _sh, sc = _sc, yo = _yo, st = _st, sk = _sk, lsb = _lsb, f = _f, v = _v, m = _m, len = _len, arc = _arc, ar1 = 1/arc, overran = false, ptext = false
+					let i0 = _i0, i1 = 0, _i1 = 0, sh = _sh, sc = _sc, yo = _yo, st = _st, sk = _sk, lsb = _lsb, f = _f, v = _v, m = _m, len = _len, arc = _arc, ar1 = 1/arc, ptext = false
 					let sepw = t.sepL == f && t.sepA == arc && t.sepS == lsb ? t.sepW : getSw(t, f, arc, lsb)
 					const canBreak = !ty ? _w*2 < maxW : (36>>ty&1)!=0
 					const {scale = 1, letterSpacing = 0, curve = 0} = offs
@@ -887,7 +877,7 @@ msdf.oldfv = 0
 								case ADV:
 									w += s1
 									last = -1
-									if((overran = w > (maxW - (sepw - (kmap.get(t.sep.codePointAt() + last*1114112)??0))*chw)) || !canBreak) break
+									if(w > (maxW - (sepw - (kmap.get(t.sep.codePointAt() + last*1114112)??0))*chw) || !canBreak) break
 									_i0 = i0-2, _i1 = 0; ptext = true
 									_w = w, _sh = sh, _sc = sc, _yo = yo, _st = st, _sk = sk, _lsb = lsb, _f = f, _arc = arc, _v = v, _m = m, _len = len
 									break
@@ -900,6 +890,7 @@ msdf.oldfv = 0
 								case ARC: tarc = s1+curve; ar1 = 1/tarc; arc = s1; break
 							}
 						}else if(typeof s == 'string'){
+							i1 = 0
 							if(m&1) for(const ch of s){
 								const c = ch.codePointAt()
 								const g = cmap.get(c); i1 += ch.length
@@ -908,13 +899,14 @@ msdf.oldfv = 0
 								lastCw = chw; last = c
 								const cw = (g.xadv+tlsb)*chw + ker
 								w += tarc ? asin(cw*tarc)*ar1||cw : cw
-								if(!(overran = w > (maxW - (sepw - (kmap.get(t.sep.codePointAt() + c*1114112)??0))*chw)) && canBreak){
+								if(w <= (maxW - (sepw - (kmap.get(t.sep.codePointAt() + c*1114112)??0))*chw) && canBreak){
 									ptext = true
 									_i0 = i0-1, _i1 = i1
 									_w = w, _sh = sh, _sc = sc, _yo = yo, _st = st, _sk = sk, _lsb = lsb, _f = f, _arc = arc, _v = v, _m = m, _len = len
 								}
 							}
 						}else if(Array.isArray(s)) v = s
+						else if(typeof s == 'function') continue
 						else if(f = s) cmap = s.map, kmap = s.kmap, sepw = t.sepL == s && t.sepA == arc && t.sepS == lsb ? t.sepW : getSw(t, s, arc, lsb)
 						else cmap = kmap = M, sepw = 0
 					}
@@ -941,26 +933,35 @@ msdf.oldfv = 0
 					s3.#arc = arc; q3.#_m = m
 					let idx = i0 += !!i1
 					const appnd = ty != 4 && ty != 5
-					w: while(idx < q2l){
-						const s = q2[idx++]
-						if(typeof s=='number'){
-							if(s<0){ q3.#_m = s; continue }
-							const v = q2[idx++]
-							switch(s){
-								case ADV: if(appnd){ idx--; break w }else break
-								case SH: s3.#sh = v; break
-								case SC: s3.#sc = v; break
-								case YO: s3.#yo = v; break
-								case ST: s3.#st = v; break
-								case SK: s3.#sk = v; break
-								case LSB: s3.#lsb = v; break
-								case ARC: s3.#arc = v; break
-							}
-						}else if(typeof s == 'string'){ idx--; break }
-						else if(!Array.isArray(s)) s3.#f = s
-						else s3.#v = s
+					if(i1){
+						s3.#setv(q3)
+						const s = q2[i0-1]
+						q2[i0-1] = s.slice(0, i1)
+						q2.#len -= s.length-i1
+						q3.push(s.slice(i1))
+						q3.#len += i1
+					}else{
+						w: while(idx < q2l){
+							const s = q2[idx++]
+							if(typeof s=='number'){
+								if(s<0){ q3.#_m = s; continue }
+								const v = q2[idx++]
+								switch(s){
+									case ADV: if(appnd){ idx-=2; break w }else break
+									case SH: s3.#sh = v; break
+									case SC: s3.#sc = v; break
+									case YO: s3.#yo = v; break
+									case ST: s3.#st = v; break
+									case SK: s3.#sk = v; break
+									case LSB: s3.#lsb = v; break
+									case ARC: s3.#arc = v; break
+								}
+							}else if(typeof s == 'string' || typeof s == 'function'){ idx--; break }
+							else if(!Array.isArray(s)) s3.#f = s
+							else s3.#v = s
+						}
+						s3.#setv(q3)
 					}
-					s3.#setv(q3)
 					if(!appnd){
 						q3.push(IONLY)
 						while(idx < q2l){
@@ -979,13 +980,8 @@ msdf.oldfv = 0
 					s3.#sh = q3.#_sh = s2.#sh; s3.#sc = q3.#_sc = s2.#sc
 					s3.#yo = q3.#_yo = s2.#yo; s3.#st = q3.#_st = s2.#st
 					s3.#sk = q3.#_sk = s2.#sk; s3.#lsb = q3.#_lsb = s2.#lsb
-					s3.#arc = q3.#_arc = s2.#arc; q3.#_m = q2.#_m
+					s3.#arc = q3.#_arc = s2.#arc; q3.#_m = q2.#_m; s3.#v = q3.#_v = s2.#v
 					q2.length = i0
-					if(i1){
-						const s = q2[i0-1]
-						q2[i0-1] = s.slice(0, i1)
-						q3.push(s.slice(i1))
-					}
 					if(!appnd && q3.#_m != IONLY) q3.push(q3.#_m)
 					if(ptext) q2.#_m!=RONLY&&q2.push(q2.#_m=RONLY), q2.push(t.sep)
 					lines.push(s2); s2=s3; q2=q3
@@ -1002,6 +998,25 @@ msdf.oldfv = 0
 					if(_m != -1) q2.push(q2.#_m = _m)
 					s2.#setv(q2)
 				}
+			}
+			while(idx < q.length){
+				const s = q[idx++]
+				q2.push(s)
+				if(typeof s == 'number'){
+					if(s < 0){ q2.#_m = s; continue }
+					const v = q[idx++]
+					q2.push(v)
+					switch(s){
+						case SH: s2.#sh = q2.#_sh = v; break
+						case SC: s2.#sc = q2.#_sc = v; break
+						case YO: s2.#yo = q2.#_yo = v; break
+						case ST: s2.#st = q2.#_st = v; break
+						case SK: s2.#sk = q2.#_sk = v; break
+						case LSB: s2.#lsb = q2.#_lsb = v; break
+						case ARC: s2.#arc = q2.#_arc = v; break
+					}
+				}else if(Array.isArray(s)) q2.#_v = s2.#v = s
+				else if(typeof s == 'object') q2.#_f = s2.#f = s
 			}
 			q2.#w = tainted ? NaN : w
 			lines.push(s2)

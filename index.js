@@ -1,20 +1,43 @@
-const i = TextField()
-i.focus = true
-globalThis.temp1 = i
 const font = await Font.chlumsky('cursive/index.json', 'cursive/atlas.png')
+font.ascend = .8 // default ascend value sucks
 
-i.simpleTransformer(font, 'Write some text...')
+const input = TextField(true)
+input.simpleTransformer(font, 'Write some text...')
+input.maxWidth = 5
+input.focus = true
+globalThis.input = input
+
+Shader.AA_CIRCLE ??= Shader(`
+void main(){
+	float dist = 0.5 - length(uv - 0.5), alpha = clamp(dist/fwidth(dist) + 0.5, 0.0, 1.0);
+	color = arg0() * alpha;
+}
+`, COLOR, vec4.one)
 
 let cx = 0, cxi = 0, zoom = 50, zoomi = 50
 render = () => {
-	cursorType = 'default'
 	ctx.reset(pixelRatio/ctx.width, 0, 0, pixelRatio/ctx.height, .5, .5)
 	ctx.scale(zoomi)
 	zoom *= .995**wheel.y; wheel.y = 0
 	zoomi *= (zoom/zoomi)**(dt*10)
 	cxi += (cx-cxi)*(dt*5)
 	ctx.translate(-cxi,0)
-	if(!i.isSelecting) cx = (i.sel0width + i.sel1width) * .5
-	i.consumeInputs()
-	i.draw(ctx)
+	if(!input.isSelecting) cx = (input.sel0pos + input.sel1pos) * .5
+	const c = ctx.from(cursor)
+	//if(input.isSelecting || c.x > -.5 && c.x < input.width + .5 && c.y > -.5 && c.y < 1)
+		input.consumeInputs(ctx, c)
+	input.draw(ctx.sub())
+	ctx.shader = Shader.AA_CIRCLE
+	// Epic insane invert blend I can't believe I didn't think of (actually, I did, https://github.com/open-mc/client/blob/c7ada127502698363a75a0f51a728739d1c50746/core/pointer.js#L132)
+	// OpenGL may not have a perfect difference blend but this is near perfect
+	// When src = 0, it simplifies to dst
+	// When src = .5, it simplifies to .5
+	// When src = 1, it simplifies to 1 - dst
+	ctx.blend = Blend(ONE_MINUS_DST, ADD, ONE_MINUS_SRC)
+	const l = +keys.has(MOUSE.LEFT), r = +keys.has(MOUSE.RIGHT)
+	if(l+r){
+		const col = vec4(l^r,l,l,0)
+		ctx.drawRect(c.x-.5,c.y-.5,1,1,col)
+		ctx.drawRect(c.x-.42,c.y-.42,.84,.84,col)
+	}
 }

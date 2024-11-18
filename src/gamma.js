@@ -256,12 +256,12 @@ Object.assign($, {
 	SRC_ALPHA_SATURATE: 170,
 	RGB_SRC_ALPHA_SATURATE: 10,
 	ADD: 17, RGB_ADD: 1, A_ADD: 16,
-	SUBTRACT: 85,
-	RGB_SUBTRACT: 5,
-	A_SUBTRACT: 80,
-	REVERSE_SUBTRACT: 102,
-	RGB_REVERSE_SUBTRACT: 6,
-	A_REVERSE_SUBTRACT: 96,
+	SUB: 85,
+	RGB_SUB: 5,
+	A_SUB: 80,
+	SUB_REV: 102,
+	RGB_SUB_REV: 6,
+	A_SUB_REV: 96,
 	MIN: 34, RGB_MIN: 2, A_MIN: 32,
 	MAX: 51, RGB_MAX: 3, A_MAX: 48,
 	FLOAT: 0, VEC2: 1, VEC3: 2, VEC4: 3,
@@ -579,7 +579,7 @@ const treeIf = (s=0, e=maxTex,o=0) => {
 	return `if(u<${m+o}){${treeIf(s,m,o)}}else{${treeIf(m,e,o)}}`
 }
 const names = ['float','vec2','vec3','vec4','int','ivec2','ivec3','ivec4','uint','uvec2','uvec3','uvec4']
-T = $.Shader = (src, inputs, uniforms, output=4, defaults, uDefaults, frat=0.5) => {
+T = $.Shader = (src, inputs, defaults, uniforms, uDefaults, output=4, frat=0.5) => {
 	const fnParams = ['(function({'], fnBody = ['',''], shaderHead = ['#version 300 es\nprecision mediump float;precision highp int;layout(location=0)in vec4 _pos;out vec2 uv,xy;layout(location=1)in mat2x3 m;',''], shaderBody = ['void main(){gl_PointSize=1.0;uv=_pos.zw;gl_Position=vec4((xy=vec3(_pos.xy,1.)*m)*2.-1.,0.,1.);'], shaderHead2 = ['#version 300 es\nprecision mediump float;precision highp int;in vec2 uv,xy;uniform vec2 viewport;out '+(output==0?'highp vec4 color;':output==16||output==32?'uvec4 color;':'lowp vec4 color;'),'']
 	let j = 6, o = 0, fCount = 0, iCount = 0
 	const types = [3,3]
@@ -715,8 +715,8 @@ T = $.Shader = (src, inputs, uniforms, output=4, defaults, uDefaults, frat=0.5) 
 	return s
 }
 let fdc = 0, fs = 0, fd = 0
-T.DEFAULT = sh = T(`void main(){color=arg0()*arg1;}`, [$.COLOR, $.VEC4], void 0, void 0, [void 0, $.vec4.one])
-T.UINT = T(`void main(){color=arg0();}`, $.UCOLOR, void 0, $.UINT)
+T.DEFAULT = sh = T(`void main(){color=arg0()*arg1;}`, [$.COLOR, $.VEC4], [void 0, $.vec4.one])
+T.UINT = T(`void main(){color=arg0();}`, $.UCOLOR, void 0, void 0, void 0, $.UINT)
 T.NONE = T(`void main(){color=vec4(0,0,0,1);}`)
 gl.useProgram(sh.program)
 gl.bindVertexArray(sh.vao)
