@@ -894,6 +894,7 @@ msdf.oldfv = 0
 							if(m&1) for(const ch of s){
 								const c = ch.codePointAt()
 								const g = cmap.get(c); i1 += ch.length
+								if(m&2) len += ch.length
 								if(!g) continue
 								const ker = (kmap.get(c + last*1114112) ?? 0) * min(chw, lastCw)
 								lastCw = chw; last = c
@@ -904,7 +905,7 @@ msdf.oldfv = 0
 									_i0 = i0-1, _i1 = i1
 									_w = w, _sh = sh, _sc = sc, _yo = yo, _st = st, _sk = sk, _lsb = lsb, _f = f, _arc = arc, _v = v, _m = m, _len = len
 								}
-							}
+							}else if(m&2) len += s.length
 						}else if(Array.isArray(s)) v = s
 						else if(typeof s == 'function') continue
 						else if(f = s) cmap = s.map, kmap = s.kmap, sepw = t.sepL == s && t.sepA == arc && t.sepS == lsb ? t.sepW : getSw(t, s, arc, lsb)
@@ -937,9 +938,7 @@ msdf.oldfv = 0
 						s3.#setv(q3)
 						const s = q2[i0-1]
 						q2[i0-1] = s.slice(0, i1)
-						q2.#len -= s.length-i1
 						q3.push(s.slice(i1))
-						q3.#len += i1
 					}else{
 						w: while(idx < q2l){
 							const s = q2[idx++]

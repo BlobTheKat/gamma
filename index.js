@@ -21,8 +21,8 @@ render = () => {
 	zoom *= .995**wheel.y; wheel.y = 0
 	zoomi *= (zoom/zoomi)**(dt*10)
 	cxi += (cx-cxi)*(dt*5)
-	ctx.translate(-cxi,0)
-	if(!input.isSelecting) cx = (input.sel0pos + input.sel1pos) * .5
+	ctx.translate(0,cxi)
+	if(!input.isSelecting) cx = (input.sel0pos + input.sel1pos) * .5 * input.lineHeight
 	const c = ctx.from(cursor)
 	//if(input.isSelecting || c.x > -.5 && c.x < input.width + .5 && c.y > -.5 && c.y < 1)
 		input.consumeInputs(ctx, c)

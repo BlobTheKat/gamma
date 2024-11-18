@@ -94,8 +94,19 @@ Gamma.textfield = $ => {
 				}
 				p.concat(p3)
 			}
-			if(this._f&2048) this.#pa = p.break(this.#mw)
-			else this.#p = p
+			if(this._f&2048){
+				const pa = this.#pa = p.break(this.#mw)
+				let i = s, l = 0
+				while(i > 0 && l < pa.length){
+					i -= pa[l++].length
+				}
+				i = e - s + i + (l ? pa[--l].length : 0)
+				this.#sw = l
+				while(i > 0 && l < pa.length){
+					i -= pa[l++].length
+				}
+				this.#ew = l?l-1:0
+			}else this.#p = p
 		}
 		insert(t='', off = t.length){
 			const i = this.#i, v = i.value, s = i.selectionStart, e = i.selectionEnd
