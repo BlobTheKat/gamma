@@ -1,11 +1,11 @@
 Gamma.font = $ => {
-	const msdf = $.Shader.MSDF = $.Shader(`
+	const v41 = $.vec4.one, msdf = $.Shader.MSDF = $.Shader(`
 void main(){
 	vec3 c = arg0().rgb;
 	float sd = (uni0 < 0. ? c.r : max(min(c.r, c.g), min(max(c.r, c.g), c.b)))-.5+arg3*abs(uni0);
 	float o = clamp(arg1*sd+.5,0.,1.);
 	color = arg2*o;
-}`, [COLOR, FLOAT, VEC4, FLOAT], [_, 1, vec4.one, 0], [FLOAT])
+}`, [$.COLOR, $.FLOAT, $.VEC4, $.FLOAT], [undefined, 1, v41, 0], [$.FLOAT])
 msdf.oldfv = 0
 	const T = $.BreakToken = (regex, type = 0, sep = '', next = undefined) => {
 		if(regex instanceof RegExp){
@@ -745,7 +745,7 @@ msdf.oldfv = 0
 							const x = v[i+1], y = v[i+2]+yo, v1 = v[i+3]
 							if(typeof x == 'object'){
 								const ox = ar*w*(y+dsc)
-								x[0] = vec4.one
+								x[0] = v41
 								ctx.drawRectv(xr+ox,y+dsc,w-ox-ox,v1,x)
 							}else if(g.tex){
 								v1[0] = g.tex

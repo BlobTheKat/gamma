@@ -3,24 +3,34 @@ Gamma.textfield = $ => {
 	const rem = e => (e.target._field._f |= 256, defer.then(e.target._field.recalc), e.target.remove(), curf = null)
 	const kd = e => {
 		const i = e.target, tf = i._field
-		if(e.keyCode == 38 || e.keyCode == 40){if(tf._f&2048){
-			if(tf.sel0 == tf.sel1){
-				let i = tf.sel0, i0 = i, idx = tf.sel0pos, j = idx
-				while(j) i -= tf.lines[--j].length
-				const x = tf.lines[idx].slice(0,i).width
-				if(e.keyCode == 38 && idx){
-					const pl = tf.lines[idx-1]
-					tf.sel0 = tf.sel1 = i0 - i - pl.length + pl.indexAt(x)
-				}else if(e.keyCode == 40 && idx < tf.lines.length-1){
-					tf.sel0 = tf.sel1 = i0 - i + tf.lines[idx].length + tf.lines[idx+1].indexAt(x)
-				}
-			}else if(e.keyCode == 38) tf.sel0=tf.sel1
-			else tf.sel1=tf.sel0
-		}}else if(e.keyCode == 9){if(f._f&1){
-			const s = i.selectionStart
-			i.value = i.value.slice(0,s) + '\t' + i.value.slice(i.selectionEnd)
-			i.selectionStart = i.selectionEnd = s + 1
-		}}else return
+		if(e.keyCode == 38 || e.keyCode == 40){
+			if((tf._f>>1&1)^e.shiftKey) e.keyCode == 38 ? tf.upArrowCb?.() : tf.downArrowCb?.()
+			else if(tf._f&2048){
+				if(tf.sel0 == tf.sel1){
+					let i = tf.sel0, i0 = i, idx = tf.sel0pos, j = idx
+					while(j) i -= tf.lines[--j].length
+					const x = tf.lines[idx].slice(0,i).width
+					if(e.keyCode == 38 && idx){
+						const pl = tf.lines[idx-1]
+						tf.sel0 = tf.sel1 = i0 - i - pl.length + pl.indexAt(x)
+					}else if(e.keyCode == 40 && idx < tf.lines.length-1){
+						tf.sel0 = tf.sel1 = i0 - i + tf.lines[idx].length + tf.lines[idx+1].indexAt(x)
+					}
+				}else if(e.keyCode == 38) tf.sel0=tf.sel1
+				else tf.sel1=tf.sel0
+			}
+		}else if(e.keyCode == 13){
+			if((tf._f>>2&1)^e.shiftKey) tf.enterCb?.()
+			else return
+		}else if(e.keyCode == 9){
+			if((tf._f>>3&1)^e.shiftKey) tf.tabCb?.()
+			else if(tf._f&1){
+				const s = i.selectionStart
+				i.value = i.value.slice(0,s) + '\t' + i.value.slice(i.selectionEnd)
+				i.selectionStart = i.selectionEnd = s + 1
+				tf._f |= 256; defer.then(tf.recalc)
+			}
+		}else return
 		e.preventDefault()
 	}
 	const cri = (typ, o) => {
@@ -34,16 +44,28 @@ Gamma.textfield = $ => {
 		document.documentElement.append(i)
 		return i
 	}
-	let curf = null
+	const v41 = $.vec4.one
+	let curf = null, ltf = 0
 	const defaultSr = (p2, field) => p2.insertLinePass(-1, 0, 1, field.focus ? vec4(0,.2,.4,.6) : vec4(.2,.2,.2,.6))
 	const defaultCr = (ctx, font) => {
 		ctx.shader = null
-		ctx.drawRect(0, font.ascend-1, .05, 1, vec4(t%1<.5))
+		if(($.t-ltf)%1<.5) ctx.drawRect(0, font.ascend-1, .05, 1, v41)
 	}
+	$.blinkTimer = () => $.t-ltf
 	class _txtfield{
 		_f=0; #s=0; #e=0
 		get allowTabs(){return(this._f&1)!=0}
 		set allowTabs(a){this._f=this._f&-2|a&1}
+		get shiftArrows(){return(this._f&2)!=0}
+		set shiftArrows(a){this._f=this._f&-3|-a&2}
+		get shiftEnter(){return(this._f&4)!=0}
+		set shiftEnter(a){this._f=this._f&-5|-a&4}
+		get shiftTab(){return(this._f&8)!=0}
+		set shiftTab(a){this._f=this._f&-9|-a&8}
+		upArrowCb = null
+		downArrowCb = null
+		enterCb = null
+		tabCb = null
 		#i
 		constructor(t){this.#i=cri(t?'textarea':'input', this);this._f=t}
 		get value(){return this.#i.value}
@@ -114,6 +136,7 @@ Gamma.textfield = $ => {
 			const s = i.selectionStart, e = i.selectionEnd
 			if(!(f&256)&&this.#s==s&&this.#e==e) return
 			this._f = f&-257; this.#s = s; this.#e = e
+			ltf = $.t
 			const v = i.value
 			const p = this.#tr?.(v, this) ?? $.RichText()
 			if(s == e){
@@ -164,6 +187,7 @@ Gamma.textfield = $ => {
 				else if(curf != this.#i) curf.replaceWith(curf = this.#i)
 				else return
 				curf.focus()
+				ltf = $.t
 				this._f |= 256; defer.then(this.recalc)
 			}else if(curf == this.#i) curf.remove(), curf = null
 		}

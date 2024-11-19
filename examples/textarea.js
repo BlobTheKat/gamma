@@ -5,7 +5,8 @@ const input = TextField(true)
 input.simpleTransformer(font, 'Write some text...')
 input.maxWidth = 10
 input.focus = true
-globalThis.input = input
+input.allowTabs = true
+input.enterCb = () => console.log(input.value)
 
 Shader.AA_CIRCLE ??= Shader(`
 void main(){
