@@ -195,6 +195,14 @@ if(!('remove'in[]))Object.defineProperty(Array.prototype,'remove',{value(a){
 	return i
 },enumerable:false,configurable:true})
 {let _keys=null,_dcbs=null
+const overrides = {__proto__: null,
+	ContextMenu: 93, Help: 26, Semicolon: 186, Quote: 222, BracketLeft: 219, BracketRight: 221,
+	Backquote: 192, Backslash: 220, Minus: 189, EQUAL: 187, IntlRo: 193, IntlYen: 255, MetaLeft: 91,
+	MetaRight: 91, PrintScreen: 44, ScrollLock: 145, Pause: 19, F13: 124, F14: 125, F15: 126, F16: 127,
+	F17: 128, F18: 129, F19: 130, F20: 131, F21: 132, F22: 133, F23: 134, F24: 135, NumLock: 144,
+	Clear: 10, NumpadComma: 110, NumpadDecimal: 110, Numpad0: 96, Numpad1: 97, Numpad2: 98, Numpad3: 99,
+	Numpad4: 100, Numpad5: 101, Numpad6: 102, Numpad7: 103, Numpad8: 104, Numpad9: 105
+}
 Gamma.input = ($, T = $.canvas) => {
 	const keys = $.keys = new BitField()
 	$.MOUSE = Object.freeze({ LEFT: 0, RIGHT: 2, MIDDLE: 1, BACK: 3, FORWARD: 4 })
@@ -202,21 +210,24 @@ Gamma.input = ($, T = $.canvas) => {
 		A: 65, B: 66, C: 67, D: 68, E: 69, F: 70, G: 71, H: 72, I: 73, J: 74, K: 75, L: 76, M: 77,
 		N: 78, O: 79, P: 80, Q: 81, R: 82, S: 83, T: 84, U: 85, V: 86, W: 87, X: 88, Y: 89, Z: 90,
 		NUM_0: 48, NUM_1: 49, NUM_2: 50, NUM_3: 51, NUM_4: 52, NUM_5: 53, NUM_6: 54, NUM_7: 55,
-		NUM_8: 56, NUM_9: 57, SPACE: 32, SECTION: 192, BACKTICK: 223, TAB: 9, BACK: 8, ENTER: 13,
+		NUM_8: 56, NUM_9: 57, SPACE: 32, BACKTICK: 192, TAB: 9, BACK: 8, ENTER: 13,
 		SHIFT: 16, CTRL: 17, ALT: 18, ESC: 27, META: 91, METARIGHT: 93, CAPSLOCK: 20, UP: 38,
 		RIGHT: 39, DOWN: 40, LEFT: 37, MOD: navigator.platform.startsWith('Mac') ? 91 : 17, F1: 112,
 		F2: 113, F3: 114, F4: 115, F5: 116, F6: 117, F7: 118, F8: 119, F9: 120, F10: 121, F11: 122,
-		F12: 123, MINUS: 189, PLUS: 187, OPENBR: 219, CLOSEBR: 221, SEMICOLON: 186, APOS_HASH: 222,
-		BACKSLASH: 220, COMMA: 188, DOT: 190, SLASH: 191, PAUSE: 19, CLEAR: 12, HOME: 36, END: 35,
+		F12: 123, MINUS: 189, EQUAL: 187, BR_LEFT: 219, BR_RIGHT: 221, SEMICOLON: 186, APOS: 222,
+		BACKSLASH: 220, COMMA: 188, DOT: 190, SLASH: 191, PAUSE: 19, PAD_ENTER: 12, CLEAR: 10, HOME: 36, END: 35,
 		PAGE_UP: 33, PAGE_DOWN: 34, INS: 45, DEL: 46, CTX_MENU: 93, PAD_0: 96, PAD_1: 97, PAD_2: 98,
-		PAD_3: 99, PAD_4: 100, PAD_5: 101, PAD_6: 102, PAD_7: 103, PAD_8: 104, PAD_9: 105, AT: 192,
+		PAD_3: 99, PAD_4: 100, PAD_5: 101, PAD_6: 102, PAD_7: 103, PAD_8: 104, PAD_9: 105,
 		PAD_DIV: 111, PAD_MULT: 106, PAD_SUB: 109, PAD_ADD: 107, PAD_DOT: 110, NUM_LOCK: 144,
-		SCROLL_LOCK: 145,
+		SCROLL_LOCK: 145, HELP: 26, RO: 193, YEN: 255, SYSRQ: 44, PRINT_SCREEN: 44
 	})
+	$.REPEAT = 256
 	$.GAMEPAD = Object.freeze({ A: 256, B: 257, X: 258, Y: 259, LB: 260, RB: 261, LT: 262, RT: 263, UP: 268, DOWN: 269, LEFT: 270, RIGHT: 271, MENU: 300 })
 	$.cursor = $.vec2(.5)
+	$.cursorDelta = $.vec2()
 	$.mouse = $.vec2(.5)
 	$.wheel = $.vec2()
+	$.scrollDelta = $.vec2()
 	const dcbs = new Map
 	;($.onKey = (key, fn) => {
 		if(Array.isArray(key)){for(const k of key) $.onKey(k,fn);return}
@@ -274,8 +285,10 @@ Gamma.input = ($, T = $.canvas) => {
 	T.addEventListener('contextmenu', e => e.preventDefault())
 	T.addEventListener('wheel', e => {
 		e.preventDefault()
-		wheel.x += e.deltaX; wheel.y += e.deltaY
-		for(const f of wcb) f(e.deltaX, e.deltaY)
+		wheel.x += e.wheelDeltaX; wheel.y += e.wheelDeltaY
+		scrollDelta.x += e.wheelDeltaX / innerWidth
+		scrollDelta.y += e.wheelDeltaY / innerHeight
+		for(const f of wcb) f(e.wheelDeltaX, e.wheelDeltaY)
 	}, {passive: false})
 	T.addEventListener('mousemove', e => {
 		e.preventDefault()
@@ -287,10 +300,9 @@ Gamma.input = ($, T = $.canvas) => {
 const doc = document
 doc.addEventListener('keydown', e => {
 	if(!_keys) return
-	const i = doc.activeElement
-	if(i == doc.body || !i) e.preventDefault()
+	if(doc.activeElement == doc.body || !doc.activeElement) e.preventDefault()
 	if(e.repeat) return
-	const n = e.keyCode
+	const n = overrides[e.code] ?? e.keyCode
 	_keys.set(n)
 	const a = _dcbs.get(n)
 	if(a) for(const f of a)try{f(n)}catch(e){Promise.reject(e)}
@@ -298,7 +310,7 @@ doc.addEventListener('keydown', e => {
 doc.addEventListener('keyup', e => {
 	if(!_keys) return
 	if(doc.activeElement == doc.body || !doc.activeElement) e.preventDefault()
-	const n = e.keyCode
+	const n = overrides[e.code] ?? e.keyCode
 	if(!_keys.pop(n)) return
 	const a = _dcbs.get(~n)
 	if(a) for(const f of a)try{f(n)}catch(e){Promise.reject(e)}

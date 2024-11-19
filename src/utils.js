@@ -43,8 +43,63 @@ Number.prototype.toHex = function(){return h[this>>>28]+h[this>>24&15]+h[this>>2
 Number.formatData = bytes => bytes < 512 ? bytes.toFixed(0)+'B' : bytes < 524288 ? (bytes/1024).toFixed(1)+'KiB' : bytes < 536870912 ? (bytes/1048576).toFixed(1)+'MiB' : bytes < 549755813888 ? (bytes/1073741824).toFixed(1)+'GiB' : (bytes/1099511627776).toFixed(1)+'TiB'
 Date.safestamp = (d = new Date()) => `${d.getYear()+1900}-${('0'+d.getMonth()).slice(-2)}-${('0'+d.getDate()).slice(-2)}-at-${('0'+d.getHours()).slice(-2)}-${('0'+d.getMinutes()).slice(-2)}-${('0'+d.getSeconds()).slice(-2)}`
 
-Gamma.capture = $ => {
+Gamma.utils = $ => {
 	$.screenshot = (t='image/png',q) => new Promise(r => requestAnimationFrame(() => gl.canvas.toBlob(r, t, q)))
+	class _scrollable{
+		x = 0; y = 0
+		sensitivity = .5
+		constructor(c,w,h){this.contents=c;this.width=w;this.height=h}
+		scrollBarX = dfs
+		scrollBarY = dfs
+		get scrollbar(){return this.scrollBarY}
+		set scrollbar(a){this.scrollBarX = this.scrollBarY = a}
+		consumeInputs(ctx){
+			const {x: wx, y: wy} = ctx.fromDelta(scrollDelta), s = this.sensitivity
+			scrollDelta.x = scrollDelta.y = 0
+			const w = this.contents.width, h = this.contents.height
+			this.x = this.width > 0 ? max(0, min(this.x + wx*s, w-this.width)) : min(0, max(this.x + wx*s, -w-this.width))
+			this.y = this.height > 0 ? max(0, min(this.y + wy*s, h-this.height)) : min(0, max(this.y + wy*s, -h-this.height))
+			wheel.x = wheel.y = 0
+			const c = this.contents
+			if(!c) return
+			ctx = ctx.sub()
+			ctx.translate((c.xOffset??0)-this.x, (c.yOffset??0)-this.y)
+			c.consumeInputs?.(ctx)
+		}
+		draw(ctx, ...v){
+			const c = this.contents
+			if(!c?.draw) return
+			const m = ctx.mask
+			const ct2 = ctx.sub()
+			ct2.mask = 128 // SET
+			ct2.drawRect(0, 0, this.width, this.height)
+			ct2.mask = m&15|16 // RGBA | IF_SET
+			ct2.translate((c.xOffset??0)-this.x, (c.yOffset??0)-this.y)
+			this.contents.draw(ct2, ...v)
+			ctx.clearStencil()
+			if(this.scrollBarX && this.height){
+				const ct2 = ctx.sub()
+				ct2.translate(0, this.height)
+				if(this.height > 0) ct2.scale(1, -1)
+				const w = abs(this.width), w1 = w / c.width
+				if(w1 < 1) this.scrollBarX(ct2, abs(this.x) * w1, w * w1)
+			}
+			if(this.scrollBarY && this.width){
+				const ct2 = ctx.sub()
+				ct2.translate(this.width, 0)
+				ct2.multiply(0, 1)
+				if(this.width > 0) ct2.scale(1, -1)
+				const h = abs(this.height), h1 = h / c.height
+				if(h1 < 1) this.scrollBarY(ct2, abs(this.y) * h1, h * h1)
+			}
+		}
+	}
+	$.Scrollable = (c, w=1, h=-1) => new _scrollable(c, +w, +h)
+	const v4p2 = $.vec4(.2)
+	const dfs = $.Scrollable.defaultScrollbar = (ctx, x0, w) => {
+		ctx.shader = null
+		ctx.drawRect(x0, 0, w, .1, v4p2)
+	}
 }
 const a = document.createElement('a')
 globalThis.download = (file, name = file.name ?? (file.type[0]=='@' ? 'file' : file.type.split('/',1)[0])) => {

@@ -6,6 +6,7 @@ input.simpleTransformer(font, 'Write some text...')
 input.maxWidth = 10
 input.focus = true
 input.allowTabs = true
+const scr = Scrollable(input, 10, -3)
 input.enterCb = () => console.log(input.value)
 
 Shader.AA_CIRCLE ??= Shader(`
@@ -19,15 +20,15 @@ let cx = 0, cxi = 0, zoom = 50, zoomi = 50
 render = () => {
 	ctx.reset(pixelRatio/ctx.width, 0, 0, pixelRatio/ctx.height, .5, .5)
 	ctx.scale(zoomi)
-	zoom *= .995**wheel.y; wheel.y = 0
+	if(keys.has(KEY.CTRL)) zoom *= .995**wheel.y, wheel.y = 0
 	zoomi *= (zoom/zoomi)**(dt*10)
 	cxi += (cx-cxi)*(dt*5)
 	input.multiline ? ctx.translate(0,cxi) : ctx.translate(-cxi,0)
-	if(!input.isSelecting) cx = (input.sel0pos + input.sel1pos) * (input.multiline ? .5*input.lineHeight : .5)
+	if(!input.isSelecting) cx = 0//(input.sel0pos + input.sel1pos) * (input.multiline ? .5*input.lineHeight : .5) + scr.y
 	const c = ctx.from(cursor)
 	//if(input.isSelecting || c.x > -.5 && c.x < input.width + .5 && c.y > -.5 && c.y < 1)
-		input.consumeInputs(ctx, c)
-	input.draw(ctx.sub())
+		scr.consumeInputs(ctx, c)
+	scr.draw(ctx)
 	ctx.shader = Shader.AA_CIRCLE
 	// Epic insane invert blend I can't believe I didn't think of (actually, I did, https://github.com/open-mc/client/blob/c7ada127502698363a75a0f51a728739d1c50746/core/pointer.js#L132)
 	// OpenGL may not have a perfect difference blend but this is near perfect

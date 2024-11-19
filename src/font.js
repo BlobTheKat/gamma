@@ -473,10 +473,10 @@ msdf.oldfv = 0
 			}
 			return st
 		}
-		trim(i=0){
+		trim(i=Infinity){
 			const q = this.#q
 			if(i<0) (i+=q.#len)<0&&(i=0)
-			if(i>=q.#len) return
+			if(i>q.#len) return
 			let idx = 0
 			q.#_f = null; q.#_sh = msdf; q.#_sc = 1; q.#_st = 1; q.#_yo = 0
 			q.#_sk = 0; q.#_lsb = 0; q.#_m = -1; q.#_arc = 0; q.#_v = E1
@@ -496,10 +496,9 @@ msdf.oldfv = 0
 							case LSB: q.#_lsb = v; break
 							case ARC: q.#_arc = v; break
 						}
-					}else if(typeof s == 'string'){ idx--; break }
+					}else if(typeof s == 'string' || typeof s == 'function'){ idx--; break }
 					else if(Array.isArray(s)) q.#_v = s
-					else if(typeof s == 'object') q.#_f = s
-					else break
+					else q.#_f = s
 				}
 			}else while(i > 0 && idx < q.length){
 				const s = q[idx++]
