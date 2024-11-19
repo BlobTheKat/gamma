@@ -351,9 +351,9 @@ msdf.oldfv = 0
 		get values(){ return this.#v }
 		set values(a){ this.#v = a?.length ? a : null; this.#q.#l==this&&(this.#q.#l=null) }
 
-		drawOnly(){this.#q.push(this.#q._m = RONLY)}
-		indexOnly(){this.#q.push(this.#q._m = IONLY)}
-		drawAndIndex(){this.#q.push(this.#q._m = RONLY|IONLY)}
+		drawOnly(){this.#q.push(this.#q.#_m = RONLY)}
+		indexOnly(){this.#q.push(this.#q.#_m = IONLY)}
+		drawAndIndex(){this.#q.push(this.#q.#_m = RONLY|IONLY)}
 		advance(gap = 0){
 			const q = this.#q
 			if(q.l!=this) this.#setv(q)
@@ -388,7 +388,7 @@ msdf.oldfv = 0
 			q2.#w = q.#w
 			return s
 		}
-		slice(i=0, j=this.#q.#len){
+		slice(i=0, j=Infinity){
 			const q = this.#q, q2 = new itxtstream()
 			if(i<0) (i+=q.#len)<0&&(i=0)
 			if(j<0) (j+=q.#len)<0&&(j=0)
@@ -639,6 +639,7 @@ msdf.oldfv = 0
 			q.#w=NaN
 		}
 		addCb(fn, w=NaN){
+			if(typeof fn != 'function') return
 			const q=this.#q
 			if(q.#l!=this) this.#setv(q)
 			w==w?q.push(fn,ADV,w):q.push(fn)
@@ -930,8 +931,8 @@ msdf.oldfv = 0
 					w = _w
 					const q3 = new itxtstream(), s3 = new txtstream(q3), q2l = q2.length
 					s3.#sh = sh; s3.#sc = sc; s3.#yo = yo; s3.#st = st
-					s3.#sk = sk; s3.#lsb = lsb; s3.#f = f; s3.#v = v;
-					s3.#arc = arc; q3.#_m = m
+					s3.#sk = sk; s3.#lsb = lsb; s3.#f = f; s3.#v = v
+					s3.#arc = arc; q3.#_m = m;// q2.#flags=1
 					let idx = i0 += !!i1
 					const appnd = ty != 4 && ty != 5
 					if(i1){

@@ -289,14 +289,6 @@ doc.addEventListener('keydown', e => {
 	if(!_keys) return
 	const i = doc.activeElement
 	if(i == doc.body || !i) e.preventDefault()
-	else if(e.keyCode == 9){
-		if(i._field._f&1){
-			const s = i.selectionStart
-			i.value = i.value.slice(0,s)+'\t'+i.value.slice(i.selectionEnd)
-			i.selectionStart=i.selectionEnd=s+1
-		}
-		e.preventDefault()
-	}
 	if(e.repeat) return
 	const n = e.keyCode
 	_keys.set(n)

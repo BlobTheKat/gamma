@@ -1,11 +1,34 @@
 {const defer = Promise.resolve()
 Gamma.textfield = $ => {
-	const rem = e => (e.target._field._f|=256,defer.then(e.target._field.recalc),e.target.remove(),curf=null)
+	const rem = e => (e.target._field._f |= 256, defer.then(e.target._field.recalc), e.target.remove(), curf = null)
+	const kd = e => {
+		const i = e.target, tf = i._field
+		if(e.keyCode == 38 || e.keyCode == 40){if(tf._f&2048){
+			if(tf.sel0 == tf.sel1){
+				let i = tf.sel0, i0 = i, idx = tf.sel0pos, j = idx
+				while(j) i -= tf.lines[--j].length
+				const x = tf.lines[idx].slice(0,i).width
+				if(e.keyCode == 38 && idx){
+					const pl = tf.lines[idx-1]
+					tf.sel0 = tf.sel1 = i0 - i - pl.length + pl.indexAt(x)
+				}else if(e.keyCode == 40 && idx < tf.lines.length-1){
+					tf.sel0 = tf.sel1 = i0 - i + tf.lines[idx].length + tf.lines[idx+1].indexAt(x)
+				}
+			}else if(e.keyCode == 38) tf.sel0=tf.sel1
+			else tf.sel1=tf.sel0
+		}}else if(e.keyCode == 9){if(f._f&1){
+			const s = i.selectionStart
+			i.value = i.value.slice(0,s) + '\t' + i.value.slice(i.selectionEnd)
+			i.selectionStart = i.selectionEnd = s + 1
+		}}else return
+		e.preventDefault()
+	}
 	const cri = (typ, o) => {
 		const i = document.createElement(typ)
 		// Chrome requires 1px size in order for some features such as copy-paste to work
 		i.style = `width:1px;height:1px;border:0;padding:0;opacity:0;position:absolute;inset:-100px;font-size:1px;font-family:monospace;white-space:nowrap`
 		i.onblur = rem
+		i.onkeydown = kd
 		i.tabIndex = -1
 		i._field = o
 		document.documentElement.append(i)
@@ -24,11 +47,11 @@ Gamma.textfield = $ => {
 		#i
 		constructor(t){this.#i=cri(t?'textarea':'input', this);this._f=t}
 		get value(){return this.#i.value}
-		set value(a){this.#i.value=a;this._f|=256;defer.then(this.recalc)}
+		set value(a){this.#i.value=a;this._f|=256,defer.then(this.recalc)}
 		get sel0(){return this.#s}
-		set sel0(a){this.#i.selectionStart=this.#s=a;this._f|=256;defer.then(this.recalc)}
+		set sel0(a){this.#i.selectionStart=this.#s=a;this._f|=256,defer.then(this.recalc)}
 		get sel1(){return this.#e}
-		set sel1(a){this.#i.selectionEnd=this.#e=a;this._f|=256;defer.then(this.recalc)}
+		set sel1(a){this.#i.selectionEnd=this.#e=a;this._f|=256,defer.then(this.recalc)}
 		#tr=null
 		get transformer(){return this.#tr}
 		set transformer(a){this.#tr!=(this.#tr=a)&&(this._f|=256,defer.then(this.recalc))}
@@ -41,6 +64,7 @@ Gamma.textfield = $ => {
 				if(value) p.add(value)
 				else{
 					p.setValues(0, ...w)
+					p.add('\0')
 					p.drawOnly()
 					p.add(placeholder)
 				}
@@ -57,6 +81,25 @@ Gamma.textfield = $ => {
 		get sel0pos(){return this.#sw}
 		get sel1pos(){return this.#ew}
 		get multiline(){return(this._f&2048)!=0}
+		set multiline(a=true){
+			const i = this.#i, v = i.value, f = document.activeElement == i
+			if(a){
+				if(this._f&2048) return
+				this.#p = null
+				this._f|=2304
+				this.#i = cri('textarea', this)
+			}else{
+				if(!(this._f&2048)) return
+				this.#pa = null
+				this._f=this._f&-2049|256
+				this.#i = cri('input', this)
+			}
+			if(f) this.focus = true
+			else i.remove(), curf == i && (curf = null), defer.then(this.recalc)
+			this.#i.value = v
+			this.#i.selectionStart = this.#s
+			this.#i.selectionEnd = this.#e
+		}
 		get width(){return this.#w}
 		get line(){return this.#p}
 		get lines(){return this.#pa}
@@ -67,23 +110,23 @@ Gamma.textfield = $ => {
 		get maxWidth(){return this.#mw}
 		set maxWidth(a){this.#mw!=(this.#mw=a)&&(this._f|=256,defer.then(this.recalc))}
 		recalc = () => {
-			const i = this.#i
+			const i = this.#i, f = this._f
 			const s = i.selectionStart, e = i.selectionEnd
-			if(!(this._f&256)&&this.#s==s&&this.#e==e) return
-			this._f &= -257; this.#s = s; this.#e = e
+			if(!(f&256)&&this.#s==s&&this.#e==e) return
+			this._f = f&-257; this.#s = s; this.#e = e
 			const v = i.value
 			const p = this.#tr?.(v, this) ?? $.RichText()
 			if(s == e){
 				const p2 = p.slice(s)
 				p.trim(s)
-				if(!(this._f&2048)) this.#sw = this.#ew = p.width
+				if(!(f&2048)) this.#sw = this.#ew = p.width
 				this.#cr&&document.activeElement==this.#i&&p.addCb(this.#cr)
 				p.concat(p2)
 			}else{
 				const p2 = p.slice(s), p3 = p2.slice(e-s)
 				p2.trim(e-s)
 				p.trim(s)
-				if(this._f&2048){
+				if(f&2048){
 					this.#sr?.(p2, this)
 					p.concat(p2)
 				}else{
@@ -94,15 +137,15 @@ Gamma.textfield = $ => {
 				}
 				p.concat(p3)
 			}
-			if(this._f&2048){
+			if(f&2048){
 				const pa = this.#pa = p.break(this.#mw)
 				let i = s, l = 0
-				while(i > 0 && l < pa.length){
+				while(l < pa.length && i >= 0){
 					i -= pa[l++].length
 				}
 				i = e - s + i + (l ? pa[--l].length : 0)
 				this.#sw = l
-				while(i > 0 && l < pa.length){
+				while(l < pa.length && i >= 0){
 					i -= pa[l++].length
 				}
 				this.#ew = l?l-1:0
@@ -139,7 +182,7 @@ Gamma.textfield = $ => {
 			const sel = this._f>>9&3
 			let j = 0
 			if(this.#p) j = this.#p.indexAt(x)
-			else{
+			else if(this.#pa){
 				let i = floor(y/this.lineHeight)
 				i = i<0?0:i>=this.#pa.length?this.#pa.length-1:i
 				j = this.#pa[i].indexAt(x)

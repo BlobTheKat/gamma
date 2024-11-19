@@ -3,7 +3,7 @@ font.ascend = .8 // default ascend value sucks
 
 const input = TextField(true)
 input.simpleTransformer(font, 'Write some text...')
-input.maxWidth = 5
+input.maxWidth = 10
 input.focus = true
 globalThis.input = input
 
@@ -21,8 +21,8 @@ render = () => {
 	zoom *= .995**wheel.y; wheel.y = 0
 	zoomi *= (zoom/zoomi)**(dt*10)
 	cxi += (cx-cxi)*(dt*5)
-	ctx.translate(0,cxi)
-	if(!input.isSelecting) cx = (input.sel0pos + input.sel1pos) * .5 * input.lineHeight
+	input.multiline ? ctx.translate(0,cxi) : ctx.translate(-cxi,0)
+	if(!input.isSelecting) cx = (input.sel0pos + input.sel1pos) * (input.multiline ? .5*input.lineHeight : .5)
 	const c = ctx.from(cursor)
 	//if(input.isSelecting || c.x > -.5 && c.x < input.width + .5 && c.y > -.5 && c.y < 1)
 		input.consumeInputs(ctx, c)
