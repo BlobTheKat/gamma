@@ -388,15 +388,15 @@ class can{
 		if(typeof x=='object'){y=x.y;x=x.x}
 		const a=this.#a,b=this.#b,c=this.#c,d=this.#d, det = a*d-b*c
 		return new V(
-			(x*d - x*c + c*this.#f - d*this.#e)/det,
-			(y*a - y*b + b*this.#e - a*this.#f)/det
+			(x*(d - c) + c*this.#f - d*this.#e)/det,
+			(y*(a - b) + b*this.#e - a*this.#f)/det
 		)
 	}
 	toDelta(dx=0, dy=0){ if(typeof dx=='object'){dy=dx.y;dx=dx.x} return new V(this.#a*dx+this.#c*dy,this.#b*dx+this.#d*dy)}
 	fromDelta(dx=0, dy=0){
 		if(typeof dx=='object'){dy=dx.y;dx=dx.x}
 		const a=this.#a,b=this.#b,c=this.#c,d=this.#d, det = a*d-b*c
-		return new V((dx*d-dx*c)/det, (dy*a-dy*b)/det)
+		return new V(dx*(d-c)/det, dy*(a-b)/det)
 	}
 	determinant(){return this.#a*this.#d-this.#b*this.#c}
 	pixelRatio(){return sqrt((this.#a*this.#d-this.#b*this.#c)*this.t.w*this.t.h)}
