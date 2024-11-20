@@ -108,7 +108,7 @@ globalThis.download = (file, name = file.name ?? (file.type[0]=='@' ? 'file' : f
 	a.click()
 	URL.revokeObjectURL(a.href)
 }
-globalThis.fork = (w=0,h=0,x=NaN,y=NaN) => new Promise(r => {
+/*globalThis.fork = (w=0,h=0,x=NaN,y=NaN) => new Promise(r => {
 	const n = open(location, '', 'popup,top=0,left=0,width='+ +w+',height='+ +h+(x==x?',top='+ +x:'')+(y==y?',top='+ +y:''))
 	n ? n.onload = r.bind(undefined,n) : c()
-})}
+})*/}

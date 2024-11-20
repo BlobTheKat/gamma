@@ -134,7 +134,6 @@ Gamma.textfield = $ => {
 			const f = this._f
 			if(!(f&256)) return
 			const i = this.#i, s = this.#s, e = this.#e
-			globalThis.i=this
 			this._f = f&-257; ltf = $.t
 			const v = i.value
 			const p = this.#tr?.(v, this) ?? $.RichText()
