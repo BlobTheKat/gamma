@@ -2,7 +2,7 @@ Shader.AA_CIRCLE ??= Shader(`
 void main(){
 	float dist = 0.5 - length(uv - 0.5);
 
-	// Make [0, 1] the covered by one pixel
+	// Make [0, 1] the range covered by one pixel
 	float alpha = clamp(dist/fwidth(dist) + 0.5, 0.0, 1.0);
 
 	color = arg0() * alpha;

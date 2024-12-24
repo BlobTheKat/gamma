@@ -1,7 +1,7 @@
 {Math.randint ??= () => Math.random() * 4294967296 | 0
 Math.PI2 ??= Math.PI*2
 const $ = globalThis
-if(!('setImmediate'in $)){let i=0,m=new MessageChannel,c=new Map;m.port1.onmessage=({data:i},j=c.get(i))=>(c.delete(i)&&j());m=m.port2;$.setImmediate=(f,...a)=>(c.set(++i,a.length?f.bind(undefined,...a):f),m.postMessage(i),i);$.clearImmediate=i=>c.delete(i)}
+if(!('setImmediate'in $)){let i=0,m=new MessageChannel(),c=new Map();m.port1.onmessage=({data:i},j=c.get(i))=>(c.delete(i)&&j());m=m.port2;$.setImmediate=(f,...a)=>(c.set(++i,a.length?f.bind(undefined,...a):f),m.postMessage(i),i);$.clearImmediate=i=>c.delete(i)}
 if(!('sin'in $))Object.defineProperties($,Object.getOwnPropertyDescriptors(Math))
 const ibo = {imageOrientation: 'flipY', premultiplyAlpha: 'none'}
 const resolveData = (a, cb, err) => typeof a == 'string' ? fetch(a).then(a=>a.blob()).then(a=>createImageBitmap(a, ibo)).then(cb, err) : a instanceof Blob ? createImageBitmap(a, ibo).then(cb, err) : a instanceof ImageBitmap ? cb(a) : (err??Promise.reject)(new TypeError('Invalid src'))
@@ -16,6 +16,8 @@ gl.enable(3042) // blend
 gl.disable(3024) // dither
 gl.pixelStorei(3317, 1)
 gl.pixelStorei(3333, 1)
+const pbo = gl.createBuffer()
+gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, pbo)
 let pma = 1
 class img{
 	get format(){return this.t.f}
@@ -81,8 +83,10 @@ class img{
 			img.setOptions(t)
 			gl.texStorage3D(35866, t.m||1, t.f[0], t.w=w, t.h=h, t.d=loaded)
 			if(!pma) gl.pixelStorei(37440,1),gl.pixelStorei(37441,pma=1)
+			gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, null)
 			for(let l = 0; l < loaded; l++)
 				gl.texSubImage3D(35866, 0, 0, 0, l, w, h, 1, t.f[1], t.f[2], src[l])
+			gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, pbo)
 			if(t.m) gl.generateMipmap(35866)
 			if(t.i<0) gl.bindTexture(35866, null)
 			const l = t.src; t.src = null
@@ -94,7 +98,9 @@ class img{
 		if(!(tex instanceof img)) return resolveData(tex, i => {
 			img.fakeBind(t)
 			if(!pma) gl.pixelStorei(37440,1),gl.pixelStorei(37441,pma=1)
+			gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, null)
 			gl.texSubImage3D(35866, 0, x, y, l, i.width, i.height, 1, t.f[1], t.f[2], i)
+			gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, pbo)
 			if(t.i<0) gl.bindTexture(35866, null)
 			return this
 		})
@@ -111,7 +117,7 @@ class img{
 			gl.copyTexSubImage3D(35866, 0, x, y, l++, srcX, srcY, srcW, srcH)
 		}
 		if(t.i<0) gl.bindTexture(35866, null)
-		if(!ca.img||!i) gl.bindFramebuffer(36160,null), ca=ctx.t, fbLayer=srcL-1,fbTex=t2.tex, fbSte = null
+		if(!ca.img||!i) gl.bindFramebuffer(36160,null), ca=ctx.t, fbLayer=srcL-1,fbTex=t2.tex, fbSte = null, gl.viewport(0,0,ca.w,ca.h)
 		else gl.framebufferTextureLayer(36160,36064,fbTex,0,fbLayer), fbSte&&gl.framebufferRenderbuffer(36160,36128,36161,fbSte)
 		return this
 	}
@@ -120,7 +126,8 @@ class img{
 		w = w||t.w; h = h||t.h; d = d||t.d
 		img.fakeBind(t)
 		if(pma) gl.pixelStorei(37440,0),gl.pixelStorei(37441,pma=0)
-		gl.texSubImage3D(35866, 0, x, y, l, w, h, d, t.f[1], t.f[2], data)
+		gl.bufferData(gl.PIXEL_UNPACK_BUFFER, data, gl.STREAM_COPY)
+		gl.texSubImage3D(35866, 0, x, y, l, w, h, d, t.f[1], t.f[2], 0)
 		fd += data.byteLength*.25
 		if(t.i<0) gl.bindTexture(35866, null)
 	}
@@ -137,7 +144,7 @@ class img{
 			gl.readPixels(x, y, w, h, a, t.f[2], arr.subarray(S*l, S*(++l)))
 		}
 		if(t.i<0) gl.bindTexture(35866, null)
-		if(!ca.img||!i) gl.bindFramebuffer(36160,null), ca=ctx.t, fbLayer=l-1,fbTex=t.tex, fbSte = null
+		if(!ca.img||!i) gl.bindFramebuffer(36160,null), ca=ctx.t, fbLayer=l-1,fbTex=t.tex, fbSte = null, gl.viewport(0,0,ca.w,ca.h)
 		else gl.framebufferTextureLayer(36160,36064,fbTex,0,fbLayer), fbSte&&gl.framebufferRenderbuffer(36160,36128,36161,fbSte)
 		return arr
 	}
@@ -227,6 +234,8 @@ $.Texture = (w=0, h=0, d=0, o=0, f=Formats.RGBA, mips=0) => {
 	gl.bindTexture(35866, null)
 	return tx
 }
+$.Texture.MAX_WIDTH = $.Texture.MAX_HEIGHT = gl.getParameter(gl.MAX_TEXTURE_SIZE)
+$.Texture.MAX_LAYERS = gl.getParameter(gl.MAX_ARRAY_TEXTURE_LAYERS)
 $.Img = (src, o=0, fmt=Formats.RGBA, mips=0) => new img({tex:null,i:-1,f:fmt,o,src:src?Array.isArray(src)?src:[src]:[],w:0,h:0,d:0,m:mips})
 Object.assign($, {
 	UPSCALE_SMOOTH: 1, DOWNSCALE_SMOOTH: 2, MIPMAP_SMOOTH: 4, SMOOTH: 7, REPEAT_X: 8, REPEAT_MIRRORED_X: 16, REPEAT_Y: 32, REPEAT_MIRRORED_Y: 64, REPEAT: 40, REPEAT_MIRRORED: 80,
@@ -505,7 +514,7 @@ function setv(t,m){
 	let d = pmask^m
 	if(ca!=t){
 		i&&draw()
-		if(!t.img) gl.bindFramebuffer(36160,null),gl.viewport(0,0,gl.canvas.width,gl.canvas.height)
+		if(!t.img) gl.bindFramebuffer(36160,null),gl.viewport(0,0,t.w,t.h)
 		else{
 			if(!ca.img) gl.bindFramebuffer(36160,fb)
 			if(t.tex!=fbTex||t.layer!=fbLayer) gl.framebufferTextureLayer(36160,36064,fbTex=t.tex,0,fbLayer=t.layer)
@@ -721,8 +730,12 @@ T.NONE = T(`void main(){color=vec4(0,0,0,1);}`)
 gl.useProgram(sh.program)
 gl.bindVertexArray(sh.vao)
 $.flush = () => i&&draw()
-$.ctx = new can(ca={tex:gl.canvas,img:null,layer:0,stencil:0,stencilBuf:null,w:0,h:0})
-$.setSize = (w = 0, h = 0) => gl.viewport(0, 0, ctx.t.w = gl.canvas.width = w, ctx.t.h = gl.canvas.height = h)
+const ctx = $.ctx = new can(ca={tex:gl.canvas,img:null,layer:0,stencil:0,stencilBuf:null,w:0,h:0})
+$.setSize = (w = 0, h = 0) => {
+	ctx.t.w = gl.canvas.width = w
+	ctx.t.h = gl.canvas.height = h
+	if(ca.img) gl.viewport(0, 0, w, h)
+}
 let fencetail = null, fencehead = null
 const pendingFences = []
 $.wait=()=>{
@@ -766,7 +779,7 @@ $.loop = (pf = null) => {
 		if(gl.isContextLost?.()) return $.glLost?.(),$.glLost=fencetail=fencehead=null
 		i&&draw(); pf?.()
 		if($.ctxFramerate>=0) return
-		gl.bindFramebuffer(36160,null); ca=ctx.t
+		gl.bindFramebuffer(36160,null); ca=ctx.t; gl.viewport(0,0,ca.w,ca.h)
 		dt = max(.001, min(-($.t-($.t=performance.now()/1000)), .5))
 		$.frameDrawCalls = fdc; $.frameSprites = fs; $.frameData = fd*4+fdc*24; fdc = fs = fd = 0
 		ctx.reset(); try{$.render?.()}catch(e){Promise.reject(e)}; i&&draw()
@@ -775,5 +788,4 @@ $.loop = (pf = null) => {
 	return gl.canvas
 }
 return $}
-$.Gamma.bitmapOpts = ibo
-}
+$.Gamma.bitmapOpts = ibo}
