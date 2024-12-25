@@ -370,7 +370,7 @@ class can{
 		const t = this.t
 		if(!t.img||!i) return
 		t.img = i
-		if(ca==i.t) gl.framebufferTextureLayer(36160,36064,fbTex=i.t.tex,fbMip,fbLayer)
+		if(ca==t) ca=null
 	}
 	get hasStencil(){return !this.t.img||!!this.t.stencilBuf}
 	set hasStencil(s){
@@ -380,23 +380,23 @@ class can{
 			if(b) return
 			gl.bindRenderbuffer(36161, t.stencilBuf = b = gl.createRenderbuffer())
 			gl.renderbufferStorage(36161, 36168, t.w, t.h)
-			if(ca==t) gl.framebufferRenderbuffer(36160,36128,36161,fbSte=b)
+			if(ca==t) ca=null
 		}else{
 			if(!b) return
 			t.stencilBuf = null
 			gl.deleteRenderbuffer(b)
-			if(ca==t) gl.framebufferRenderbuffer(36160,36128,36161,fbSte=null)
+			if(ca==t) ca=null
 		}
 	}
 	get textureLayer(){return this.t.layer}
 	get textureMipmap(){return this.t.mip}
 	set textureLayer(l=0){
 		this.t.layer = l
-		if(ca==t) gl.framebufferTextureLayer(36160,36064,fbTex,fbMip,fbLayer=l)
+		if(ca==t) ca=null
 	}
 	set textureMipmap(m=0){
 		this.t.mip = m
-		if(ca==t) gl.framebufferTextureLayer(36160,36064,fbTex,fbMip=m,fbLayer)
+		if(ca==t) ca=null
 	}
 	constructor(t,a=1,b=0,c=0,d=1,e=0,f=0,m=290787599,s=$.Shader.DEFAULT,sp=defaultShape){this.t=t;this.#a=a;this.#b=b;this.#c=c;this.#d=d;this.#e=e;this.#f=f;this.#m=m;this.#shader=s;this.s=sp}
 	translate(x=0,y=0){ this.#e+=x*this.#a+y*this.#c;this.#f+=x*this.#b+y*this.#d }
