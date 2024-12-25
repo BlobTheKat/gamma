@@ -93,7 +93,7 @@ class img{
 			for(let i = 0; i < l.length; i+=3) l[i](l[i+2])
 		}, rj)
 	}
-	paste(tex, x=0, y=0, l=0, srcX=0, srcY=0, srcL=0, srcW=0, srcH=0, srcD=0){
+	paste(tex, x=0, y=0, l=0, srcX=0, srcY=0, srcL=0, srcW=0, srcH=0, srcD=0, srcMip=0, dstMip=0){
 		const {t}=this; if(t.src) return this
 		if(!(tex instanceof img)) return resolveData(tex, i => {
 			img.fakeBind(t)
@@ -105,47 +105,49 @@ class img{
 			return this
 		})
 		const {t:t2}=tex
-		if(!t2.d) return tex.#then(()=>this.paste(tex,x,y,l,srcX,srcY,srcL,srcW,srcH,srcD)), this
-		if(t2.src) return this
+		if(t2.src) return tex.#then(()=>this.paste(tex,x,y,l,srcX,srcY,srcL,srcW,srcH,srcD,srcMip,dstMip)), this
 		if(t.tex==t2.tex) return console.warn('cannot copy from texture to itself'), this
+		i&&draw()
 		img.fakeBind(t)
-		if(!ca.img) gl.bindFramebuffer(36160,fb)
+		if(ca==ctx.t) gl.bindFramebuffer(36160,fb)
 		if(fbSte) gl.framebufferRenderbuffer(36160,36128,36161,null)
 		srcW = srcW||t2.w; srcH = srcH||t2.h; srcD = srcD||t2.d
-		while(srcD--){
-			gl.framebufferTextureLayer(36160,36064, t2.tex, 0, srcL++)
-			gl.copyTexSubImage3D(35866, 0, x, y, l++, srcX, srcY, srcW, srcH)
+		if(srcD==1&&fbTex==t2.tex&&srcL==fbLayer&&srcMip==fbMip){
+			gl.copyTexSubImage3D(35866, dstMip, x, y, l, srcX, srcY, srcW, srcH)
+			if(fbSte) gl.framebufferRenderbuffer(36160,36128,36161,fbSte)
+		}else while(srcD--){
+			gl.framebufferTextureLayer(36160, 36064, t2.tex, srcMip, srcL++)
+			gl.copyTexSubImage3D(35866, dstMip, x, y, l++, srcX, srcY, srcW, srcH)
+			ca=null,fbLayer=srcL-1,fbMip=srcMip,fbTex=t2.tex,fbSte=null
 		}
 		if(t.i<0) gl.bindTexture(35866, null)
-		if(!ca.img||!i) gl.bindFramebuffer(36160,null), ca=ctx.t, fbLayer=srcL-1,fbTex=t2.tex, fbSte = null, gl.viewport(0,0,ca.w,ca.h)
-		else gl.framebufferTextureLayer(36160,36064,fbTex,0,fbLayer), fbSte&&gl.framebufferRenderbuffer(36160,36128,36161,fbSte)
 		return this
 	}
-	pasteData(data, x=0, y=0, l=0, w=0, h=0, d=0){
+	pasteData(data, x=0, y=0, l=0, w=0, h=0, d=0, mip=0){
 		const {t}=this; if(t.src) return null
 		w = w||t.w; h = h||t.h; d = d||t.d
 		img.fakeBind(t)
 		if(pma) gl.pixelStorei(37440,0),gl.pixelStorei(37441,pma=0)
 		gl.bufferData(gl.PIXEL_UNPACK_BUFFER, data, gl.STREAM_COPY)
-		gl.texSubImage3D(35866, 0, x, y, l, w, h, d, t.f[1], t.f[2], 0)
+		gl.texSubImage3D(35866, mip, x, y, l, w, h, d, t.f[1], t.f[2], 0)
 		fd += data.byteLength*.25
 		if(t.i<0) gl.bindTexture(35866, null)
 	}
-	readData(x=0, y=0, l=0, w=0, h=0, d=0, arr=null){
+	readData(x=0, y=0, l=0, w=0, h=0, d=0, arr=null,mip=0){
 		const {t}=this; if(t.src) return null
 		w = w||t.w; h = h||t.h; d = d||t.d
-		if(!ca.img) gl.bindFramebuffer(36160,fb)
+		i&&draw()
+		if(ca==ctx.t) gl.bindFramebuffer(36160,fb)
 		if(fbSte) gl.framebufferRenderbuffer(36160,36128,36161,null)
 		let a = t.f[0], S = (a==33323||a==33338||a==33340||a==33327||a==33328||a==33336?2:a==33321||a==33330||a==33332||a==33334||a==33325||a==33326?1:4)*w*h
 		a = S==1?6403:S==2?33319:6408
 		if(!arr || arr.length != S) arr = (t.f[2]==5121?new Uint8Array(S*d):t.f[2]==5126?new Float32Array(S*d):t.f[2]==5125||t.f[2]==35899||t.f[2]==33640||t.f[2]==35902?new Uint32Array(S*d):new Uint16Array(S*d))
 		while(d--){
-			gl.framebufferTextureLayer(36160,36064,t.tex,0,l)
+			gl.framebufferTextureLayer(36160,36064,t.tex,mip,l)
 			gl.readPixels(x, y, w, h, a, t.f[2], arr.subarray(S*l, S*(++l)))
 		}
 		if(t.i<0) gl.bindTexture(35866, null)
-		if(!ca.img||!i) gl.bindFramebuffer(36160,null), ca=ctx.t, fbLayer=l-1,fbTex=t.tex, fbSte = null, gl.viewport(0,0,ca.w,ca.h)
-		else gl.framebufferTextureLayer(36160,36064,fbTex,0,fbLayer), fbSte&&gl.framebufferRenderbuffer(36160,36128,36161,fbSte)
+		ca=null,fbLayer=l-1,fbMip=mip,fbTex=t.tex,fbSte=null
 		return arr
 	}
 	delete(){
@@ -207,16 +209,6 @@ class img{
 		gl.texParameterf(35866, 10243, o&32?10497:o&64?33648:33071)
 		if(t.i<0) gl.bindTexture(35866, null)
 	}
-	drawable(l=this.l,stencil=false){
-		const {t}=this
-		if(t.src) return null
-		let stencilBuf = null
-		if(stencil){
-			gl.bindRenderbuffer(36161, stencilBuf = gl.createRenderbuffer())
-			gl.renderbufferStorage(36161, 36168, t.w, t.h)
-		}
-		return new can({tex:t.tex,img:this,layer:l,stencil:0,stencilBuf,w:t.w,h:t.h})
-	}
 	genMipmaps(){
 		const {t}=this
 		if(!t.m) return
@@ -224,6 +216,16 @@ class img{
 		gl.generateMipmap(35866)
 		if(t.i<0) gl.bindTexture(35866, null)
 	}
+}
+$.Drawable=(img,l=img.l,m=0,s=false)=>{
+	const {t} = img
+	if(t.src) return null
+	let stencilBuf = null
+	if(s){
+		gl.bindRenderbuffer(36161, stencilBuf = gl.createRenderbuffer())
+		gl.renderbufferStorage(36161, 36168, t.w, t.h)
+	}
+	return new can({tex:t.tex,img,layer:l,stencil:0,mip:m,stencilBuf,w:t.w,h:t.h})
 }
 let arr = new Float32Array(16), iarr = new Int32Array(arr.buffer), i = 0
 $.Texture = (w=0, h=0, d=0, o=0, f=Formats.RGBA, mips=0) => {
@@ -364,6 +366,38 @@ class can{
 	get width(){return this.t.w}
 	get height(){return this.t.h}
 	get texture(){return this.t.img}
+	set texture(i){
+		const t = this.t
+		if(!t.img||!i) return
+		t.img = i
+		if(ca==i.t) gl.framebufferTextureLayer(36160,36064,fbTex=i.t.tex,fbMip,fbLayer)
+	}
+	get hasStencil(){return !this.t.img||!!this.t.stencilBuf}
+	set hasStencil(s){
+		let t = this.t, b = t.stencilBuf
+		if(!t.img) return
+		if(s){
+			if(b) return
+			gl.bindRenderbuffer(36161, t.stencilBuf = b = gl.createRenderbuffer())
+			gl.renderbufferStorage(36161, 36168, t.w, t.h)
+			if(ca==t) gl.framebufferRenderbuffer(36160,36128,36161,fbSte=b)
+		}else{
+			if(!b) return
+			t.stencilBuf = null
+			gl.deleteRenderbuffer(b)
+			if(ca==t) gl.framebufferRenderbuffer(36160,36128,36161,fbSte=null)
+		}
+	}
+	get textureLayer(){return this.t.layer}
+	get textureMipmap(){return this.t.mip}
+	set textureLayer(l=0){
+		this.t.layer = l
+		if(ca==t) gl.framebufferTextureLayer(36160,36064,fbTex,fbMip,fbLayer=l)
+	}
+	set textureMipmap(m=0){
+		this.t.mip = m
+		if(ca==t) gl.framebufferTextureLayer(36160,36064,fbTex,fbMip=m,fbLayer)
+	}
 	constructor(t,a=1,b=0,c=0,d=1,e=0,f=0,m=290787599,s=$.Shader.DEFAULT,sp=defaultShape){this.t=t;this.#a=a;this.#b=b;this.#c=c;this.#d=d;this.#e=e;this.#f=f;this.#m=m;this.#shader=s;this.s=sp}
 	translate(x=0,y=0){ this.#e+=x*this.#a+y*this.#c;this.#f+=x*this.#b+y*this.#d }
 	scale(x=1,y=x){ this.#a*=x; this.#b*=x; this.#c*=y; this.#d*=y }
@@ -516,14 +550,14 @@ function setv(t,m){
 		i&&draw()
 		if(!t.img) gl.bindFramebuffer(36160,null),gl.viewport(0,0,t.w,t.h)
 		else{
-			if(!ca.img) gl.bindFramebuffer(36160,fb)
-			if(t.tex!=fbTex||t.layer!=fbLayer) gl.framebufferTextureLayer(36160,36064,fbTex=t.tex,0,fbLayer=t.layer)
+			if(ca==ctx.t) gl.bindFramebuffer(36160,fb)
+			if(t.tex!=fbTex||t.layer!=fbLayer||t.mip!=fbMip) gl.framebufferTextureLayer(36160,36064,fbTex=t.tex,fbMip=t.mip,fbLayer=t.layer)
 			if(t.stencilBuf!=fbSte) gl.bindRenderbuffer(36161,fbSte=t.stencilBuf),gl.framebufferRenderbuffer(36160,36128,36161,fbSte)
 			const t2 = t.img.t; gl.viewport(0,0,t2.w,t2.h)
 			if(t2.i>=0){
 				gl.activeTexture(33984 + t2.i); gl.bindTexture(35866, bound[t2.i] = null); t2.i = -1
 			}
-			if(ca.stencil!=s&&!(d&240)) d^=240
+			if(!ca||ca.stencil!=s) d|=240
 		}
 		ca=t
 	}
@@ -546,7 +580,6 @@ function setv(t,m){
 	}
 }
 function draw(b=shuniBind){
-	//if((ca?ca.img.t.f[3]:0)!=sh.outInt) return console.warn('Texture drawn to and shader output type must be of the same kind (integer/float)')
 	gl.bufferData(34962, iarr.subarray(0, i), 35040)
 	const {type,start:s,length:l}=shp
 	fd += i; i /= sh.count; fdc++; fs += i
@@ -557,7 +590,7 @@ function draw(b=shuniBind){
 		fencehead = fencehead ? fencehead.next = f : f
 	} pendingFences.length = 0 }
 }
-let sh=null,ca=null,fbTex=null,fbSte=null,fbLayer=0,shfCount=0,shfMask=0;
+let sh=null,ca=null,fbTex=null,fbSte=null,fbLayer=0,fbMip=0,shfCount=0,shfMask=0
 const fb = gl.createFramebuffer()
 const buf = gl.createBuffer()
 gl.bindBuffer(34962, buf)
@@ -730,11 +763,11 @@ T.NONE = T(`void main(){color=vec4(0,0,0,1);}`)
 gl.useProgram(sh.program)
 gl.bindVertexArray(sh.vao)
 $.flush = () => i&&draw()
-const ctx = $.ctx = new can(ca={tex:gl.canvas,img:null,layer:0,stencil:0,stencilBuf:null,w:0,h:0})
+const ctx = $.ctx = new can(ca={tex:gl.canvas,img:null,layer:0,stencil:0,mip:0,stencilBuf:null,w:0,h:0})
 $.setSize = (w = 0, h = 0) => {
 	ctx.t.w = gl.canvas.width = w
 	ctx.t.h = gl.canvas.height = h
-	if(ca.img) gl.viewport(0, 0, w, h)
+	if(ca==ctx.t) gl.viewport(0, 0, w, h)
 }
 let fencetail = null, fencehead = null
 const pendingFences = []
