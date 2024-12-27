@@ -3,7 +3,7 @@ Math.PI2 ??= Math.PI*2
 const $ = globalThis
 if(!('setImmediate'in $)){let i=0,m=new MessageChannel(),c=new Map();m.port1.onmessage=({data:i},j=c.get(i))=>(c.delete(i)&&j());m=m.port2;$.setImmediate=(f,...a)=>(c.set(++i,a.length?f.bind(undefined,...a):f),m.postMessage(i),i);$.clearImmediate=i=>c.delete(i)}
 if(!('sin'in $))Object.defineProperties($,Object.getOwnPropertyDescriptors(Math))
-const ibo = {imageOrientation: 'flipY', premultiplyAlpha: 'none'}
+const ibo = {imageOrientation: 'flipY', premultiplyAlpha: 'premultiply'}
 const resolveData = (a, cb, err) => typeof a == 'string' ? fetch(a).then(a=>a.blob()).then(a=>createImageBitmap(a, ibo)).then(cb, err) : a instanceof Blob ? createImageBitmap(a, ibo).then(cb, err) : a instanceof ImageBitmap ? cb(a) : (err??Promise.reject)(new TypeError('Invalid src'))
 $.Gamma=(T = document.createElement('canvas'), $={})=>{
 /** @type WebGL2RenderingContext */
