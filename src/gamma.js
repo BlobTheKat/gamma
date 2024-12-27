@@ -209,6 +209,14 @@ class img{
 		gl.texParameterf(35866, 10243, o&32?10497:o&64?33648:33071)
 		if(t.i<0) gl.bindTexture(35866, null)
 	}
+	setMipmapRange(s=0, e=65535){
+		const {t}=this
+		if(t.src) return
+		img.fakeBind(t)
+		gl.texParameteri(35866, 33084, s),
+		gl.texParameteri(35866, 33085, e)
+		if(t.i<0) gl.bindTexture(35866, null)
+	}
 	genMipmaps(){
 		const {t}=this
 		if(!t.m) return
