@@ -213,8 +213,8 @@ class img{
 		const {t}=this
 		if(t.src) return
 		img.fakeBind(t)
-		gl.texParameteri(35866, 33084, s),
-		gl.texParameteri(35866, 33085, e)
+		gl.texParameteri(35866, 33082, s),
+		gl.texParameteri(35866, 33083, e)
 		if(t.i<0) gl.bindTexture(35866, null)
 	}
 	genMipmaps(){
@@ -561,7 +561,7 @@ function setv(t,m){
 			if(ca==ctx.t) gl.bindFramebuffer(36160,fb)
 			if(t.tex!=fbTex||t.layer!=fbLayer||t.mip!=fbMip) gl.framebufferTextureLayer(36160,36064,fbTex=t.tex,fbMip=t.mip,fbLayer=t.layer)
 			if(t.stencilBuf!=fbSte) gl.bindRenderbuffer(36161,fbSte=t.stencilBuf),gl.framebufferRenderbuffer(36160,36128,36161,fbSte)
-			const t2 = t.img.t; gl.viewport(0,0,t2.w,t2.h)
+			const t2 = t.img.t; gl.viewport(0,0,t2.w>>fbMip,t2.h>>fbMip)
 			if(t2.i>=0){
 				gl.activeTexture(33984 + t2.i); gl.bindTexture(35866, bound[t2.i] = null); t2.i = -1
 			}
