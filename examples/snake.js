@@ -1,5 +1,9 @@
 title = 'Snake game'
 
+const src = loader(import.meta)
+
+const bg = await Img(src`./mountains.jpeg`)
+
 Shader.AA_CIRCLE ??= Shader(`
 void main(){
 	float dist = 0.5 - length(uv - 0.5);
@@ -72,8 +76,23 @@ function checkFood(f, pos, radius){
 	}
 }
 
-render = () => {
-	ctx.reset(pixelRatio/ctx.width, 0, 0, pixelRatio/ctx.height, .5, .5)
+render = (w, h) => {
+	ctx.reset(1/w, 0, 0, 1/h, .5, .5)
+
+	// Let's implement cover fill
+	// We know:
+	// - Image is centered
+	//   - Image scale is same X/Y (no stretch/squish)
+	//   - Current transform is well-scaled and centered at (0,0)
+	// We want to know:
+	//   - What scale to draw the bg at
+
+	// Max ensures we fill, min would be fit
+	const scale = max(w / bg.width, h / bg.height)
+	ctx.drawRect(-.5 * bg.width * scale, -.5 * bg.height * scale, bg.width * scale, bg.height * scale, bg, vec4(.35))
+
+
+
 	elasticWheel += rawWheel.y
 	if(abs(elasticWheel) > .01){
 		cam.z *= .995**(elasticWheel*dt)

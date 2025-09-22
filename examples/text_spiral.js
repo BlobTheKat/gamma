@@ -26,17 +26,17 @@ const lines = paragraph.break((i, offs) => {
 for(let i=0;i<lines.length;i++)
 	lines[i].curveBy(curves[i])
 
-const img = Img('creo5.png')
+const img = Img('examples/creo5.png')
 let zoom = 50
 let cam = globalThis.cam = {x: 0, y: 0, z: 50}
-render = () => {
+render = (w, h) => {
 	zoom *= .999**wheel.y
 	const d = .002**dt
 	cam.x = (cursor.x-.5)*-64*(1-d)+cam.x*d; cam.y = (cursor.y-.5)*-36*(1-d)+cam.y*d
 	cam.z = cam.z**d*zoom**(1-d)
 	wheel.y=0
 
-	ctx.reset(pixelRatio/ctx.width, 0, 0, pixelRatio/ctx.height, .5, .5)
+	ctx.reset(1/w, 0, 0, 1/h, .5, .5)
 	ctx.scale(cam.z)
 	ctx.translate(-cam.x,-cam.y)
 

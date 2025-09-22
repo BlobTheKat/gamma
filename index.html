@@ -20,7 +20,7 @@
 		$.canvas.style.transform = `scale(${1/px})`
 		$.canvas.style.imageRendering = $.pixelRatio>px ? 'auto' : 'pixelated'
 		$.cursorType = 'default'
-		$.render?.(dt)
+		$.render?.(w, h)
 		$.rawMouse.x = $.rawMouse.y = 0
 		$.rawWheel.x = $.rawWheel.y = 0
 		$.scrollDelta.x = $.scrollDelta.y = 0

@@ -17,8 +17,8 @@ void main(){
 `, COLOR, vec4.one)
 
 let cx = 0, cxi = 0, zoom = 50, zoomi = 50
-render = () => {
-	ctx.reset(pixelRatio/ctx.width, 0, 0, pixelRatio/ctx.height, .5, .5)
+render = (w, h) => {
+	ctx.reset(1/w, 0, 0, 1/h, .5, .5)
 	ctx.scale(zoomi)
 	if(keys.has(KEY.CTRL)) zoom *= .995**wheel.y, wheel.y = 0
 	zoomi *= (zoom/zoomi)**(dt*10)
