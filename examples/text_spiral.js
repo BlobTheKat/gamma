@@ -1,3 +1,6 @@
+// @ts-check
+/// <reference path="../docs/gamma-global.d.ts" />
+
 const font = await Font.chlumsky('cursive/index.json', 'cursive/atlas.png')
 
 
@@ -10,7 +13,6 @@ for(let i=0;i<2;i++) paragraph.add(`Lorem ipsum dolor sit amet, consectetur adip
 paragraph.insertLinePass(1, 0, 1, vec4(0,.2,.4,.6))
 paragraph.adjustValues(1, vec4(.4,0,0,.6))
 paragraph.removePass(1)
-console.log(paragraph)
 
 const curves = []
 const INNER_RING = 7.5, LINE_HEIGHT = 1.5

@@ -21,7 +21,7 @@
 		for(const r of this) try{r(...v)}catch(e){Promise.reject(e)}
 	}},
 	mapFire: {enumerable: false, value(...v){
-		const res = new Array(this.length)
+		const res = []
 		for(const r of this) try{res.push(r(...v))}catch(e){Promise.reject(e);res.push(undefined)}
 		return res
 	}}
@@ -42,9 +42,28 @@ const h = '0123456789abcdef'
 Number.prototype.toHex = function(){return h[this>>>28]+h[this>>24&15]+h[this>>20&15]+h[this>>16&15]+h[this>>12&15]+h[this>>8&15]+h[this>>4&15]+h[this&15]}
 Number.formatData = bytes => bytes < 512 ? bytes.toFixed(0)+'B' : bytes < 524288 ? (bytes/1024).toFixed(1)+'KiB' : bytes < 536870912 ? (bytes/1048576).toFixed(1)+'MiB' : bytes < 549755813888 ? (bytes/1073741824).toFixed(1)+'GiB' : (bytes/1099511627776).toFixed(1)+'TiB'
 Date.safestamp = (d = new Date()) => `${d.getYear()+1900}-${('0'+d.getMonth()).slice(-2)}-${('0'+d.getDate()).slice(-2)}-at-${('0'+d.getHours()).slice(-2)}-${('0'+d.getMinutes()).slice(-2)}-${('0'+d.getSeconds()).slice(-2)}`
-
+Math.randint ??= () => Math.random() * 4294967296 | 0
+const a = document.createElement('a')
+globalThis.download = (file, name = file.name ?? (file.type[0]=='@' ? 'file' : file.type.split('/',1)[0])) => {
+	a.href = URL.createObjectURL(file)
+	a.download = name
+	a.click()
+	URL.revokeObjectURL(a.href)
+}
+globalThis.loader = ({url})=>{
+	url = url.slice(0,url.lastIndexOf('/')+1)
+	return (...src) => {
+		if(src[0].raw){
+			const a = [src[0][0]]
+			for(let i = 1; i <= src.length; i++) a.push(src[i], src[0][i])
+			const s = a.join('')
+			return s[0]=='/'?s:url+s
+		}
+		return src.length==1?src[0][0]=='/'?src[0]:url+src[0]:src.map(src=>src[0]=='/'?src:url+src)
+	}
+}
 Gamma.utils = $ => {
-	$.screenshot = (t='image/png',q) => new Promise(r => requestAnimationFrame(() => gl.canvas.toBlob(r, t, q)))
+	$.screenshot = (t='image/png',q) => new Promise(r => requestAnimationFrame(() => $.canvas.toBlob(r, t, q)))
 	class _scrollable{
 		x = 0; y = 0
 		sensitivity = .5
@@ -100,15 +119,4 @@ Gamma.utils = $ => {
 		ctx.shader = null
 		ctx.drawRect(x0, 0, w, .1, v4p2)
 	}
-}
-const a = document.createElement('a')
-globalThis.download = (file, name = file.name ?? (file.type[0]=='@' ? 'file' : file.type.split('/',1)[0])) => {
-	a.href = URL.createObjectURL(file)
-	a.download = name
-	a.click()
-	URL.revokeObjectURL(a.href)
-}
-/*globalThis.fork = (w=0,h=0,x=NaN,y=NaN) => new Promise(r => {
-	const n = open(location, '', 'popup,top=0,left=0,width='+ +w+',height='+ +h+(x==x?',top='+ +x:'')+(y==y?',top='+ +y:''))
-	n ? n.onload = r.bind(undefined,n) : c()
-})*/}
+}}

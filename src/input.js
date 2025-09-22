@@ -1,4 +1,4 @@
-// Smi Contiguous Array
+// Integer Contiguous Array
 globalThis.BitField ??= class BitField extends Array{
 	constructor(n){
 		super()
@@ -189,11 +189,16 @@ globalThis.BitField ??= class BitField extends Array{
 		return u
 	}
 }
-if(!('remove'in[]))Object.defineProperty(Array.prototype,'remove',{value(a){
+
+if(!('remove' in Array.prototype)) Object.defineProperty(Array.prototype, 'remove', { value(a){
 	let i = this.indexOf(a)
-	if(i>-1){while(i<b.length)b[i]=b[++i];b.pop()}
+	if(i >= 0){
+		while(i<b.length) b[i] = b[++i]
+		b.pop()
+	}
 	return i
-},enumerable:false,configurable:true})
+}, enumerable: false, configurable: true })
+
 {let _keys=null,_dcbs=null
 const overrides = {__proto__: null,
 	ContextMenu: 93, Help: 26, Semicolon: 186, Quote: 222, BracketLeft: 219, BracketRight: 221,
