@@ -226,13 +226,31 @@ Gamma.input = ($, T = $.canvas) => {
 		PAD_DIV: 111, PAD_MULT: 106, PAD_SUB: 109, PAD_ADD: 107, PAD_DOT: 110, NUM_LOCK: 144,
 		SCROLL_LOCK: 145, HELP: 26, RO: 193, YEN: 255, SYSRQ: 44, PRINT_SCREEN: 44
 	})
-	$.REPEAT = 256
 	$.GAMEPAD = Object.freeze({ A: 256, B: 257, X: 258, Y: 259, LB: 260, RB: 261, LT: 262, RT: 263, UP: 268, DOWN: 269, LEFT: 270, RIGHT: 271, MENU: 300 })
+	
+	$.rawMouse = $.vec2(.5)
+	$.rawWheel = $.vec2()
 	$.cursor = $.vec2(.5)
-	$.cursorDelta = $.vec2()
-	$.mouse = $.vec2(.5)
-	$.wheel = $.vec2()
+	$.cursorDelta = $.vec2(.5)
 	$.scrollDelta = $.vec2()
+
+	Object.defineProperty($, 'poinerLock', {
+		get: () => document.pointerLockElement == T,
+		set: v => {
+			if(!v){
+				if(document.pointerLockElement === T) document.exitPointerLock()
+			}else if(document.pointerLockElement !== T) T.requestPointerLock({unadjustedMovement:true})?.catch(_=>null)
+		}
+	})
+	Object.defineProperty($, 'fullscreen', {
+		get: () => document.fullscreenElement == T,
+		set: v => {
+			if(!v){
+				if(document.fullscreenElement === T) document.exitFullscreen()
+			}else if(document.fullscreenElement !== T) T.requestFullscreen()?.catch(_=>null)
+		}
+	})
+
 	const dcbs = new Map
 	;($.onKey = (key, fn) => {
 		if(Array.isArray(key)){for(const k of key) $.onKey(k,fn);return}
@@ -265,8 +283,7 @@ Gamma.input = ($, T = $.canvas) => {
 	})
 	T.addEventListener('mouseout', _ => {
 		if(_keys != keys) return
-		const k = new BitField(keys); keys.clear()
-		k.iter(n => {
+		keys.iter(n => {
 			const a = dcbs.get(~n)
 			if(a) for(const f of a)try{f(n)}catch(e){Promise.reject(e)}
 		})
@@ -290,31 +307,31 @@ Gamma.input = ($, T = $.canvas) => {
 	T.addEventListener('contextmenu', e => e.preventDefault())
 	T.addEventListener('wheel', e => {
 		e.preventDefault()
-		wheel.x += e.wheelDeltaX; wheel.y += e.wheelDeltaY
-		scrollDelta.x += e.wheelDeltaX / innerWidth
-		scrollDelta.y += e.wheelDeltaY / innerHeight
+		$.rawWheel.x += e.wheelDeltaX; $.rawWheel.y += e.wheelDeltaY
+		$.scrollDelta.x += e.wheelDeltaX / innerWidth
+		$.scrollDelta.y += e.wheelDeltaY / innerHeight
 		for(const f of wcb) f(e.wheelDeltaX, e.wheelDeltaY)
 	}, {passive: false})
 	T.addEventListener('mousemove', e => {
 		e.preventDefault()
-		mouse.x += e.movementX; mouse.y += e.movementY
-		cursor.x = e.offsetX/e.target.offsetWidth; cursor.y = 1-e.offsetY/e.target.offsetHeight
+		$.rawMouse.x += e.movementX; $.rawMouse.y += e.movementY
+		$.cursor.x = e.offsetX/e.target.offsetWidth; $.cursor.y = 1-e.offsetY/e.target.offsetHeight
+		$.cursorDelta.x += e.movementX/e.target.offsetWidth; $.cursorDelta.y -= e.movementY/e.target.offsetHeight
 		for(const f of wcb) f(e.movementX, e.movementY)
 	})
 }
-const doc = document
-doc.addEventListener('keydown', e => {
+document.addEventListener('keydown', e => {
 	if(!_keys) return
-	if(doc.activeElement == doc.body || !doc.activeElement) e.preventDefault()
+	if(document.activeElement == document.body || !document.activeElement) e.preventDefault()
 	if(e.repeat) return
 	const n = overrides[e.code] ?? e.keyCode
 	_keys.set(n)
 	const a = _dcbs.get(n)
 	if(a) for(const f of a)try{f(n)}catch(e){Promise.reject(e)}
 })
-doc.addEventListener('keyup', e => {
+document.addEventListener('keyup', e => {
 	if(!_keys) return
-	if(doc.activeElement == doc.body || !doc.activeElement) e.preventDefault()
+	if(document.activeElement == document.body || !document.activeElement) e.preventDefault()
 	const n = overrides[e.code] ?? e.keyCode
 	if(!_keys.pop(n)) return
 	const a = _dcbs.get(~n)

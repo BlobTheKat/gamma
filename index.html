@@ -11,14 +11,20 @@
 <script>;{
 	const $ = globalThis
 	let ow = 0, oh = 0
-	Gamma(undefined, $).loop(() => {
-		const s = visualViewport.scale, px = devicePixelRatio
-		const w = visualViewport.width*s, h = visualViewport.height*s
+	$.render = null
+	Gamma(undefined, $).loop(dt => {
+		const px = devicePixelRatio
+		const w = innerWidth, h = innerHeight
 		$.pixelRatio = px
-		if(ow!=(ow=round(w*px))|oh!=(oh=round(h*px))) setSize(ow, oh)
+		if(ow!=(ow=round(w*px))|oh!=(oh=round(h*px))) $.setSize(ow, oh)
 		$.canvas.style.transform = `scale(${1/px})`
 		$.canvas.style.imageRendering = $.pixelRatio>px ? 'auto' : 'pixelated'
-		cursorType = 'default'
+		$.cursorType = 'default'
+		$.render?.(dt)
+		$.rawMouse.x = $.rawMouse.y = 0
+		$.rawWheel.x = $.rawWheel.y = 0
+		$.scrollDelta.x = $.scrollDelta.y = 0
+		$.cursorDelta.x = $.cursorDelta.y = 0
 	})
 	$.pixelRatio = 1
 	const unint = `user-select:none;-webkit-user-select:none;touch-action: none;`
@@ -52,7 +58,7 @@
 		icon: {get:()=>ic,set:a=>i.href=(ic=typeof a=='string'?a:null)||'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg'},
 		[Symbol.toStringTag]: {value: 'Global', writable: false}
 	})
-	icon = null
-	if(!opener) import('./examples/text_spiral.js')
+	$.icon = null
+	if(!opener) import('./examples/snake.js')
 }</script></body>
 </html>

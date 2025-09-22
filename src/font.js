@@ -1061,10 +1061,10 @@ msdfShader._unifVal = 0
 			const cb = this.#cb; this.#cb = null
 			if(cb) for(let i=1;i<cb.length;i+=2) cb[i]?.(e)
 		}
-		chlumsky(src, atlas){ fetch(src).then(a => (src=a.url,a.json())).then(d => {
+		chlumsky(src, atlas = 'atlas.png'){ if(src.endsWith('/')) src += 'index.json'; fetch(src).then(a => (src=a.url,a.json())).then(d => {
 			const {atlas:{type,distanceRange,size,width,height},metrics:{ascender,descender},glyphs,kerning} = d
-			const fmt = (this.isMsdf = type.toLowerCase().endsWith('msdf')) ? Formats.RGB : Formats.R
-			const img = Img(atlas,SMOOTH,fmt)
+			const fmt = (this.isMsdf = type.toLowerCase().endsWith('msdf')) ? $.Formats.RGB : $.Formats.R
+			const img = $.Img(new URL(atlas, src).href,$.SMOOTH,fmt)
 			this.normDistRange = distanceRange/size*2 //*2 is a good tradeoff for sharpness
 			this.ascend = ascender/(ascender-descender)
 			for(const {unicode1,unicode2,advance} of kerning) this.kmap.set(unicode2+unicode1*1114112, advance)
@@ -1077,10 +1077,10 @@ msdfShader._unifVal = 0
 		}, this.error.bind(this)); return this}
 		bmfont(src, baselineOffset=0){ fetch(src).then(a => (src=a.url,a.json())).then(d => {
 			const {chars,distanceField:df,pages,info:{size:s},common:{base,lineHeight:sc,scaleW,scaleH},kernings} = d
-			const fmt = (this.isMsdf = df.fieldType.toLowerCase().endsWith('msdf')) ? Formats.RGB : Formats.R
+			const fmt = (this.isMsdf = df.fieldType.toLowerCase().endsWith('msdf')) ? $.Formats.RGB : $.Formats.R
 			this.normDistRange = df.distanceRange/sc*2 //*2 is a good tradeoff for sharpness
 			const b = this.ascend = base/sc
-			const p = pages.map(a => Img(new URL(a,src).href,SMOOTH,fmt))
+			const p = pages.map(a => $.Img(new URL(a,src).href,$.SMOOTH,fmt))
 			for(const {first,second,amount} of kernings) this.kmap.set(second+first*1114112, amount/s)
 			for(const {id,x,y,width,height,xoffset,yoffset,xadvance,page} of chars) this.map.set(id, {
 				x: xoffset/s, y: b-(yoffset-baselineOffset+height)/s,
@@ -1090,7 +1090,7 @@ msdfShader._unifVal = 0
 			})
 			this.done()
 		}, this.error.bind(this)); return this}
-		draw(ctx, txt, last = -1, lsb = 0, ...v){
+		draw(ctx, txt, v, lsb = 0, last = -1){
 			if(this.#cb) return
 			lsb *= .5
 			let pxr = ctx.pixelRatio()*this.normDistRange, sh = ctx.shader
@@ -1109,7 +1109,7 @@ msdfShader._unifVal = 0
 			}
 			return last
 		}
-		measure(txt, last = -1, lsb = 0){
+		measure(txt, lsb = 0, last = -1){
 			if(this.#cb) return
 			let w = 0
 			const {map, kmap} = this

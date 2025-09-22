@@ -62,6 +62,11 @@ globalThis.loader = ({url})=>{
 		return src.length==1?src[0][0]=='/'?src[0]:url+src[0]:src.map(src=>src[0]=='/'?src:url+src)
 	}
 }
+Array.map ??= (len=0, fn) => {
+	const a = []
+	for(let i = 0; i < len; i++) a.push(fn(i))
+	return a
+}
 Gamma.utils = $ => {
 	$.screenshot = (t='image/png',q) => new Promise(r => requestAnimationFrame(() => $.canvas.toBlob(r, t, q)))
 	class _scrollable{

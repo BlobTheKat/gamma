@@ -1,4 +1,4 @@
-const font = await Font.chlumsky('cursive/index.json', 'cursive/atlas.png')
+const font = await Font.chlumsky('fonts/cursive/')
 font.ascend = .8 // default ascend value sucks
 
 const input = TextField(true)

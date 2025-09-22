@@ -1,7 +1,9 @@
-// @ts-check
+// !@ts-check
 /// <reference path="../docs/gamma-global.d.ts" />
 
-const font = await Font.chlumsky('cursive/index.json', 'cursive/atlas.png')
+export {}
+
+const font = await Font.chlumsky('fonts/ubuntu/')
 
 
 let paragraph = RichText()

@@ -817,51 +817,44 @@ $.setSize = (w = 0, h = 0) => {
 }
 let fencetail = null, fencehead = null
 const pendingFences = []
-$.wait=()=>{
-	let resolve, pr = new Promise(r => resolve = r)
-	if(i) pr.sync = null, pendingFences.push(pr)
+$.wait = () => new Promise(r => {
+	if(i) r.sync = null, pendingFences.push(r)
 	else{
-		pr.sync = gl.fenceSync(37143,0)
-		fencetail ??= pr
-		fencehead = fencehead ? fencehead.next = pr : pr
+		r.sync = gl.fenceSync(37143, 0)
+		fencetail ??= r
+		fencehead = fencehead ? fencehead.next = r : r
 	}
-	pr.resolve = resolve; pr.done = false
-	return pr
-}
-$.loop = (pf = null) => {
-	if('t'in $) return $
-	$.render ??= null
+	if(!intv) intv = setInterval(() => {
+		while(fencetail && gl.getSyncParameter(fencetail.sync, 37140) == 37145){
+			gl.deleteSync(fencetail.sync)
+			fencetail()
+			fencetail = fencetail.next
+		}
+		if(!fencetail){
+			fencehead = null
+			clearInterval(intv)
+			intv = 0
+		}
+	}, 0)
+})
+let intv = 0
+$.loop = render => {
+	if('t' in $) return $
 	$.frameDrawCalls = 0
 	$.frameSprites = 0
 	$.frameData = 0
 	$.t = performance.now()*.001; $.dt = 0
-	$.ctxFramerate ??= -1
 	$.timeToFrame = 0
 	$.glLost ??= null
-	let nextF = 0
-	setInterval(function g(){
-		while(fencetail&&gl.getSyncParameter(fencetail.sync,37140)==37145)gl.deleteSync(fencetail.sync),fencetail.done=true,fencetail.resolve(),fencetail=fencetail.next
-		if(!fencetail) fencehead = null
-		if($.ctxFramerate<0) return
-		if(gl.isContextLost?.()) return $.glLost?.(),$.glLost=fencetail=fencehead=null
-		let now = performance.now()*.001
-		if(now < nextF) return
-		dt = max(.01/$.ctxFramerate, -($.t-($.t=now)))
-		frameDrawCalls = fdc; frameSprites = fs; frameData = fd*4+fdc*24; fdc = fs = fd = 0
-		ctx.clear(); ctx.reset()
-		try{$.render?.(dt)}catch(e){Promise.reject(e)}; i&&draw()
-		if((now=performance.now()*.001) >= (nextF+=1/$.ctxFramerate)) setImmediate(g)
-		timeToFrame = now-$.t
-	}, 0)
 	requestAnimationFrame(function f(){
 		requestAnimationFrame(f)
 		if(gl.isContextLost?.()) return $.glLost?.(), $.glLost = fencetail = fencehead = null
-		i&&draw(); pf?.()
-		if($.ctxFramerate>=0) return
-		gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null); ca = ctx.t; gl.viewport(0, 0, ca.w, ca.h)
+		i&&draw()
+		gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null)
+		ca = ctx.t; gl.viewport(0, 0, ca.w, ca.h)
 		dt = max(.001, min(-($.t-($.t=performance.now()*.001)), .5))
 		$.frameDrawCalls = fdc; $.frameSprites = fs; $.frameData = fd*4+fdc*24; fdc = fs = fd = 0
-		ctx.reset(); try{ $.render?.() }catch(e){ Promise.reject(e) } i&&draw()
+		ctx.reset(); try{ render() }catch(e){ Promise.reject(e) } i&&draw()
 		timeToFrame = performance.now()*.001 - $.t
 	})
 	return gl.canvas
