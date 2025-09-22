@@ -1,3 +1,5 @@
+title = 'Snake game'
+
 Shader.AA_CIRCLE ??= Shader(`
 void main(){
 	float dist = 0.5 - length(uv - 0.5);
