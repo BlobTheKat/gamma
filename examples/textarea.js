@@ -1,13 +1,53 @@
-const font = await Font.chlumsky('fonts/cursive/')
-font.ascend = .8 // default ascend value sucks
+const font = await Font.chlumsky('fonts/ankacoder/')
 
+// One tab = 3 spaces. Cry about it
+font.set(0x09, font.getWidth(0x20) * 3)
 const input = TextField(true)
-input.simpleTransformer(font, 'Write some text...')
-input.maxWidth = 10
+//input.simpleTransformer(font, 'Write some text...')
+const styles = new Map()
+	.set(/(let|const|var|if|else|while|for|do|try|catch|finally|throw|return|function|class|extends|static|with|switch|case|default|in|instanceof|new|delete|typeof|async|await)(?!\w)/y, vec4(.95,.3,.05))
+	.set(/(null|undefined|true|false|of)(?!\w)/y, vec4(.5,.05,.95))
+	.set(/NaN|-?Infinity|0[xX][0-9a-fA-F]+|0[bB][01]+|0[oO][0-7]+|(\d+(\.\d*)?|\.\d+)([eE]\d+)?/y, vec4(.3,.95,.05))
+	.set(/\w+/y, vec4(.9,.9,.9))
+	.set(/\/\/[^\n]*(\n|$)|\/\*([^*]|\*[^\/])*(\*\/|$)/y, vec4(.4))
+	.set(/`(?:[^\\`]|\\[^])*(?:`|$)|(["'])([^"'\\\n]|\\[^]|(?!\1).)*(\1|(?=\n))/y, vec4(.05, .3, .95))
+	.set(/(?<![\)\]\w]\s*)\/([^\\\/]|\\.)+\/[gimsuyvdGIMSUYVD]*/y, vec4(.7, .05, .7))
+input.transformer = txt => {
+	const r = RichText(font)
+	if(!txt){
+		r.setValues(0, vec4(.4))
+		r.drawOnly()
+		r.add(`Let's get writing!`)
+		return r
+	}
+	let last = 0, i = 0
+	w: while(i < txt.length){
+		for(const {0:reg,1:col} of styles){
+			reg.lastIndex = i
+			if(!reg.test(txt)) continue
+			const len = reg.lastIndex - i
+			if(i > last){
+				r.setValues(0, vec4.one)
+				r.add(txt.slice(last, i))
+			}
+			r.setValues(0, col)
+			r.add(txt.slice(i, i += len))
+			last = i
+			continue w
+		}
+		i++
+	}
+	if(i > last){
+		r.setValues(0, vec4.one)
+		r.add(txt.slice(last, i))
+	}
+	return r
+}
+input.maxWidth = 20
 input.focus = true
 input.allowTabs = true
-const scr = Scrollable(input, 10, -3)
-input.enterCb = () => console.log(input.value)
+const scr = Scrollable(input, 20, -10)
+//input.enterCb = () => console.log(input.value)
 
 Shader.AA_CIRCLE ??= Shader(`
 void main(){
@@ -20,25 +60,25 @@ let cx = 0, cxi = 0, zoom = 50, zoomi = 50
 render = (w, h) => {
 	ctx.reset(1/w, 0, 0, 1/h, .5, .5)
 	ctx.scale(zoomi)
-	if(keys.has(KEY.CTRL)) zoom *= .995**wheel.y, wheel.y = 0
+	if(keys.has(KEY.CTRL)) zoom *= .995**rawWheel.y, rawWheel.y = 0
 	zoomi *= (zoom/zoomi)**(dt*10)
 	cxi += (cx-cxi)*(dt*5)
-	input.multiline ? ctx.translate(0,cxi) : ctx.translate(-cxi,0)
-	if(!input.isSelecting) cx = 0//(input.sel0pos + input.sel1pos) * (input.multiline ? .5*input.lineHeight : .5) + scr.y
+	if(input.multiline)
+		ctx.translate(input.maxWidth*-.5, cxi)
+	else
+		ctx.translate(-cxi,0)
+	if(!input.isSelecting)
+		cx = (input.sel0pos + input.sel1pos)*.5 * (input.multiline ? input.lineHeight : 1) + scr.y
 	const c = ctx.from(cursor)
 	//if(input.isSelecting || c.x > -.5 && c.x < input.width + .5 && c.y > -.5 && c.y < 1)
-		scr.consumeInputs(ctx, c)
-	scr.draw(ctx)
+	input.consumeInputs(ctx, c)
+	input.draw(ctx.sub())
 	ctx.shader = Shader.AA_CIRCLE
-	// Epic insane invert blend I can't believe I didn't think of (actually, I did, https://github.com/open-mc/client/blob/c7ada127502698363a75a0f51a728739d1c50746/core/pointer.js#L132)
-	// OpenGL may not have a perfect difference blend but this is near perfect
-	// When src = 0, it simplifies to dst
-	// When src = .5, it simplifies to .5
-	// When src = 1, it simplifies to 1 - dst
-	ctx.blend = Blend(ONE_MINUS_DST, ADD, ONE_MINUS_SRC)
+
+	ctx.blend = Blend.INVERT
 	const l = +keys.has(MOUSE.LEFT), r = +keys.has(MOUSE.RIGHT)
 	if(l+r){
-		const col = vec4(l^r,l,l,0)
+		const col = vec4(l^r,l,l,1)
 		ctx.drawRect(c.x-.5,c.y-.5,1,1,col)
 		ctx.drawRect(c.x-.42,c.y-.42,.84,.84,col)
 	}

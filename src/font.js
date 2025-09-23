@@ -54,9 +54,9 @@ msdfShader._unifVal = 0
 	// Token is never rendered
 	BreakToken.INVISIBLE = 32
 
-	const defaultSet = [BreakToken(/\r\n?|\n/y, BreakToken.WRAP_AFTER | BreakToken.INVISIBLE, ''), BreakToken(/[$£"+]?[\w'-]+[,.!?:;"^%€*]?/yi, BreakToken.NORMAL, '-'), BreakToken(/\s+/y, BreakToken.VANISH)]
+	const defaultSet = [BreakToken(/\r\n?|\n/y, BreakToken.WRAP_AFTER | BreakToken.INVISIBLE, ''), BreakToken(/[$£"+]?[\w'-]+[,.!?:;"^%€*]?/yi, BreakToken.NORMAL, '-'), BreakToken(/[ \t]+/y, BreakToken.VANISH)]
 	const defaultToken = BreakToken(/[^]/y)
-	const M = new Map, E = [], O = {0:null,1:0}, E1 = [0,0,0,O]
+	const M = new Map, O = {0:null,1:0}, E1 = [0,0,0,O]
 	const ADV = 1, SH = 2, SC = 3, YO = 4, ST = 5, SK = 6, LSB = 7, ARC = 8, RONLY = -3, IONLY = -2
 	const getSw = (t, f, ar, lsb = 0) => {
 		t.sepL = f; t.sepA = ar; t.sepS = lsb
@@ -694,8 +694,8 @@ msdfShader._unifVal = 0
 				let idx = 0
 				let sc = 1, sc1 = 1, st = 1, lsb = 0, sk = 0, yo = 0, xo = 0, ar = 0, mask = -1
 				let sh = ctx.shader = msdfShader
-				let v = E1, vlen = 3, font = null, dsc = 0
-				v[3][1] = 1
+				let vs = E1, vlen = 3, font = null, dsc = 0
+				vs[3][1] = 1
 				let last = -1, lastSt = 1
 				const pxr0 = ctx.pixelRatio(); let pxr = 1
 				let ea = 0
@@ -720,7 +720,7 @@ msdfShader._unifVal = 0
 								const a = v*sc1; sc1 = 1/v; ctx.scale(a); yo *= sc *= sc1; xo *= sc;
 								lastSt *= a; ar *= a; sc = v;
 								if(font) pxr=pxr0*font.normDistRange*sc
-								for(let i=0;i<vlen;i+=4) (typeof v[i+3]=='object'?v[i+3]:v[i+1])[1]=pxr
+								for(let i=0;i<vlen;i+=4) (typeof vs[i+3]=='object'?vs[i+3]:vs[i+1])[1]=pxr
 								continue w
 							case YO: yo = v*sc1; xo = yo*sk; continue w
 							case SH: ctx.shader = sh = s; break
@@ -744,7 +744,7 @@ msdfShader._unifVal = 0
 								if(sk) ctx.skew(sk,0)
 							}
 							for(let i = 0; i < vlen; i+=4){
-								const x = v[i+1], y = v[i+2]+yo, v1 = v[i+3]
+								const x = vs[i+1], y = vs[i+2]+yo, v1 = vs[i+3]
 								if(typeof x == 'object'){
 									const ox = ar*w*(y+dsc)
 									x[0] = vec4one
@@ -765,13 +765,13 @@ msdfShader._unifVal = 0
 					}else{
 						if(!s){cmap=kmap=M;continue}
 						if(Array.isArray(s)){
-							vlen=(v=s).length
-							for(let i=0;i<vlen;i+=4) (typeof v[i+3]=='object'?v[i+3]:v[i+1])[1]=pxr
+							vlen=(vs=s).length
+							for(let i=0;i<vlen;i+=4) (typeof vs[i+3]=='object'?vs[i+3]:vs[i+1])[1]=pxr
 							continue
 						}
 						font = s; dsc = font.ascend-1; cmap = s.map; kmap = s.kmap
 						pxr = pxr0*font.normDistRange*sc
-						for(let i=0;i<vlen;i+=4) (typeof v[i+3]=='object'?v[i+3]:v[i+1])[1]=pxr
+						for(let i=0;i<vlen;i+=4) (typeof vs[i+3]=='object'?vs[i+3]:vs[i+1])[1]=pxr
 					}
 					if(font){
 						const f = (font._flags&1?.5:-.5)/font.normDistRange
@@ -1061,6 +1061,41 @@ msdfShader._unifVal = 0
 			const cb = this.#cb; this.#cb = null
 			if(cb) for(let i=1;i<cb.length;i+=2) cb[i]?.(e)
 		}
+		set(char, tex = null, adv = 0, x=0, y=0, w=0, h=0){
+			if(typeof tex == 'number') adv = tex, tex = null
+			if(typeof char == 'string') char = char.codePointAt()
+			if(!tex && !adv) return this.map.delete(char)
+			else this.map.set(char, { x: +x, y: +y, w: +w, h: +h, xadv: +adv, tex })
+		}
+		getWidth(char){
+			if(typeof char == 'string') char = char.codePointAt()
+			return this.map.get(char).xadv
+		}
+		setKerning(a, b, adv = 0){
+			let code = 0
+			if(typeof a == 'string'){
+				const a0 = a.codePointAt()
+				code = a0*1114112
+				if(typeof b == 'number'){
+					adv = b
+					code += a.codePointAt(1+(a0>65535))
+				}else code += b.codePointAt()
+			}else code = a*1114112+b
+			if(adv) this.kmap.set(code, adv)
+			else this.kmap.delete(code)
+		}
+		getKerning(a, b){
+			let code = 0
+			if(typeof a == 'string'){
+				const a0 = a.codePointAt()
+				code = a0*1114112
+				if(typeof b == 'number'){
+					adv = b
+					code += a.codePointAt(1+(a0>65535))
+				}else code += b.codePointAt()
+			}else code = a*1114112+b
+			return this.kmap.get(code)
+		}
 		chlumsky(src, atlas = 'atlas.png'){ if(src.endsWith('/')) src += 'index.json'; fetch(src).then(a => (src=a.url,a.json())).then(d => {
 			const {atlas:{type,distanceRange,size,width,height},metrics:{ascender,descender},glyphs,kerning} = d
 			const fmt = (this.isMsdf = type.toLowerCase().endsWith('msdf')) ? $.Formats.RGB : $.Formats.R
@@ -1069,23 +1104,24 @@ msdfShader._unifVal = 0
 			this.ascend = ascender/(ascender-descender)
 			for(const {unicode1,unicode2,advance} of kerning) this.kmap.set(unicode2+unicode1*1114112, advance)
 			for(const {unicode,advance,planeBounds:pb,atlasBounds:ab} of glyphs) this.map.set(unicode, pb ? {
-				x: pb.left, y: pb.bottom,
+				x: +pb.left, y: +pb.bottom,
 				w: (pb.right-pb.left), h: (pb.top-pb.bottom),
 				xadv: advance, tex: img.sub(ab.left/width,ab.bottom/height,(ab.right-ab.left)/width,(ab.top-ab.bottom)/height)
 			} : {x:0,y:0,w:0,h:0,xadv: advance, tex: null})
 			this.done()
 		}, this.error.bind(this)); return this}
 		bmfont(src, baselineOffset=0){ fetch(src).then(a => (src=a.url,a.json())).then(d => {
-			const {chars,distanceField:df,pages,info:{size:s},common:{base,lineHeight:sc,scaleW,scaleH},kernings} = d
+			const {chars,distanceField:df,pages,common:{base,lineHeight:sc,scaleW,scaleH},kernings} = d
+			const s = 1/d.info.size
 			const fmt = (this.isMsdf = df.fieldType.toLowerCase().endsWith('msdf')) ? $.Formats.RGB : $.Formats.R
 			this.normDistRange = df.distanceRange/sc*2 //*2 is a good tradeoff for sharpness
 			const b = this.ascend = base/sc
 			const p = pages.map(a => $.Img(new URL(a,src).href,$.SMOOTH,fmt))
 			for(const {first,second,amount} of kernings) this.kmap.set(second+first*1114112, amount/s)
 			for(const {id,x,y,width,height,xoffset,yoffset,xadvance,page} of chars) this.map.set(id, {
-				x: xoffset/s, y: b-(yoffset-baselineOffset+height)/s,
-				w: width/s, h: height/s,
-				xadv: xadvance/s,
+				x: xoffset*s, y: b-(yoffset-baselineOffset+height)*s,
+				w: width*s, h: height*s,
+				xadv: xadvance*s,
 				tex: width&&height?p[page].sub(x/scaleW,1-(y+height)/scaleH,width/scaleW,height/scaleH):null
 			})
 			this.done()

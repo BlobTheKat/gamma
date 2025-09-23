@@ -83,7 +83,7 @@ Gamma.utils = $ => {
 			const w = this.contents.width, h = this.contents.height
 			this.x = this.width > 0 ? max(0, min(this.x + wx*s, w-this.width)) : min(0, max(this.x + wx*s, -w-this.width))
 			this.y = this.height > 0 ? max(0, min(this.y + wy*s, h-this.height)) : min(0, max(this.y + wy*s, -h-this.height))
-			wheel.x = wheel.y = 0
+			rawWheel.x = rawWheel.y = 0
 			const c = this.contents
 			if(!c) return
 			ctx = ctx.sub()

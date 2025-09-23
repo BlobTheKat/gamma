@@ -30,11 +30,11 @@ const img = Img('examples/creo5.png')
 let zoom = 50
 let cam = globalThis.cam = {x: 0, y: 0, z: 50}
 render = (w, h) => {
-	zoom *= .999**wheel.y
+	zoom *= .999**rawWheel.y
 	const d = .002**dt
 	cam.x = (cursor.x-.5)*-64*(1-d)+cam.x*d; cam.y = (cursor.y-.5)*-36*(1-d)+cam.y*d
 	cam.z = cam.z**d*zoom**(1-d)
-	wheel.y=0
+	rawWheel.y=0
 
 	ctx.reset(1/w, 0, 0, 1/h, .5, .5)
 	ctx.scale(cam.z)
@@ -49,7 +49,7 @@ render = (w, h) => {
 		c2.reset(1/c2.width,0,0,1/c2.height,0.5,0.5)
 		const scale = max(c2.width/img.width, c2.height/img.height)
 		const w = img.width*scale, h = img.height*scale
-		c2.blend = Blend.MULTIPLY
+		c2.blend = Blend.INVERT
 		c2.drawRect(w*-.5, h*-.5, w, h, img, vec4(2))
 	}
 }

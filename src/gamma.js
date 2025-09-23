@@ -40,9 +40,9 @@ const resolveData = (val, cb, err) => typeof val == 'string' ?
 		: val instanceof ImageBitmap ? cb(val)
 			: (err ?? Promise.reject)(new TypeError('Invalid src'))
 
-$.Gamma = (can = document.createElement('canvas'), $ = {}) => {
+$.Gamma = (can = document.createElement('canvas'), $ = {}, flags = 7) => {
 /** @type WebGL2RenderingContext */
-const gl = $.gl = ($.canvas = can).getContext('webgl2', {preserveDrawingBuffer: false, antialias: false, depth: false, premultipliedAlpha: true, stencil: true})
+const gl = $.gl = ($.canvas = can).getContext('webgl2', {preserveDrawingBuffer: flags&8, antialias: flags&16, depth: false, premultipliedAlpha: flags&4, stencil: flags&1, alpha: flags&2})
 gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1)
 gl.stencilMask(1)
 gl.clearStencil(0)
@@ -585,7 +585,8 @@ Object.assign(T, {
 	SUBTRACT: 5574929,
 	REVERSE_SUBTRACT: 6689041,
 	MIN: 2232593, MAX: 3346705,
-	BEHIND: 1118583
+	BEHIND: 1118583,
+	INVERT: 1127321
 })
 function setv(t,m){
 	const s = t.stencil
@@ -860,4 +861,7 @@ $.loop = render => {
 	return gl.canvas
 }
 return $}
-$.Gamma.bitmapOpts = imageBitmapOpts}
+Object.assign($.Gamma, {
+	bitmapOpts: imageBitmapOpts,
+	STENCIL: 1, ALPHA_CHANNEL: 2, PREMULTIPLIED_ALPHA: 4, PRESERVE_BUFFER: 8, MSAA: 16
+})}
