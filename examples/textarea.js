@@ -43,10 +43,10 @@ input.transformer = txt => {
 	}
 	return r
 }
-input.maxWidth = 20
+input.maxWidth = 40
 input.focus = true
 input.allowTabs = true
-const scr = Scrollable(input, 20, -10)
+const scr = Scrollable(input, 40, -20)
 //input.enterCb = () => console.log(input.value)
 
 Shader.AA_CIRCLE ??= Shader(`
@@ -56,11 +56,12 @@ void main(){
 }
 `, COLOR, vec4.one)
 
-let cx = 0, cxi = 0, zoom = 50, zoomi = 50
+let cx = 0, cxi = 0, zoom = NaN, zoomi = 0
 render = (w, h) => {
+	if(zoom != zoom) zoom = zoomi = w/42
 	ctx.reset(1/w, 0, 0, 1/h, .5, .5)
 	ctx.scale(zoomi)
-	if(keys.has(KEY.CTRL)) zoom *= .995**rawWheel.y, rawWheel.y = 0
+	if(keys.has(KEY.CTRL)) zoom *= 1.005**rawWheel.y, rawWheel.y = 0
 	zoomi *= (zoom/zoomi)**(dt*10)
 	cxi += (cx-cxi)*(dt*5)
 	if(input.multiline)
