@@ -208,12 +208,12 @@ const overrides = {__proto__: null,
 	Clear: 10, NumpadComma: 110, NumpadDecimal: 110, Numpad0: 96, Numpad1: 97, Numpad2: 98, Numpad3: 99,
 	Numpad4: 100, Numpad5: 101, Numpad6: 102, Numpad7: 103, Numpad8: 104, Numpad9: 105
 }
-Gamma.input = ($, T = $.canvas) => {
+Gamma.input = ($, can = $.canvas) => {
 	const keys = $.keys = new BitField()
 	$.MOUSE = Object.freeze({ LEFT: 0, RIGHT: 2, MIDDLE: 1, BACK: 3, FORWARD: 4 })
 	$.KEY = Object.freeze({
 		A: 65, B: 66, C: 67, D: 68, E: 69, F: 70, G: 71, H: 72, I: 73, J: 74, K: 75, L: 76, M: 77,
-		N: 78, O: 79, P: 80, Q: 81, R: 82, S: 83, T: 84, U: 85, V: 86, W: 87, X: 88, Y: 89, Z: 90,
+		N: 78, O: 79, P: 80, Q: 81, R: 82, S: 83, can: 84, U: 85, V: 86, W: 87, X: 88, Y: 89, Z: 90,
 		NUM_0: 48, NUM_1: 49, NUM_2: 50, NUM_3: 51, NUM_4: 52, NUM_5: 53, NUM_6: 54, NUM_7: 55,
 		NUM_8: 56, NUM_9: 57, SPACE: 32, BACKTICK: 192, TAB: 9, BACK: 8, ENTER: 13,
 		SHIFT: 16, CTRL: 17, ALT: 18, ESC: 27, META: 91, METARIGHT: 93, CAPSLOCK: 20, UP: 38,
@@ -233,21 +233,21 @@ Gamma.input = ($, T = $.canvas) => {
 	$.cursor = $.vec2(.5)
 	$.cursorDelta = $.vec2(.5)
 	$.scrollDelta = $.vec2()
-
-	Object.defineProperty($, 'poinerLock', {
-		get: () => document.pointerLockElement == T,
+	const oldSafari = typeof ApplePaySession != 'undefined' && !('letterSpacing' in CanvasRenderingContext2D.prototype), ptrlockOpts = !navigator.platform.startsWith('Linux') && typeof netscape == 'undefined' && !oldSafari ? {unadjustedMovement:true} : undefined
+	Object.defineProperty($, 'pointerLock', {
+		get: () => document.pointerLockElement == can,
 		set: v => {
 			if(!v){
-				if(document.pointerLockElement === T) document.exitPointerLock()
-			}else if(document.pointerLockElement !== T) T.requestPointerLock({unadjustedMovement:true})?.catch(_=>null)
+				if(document.pointerLockElement === can) document.exitPointerLock()
+			}else if(document.pointerLockElement !== can) can.requestPointerLock()?.catch(_=>null)
 		}
 	})
 	Object.defineProperty($, 'fullscreen', {
-		get: () => document.fullscreenElement == T,
+		get: () => document.fullscreenElement == can,
 		set: v => {
 			if(!v){
-				if(document.fullscreenElement === T) document.exitFullscreen()
-			}else if(document.fullscreenElement !== T) T.requestFullscreen()?.catch(_=>null)
+				if(document.fullscreenElement === can) document.exitFullscreen()
+			}else if(document.fullscreenElement !== can) can.requestFullscreen()?.catch(_=>null)
 		}
 	})
 
@@ -275,13 +275,13 @@ Gamma.input = ($, T = $.canvas) => {
 	const wcb = [], mcb = []
 	;($.onWheel = fn => void wcb.push(fn)).remove = fn => void wcb.remove(fn)
 	;($.onMouse = fn => void mcb.push(fn)).remove = fn => void mcb.remove(fn)
-	T.style.cursor = 'default'
-	Object.defineProperty($, 'cursorType', {get(){return T.style.cursor},set(a){T.style.cursor=a||'default'}})
-	T.addEventListener('mouseover', _ => {
+	can.style.cursor = 'default'
+	Object.defineProperty($, 'cursorType', {get(){return can.style.cursor},set(a){can.style.cursor=a||'default'}})
+	can.addEventListener('mouseover', _ => {
 		if(_keys) return
 		_keys = keys; _dcbs = dcbs
 	})
-	T.addEventListener('mouseout', _ => {
+	can.addEventListener('mouseout', _ => {
 		if(_keys != keys) return
 		keys.iter(n => {
 			const a = dcbs.get(~n)
@@ -290,35 +290,64 @@ Gamma.input = ($, T = $.canvas) => {
 		keys.clear()
 		_keys = _dcbs = null
 	})
-	T.addEventListener('mousedown', e => {
+	can.addEventListener('mousedown', e => {
 		e.preventDefault()
 		const n = e.button
 		keys.set(n)
 		const a = dcbs.get(n)
 		if(a) for(const f of a)try{f(n)}catch(e){Promise.reject(e)}
 	})
-	T.addEventListener('mouseup', e => {
+	can.addEventListener('mouseup', e => {
 		e.preventDefault()
 		const n = e.button
 		if(!keys.pop(n)) return
 		const a = dcbs.get(~n)
 		if(a) for(const f of a)try{f(n)}catch(e){Promise.reject(e)}
 	})
-	T.addEventListener('contextmenu', e => e.preventDefault())
-	T.addEventListener('wheel', e => {
+	can.addEventListener('contextmenu', e => e.preventDefault())
+	can.addEventListener('wheel', e => {
 		e.preventDefault()
 		$.rawWheel.x += e.wheelDeltaX; $.rawWheel.y += e.wheelDeltaY
 		$.scrollDelta.x += e.wheelDeltaX / innerWidth
 		$.scrollDelta.y += e.wheelDeltaY / innerHeight
 		for(const f of wcb) f(e.wheelDeltaX, e.wheelDeltaY)
 	}, {passive: false})
-	T.addEventListener('mousemove', e => {
+	let prevx = NaN, prevy = NaN
+	can.addEventListener('mousemove', e => {
 		e.preventDefault()
-		$.rawMouse.x += e.movementX; $.rawMouse.y += e.movementY
-		$.cursor.x = e.offsetX/e.target.offsetWidth; $.cursor.y = 1-e.offsetY/e.target.offsetHeight
-		$.cursorDelta.x += e.movementX/e.target.offsetWidth; $.cursorDelta.y -= e.movementY/e.target.offsetHeight
-		for(const f of wcb) f(e.movementX, e.movementY)
+		const w = can.offsetWidth, h = can.offsetHeight
+		$.cursor.x = e.offsetX/w; $.cursor.y = 1-e.offsetY/h
+		let dx = 0, dy = 0
+		if(document.pointerLockElement == can){
+			dx = e.movementX
+			dy = e.movementY
+			if(!oldSafari){
+				dx *= devicePixelRatio, dy *= devicePixelRatio
+			}else{
+				const {width,height} = can.getBoundingClientRect()
+				dx *= devicePixelRatio*w/width, dy *= devicePixelRatio*h/height
+			}
+		}else if(prevx == prevx){ // !isnan(prevx)
+			dx = e.offsetX-prevx, dy = e.offsetY-prevy
+			
+		}
+		$.rawMouse.x += dx; $.rawMouse.y -= dy
+		$.cursorDelta.x += dx/w; $.cursorDelta.y -= dy/h
+		for(const f of wcb) f(dx, dy)
+		prevx = e.offsetX, prevy = e.offsetY
 	})
+	/*ptrlockel?.addEventListener('mousemove', e => {
+		e.preventDefault()
+		let dx = 0, dy = 0
+		dx = e.movementX
+		dy = e.movementY
+		if(!ptrlockOpts){
+
+		}
+		$.rawMouse.x += dx; $.rawMouse.y -= dy
+		$.cursorDelta.x += dx/can.offsetWidth; $.cursorDelta.y -= dy/can.offsetHeight
+		for(const f of wcb) f(dx, dy)
+	})*/
 }
 document.addEventListener('keydown', e => {
 	if(!_keys) return

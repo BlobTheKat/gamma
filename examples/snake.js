@@ -76,6 +76,9 @@ function checkFood(f, pos, radius){
 	}
 }
 
+onKey(MOUSE.LEFT, () => pointerLock = true)
+
+let head = vec2()
 render = (w, h) => {
 	ctx.reset(1/w, 0, 0, 1/h, .5, .5)
 
@@ -126,11 +129,23 @@ render = (w, h) => {
 
 	ctx.shader = Shader.AA_CIRCLE
 
-	const first = ctx.from(cursor)
-	let {x, y} = first
+	head = pointerLock ? keys.has(MOUSE.LEFT) ? head : head.plus(ctx.fromDelta(cursorDelta)) : ctx.from(cursor)
+	let {x, y} = head
+	if(pointerLock){
+		const wq = w*.333*cam.z
+		if(x+wq<cam.x)
+			cam.x += (x+wq-cam.x)*dt*2
+		if(x-wq>cam.x)
+			cam.x += (x-wq-cam.x)*dt*2
+		const hq = w*.333*cam.z
+		if(y+hq<cam.y)
+			cam.y += (y+hq-cam.y)*dt*2
+		if(y-hq>cam.y)
+			cam.y += (y-hq-cam.y)*dt*2
+	}
 	let radius = 50
 	for(const f of food){
-		checkFood(f, first, radius)
+		checkFood(f, head, radius)
 		const col = (f.x*f.x+f.y*f.y)*8 & 7
 		const r = 10*inflate
 		ctx.drawRect(f.x-r, f.y-r, 2*r, 2*r, colors[col])

@@ -7,7 +7,12 @@
 	<link rel="shortcut icon" id="icon" />
 </head>
 <body>
-<script src="min/monolith.min.js"></script>
+<!--script src="min/monolith.min.js"></script-->
+<script src="src/gamma.min.js"></script>
+<script src="src/input.js"></script>
+<script src="src/font.js"></script>
+<script src="src/textfield.js"></script>
+<script src="src/utils.js"></script>
 <script>;{
 	const $ = globalThis
 	let ow = 0, oh = 0
@@ -55,7 +60,10 @@
 	let t = '', i = icon, ic = null
 	Object.defineProperties($, {
 		title: {get:()=>t,set:a=>document.title=(t=a+'')||'\ud80c\udffc'},
-		icon: {get:()=>ic,set:a=>i.href=(ic=typeof a=='string'?a:null)||'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg'},
+		icon: {get:()=>ic,set:a=>{
+			if(ic instanceof Blob) URL.revokeObjectURL(i.href)
+			i.href = a instanceof Blob ? URL.createObjectURL(ic=a) : (ic=typeof a=='string'?a:null)||'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg'
+		}},
 		[Symbol.toStringTag]: {value: 'Global', writable: false}
 	})
 	$.icon = null
