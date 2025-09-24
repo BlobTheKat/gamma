@@ -1,10 +1,11 @@
 export {}
 declare global{
+	namespace GammaExtensions{ type font = typeof GammaExtensions.font; }
 	namespace Gamma{
-	function font(): typeof Gamma.font
-	function font(o: object): asserts o is typeof Gamma.font
-}
-namespace Gamma.font{
+		function font(): GammaExtensions.font
+		function font(o: object): asserts o is GammaExtensions.font
+	}
+namespace GammaExtensions.font{
 	// todo
 }
 }

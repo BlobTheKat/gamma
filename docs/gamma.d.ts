@@ -1,9 +1,1083 @@
 export {}
 declare global{
-	function Gamma(canvas?: HTMLCanvasElement): typeof Gamma
-	function Gamma(canvas?: HTMLCanvasElement, o: object): asserts o is typeof Gamma
+	function Gamma(canvas?: HTMLCanvasElement, _?: undefined, flags?: GammaCreationFlags): GammaInstance
+	function Gamma(canvas?: HTMLCanvasElement, o: object, flags?: GammaCreationFlags): asserts o is GammaInstance
+	namespace Gamma{
+		let bitmapOpts: ImageBitmapOptions
+		const enum GammaCreationFlags{
+			STENCIL = 1 << 0,
+			ALPHA_CHANNEL = 1 << 1,
+			PREMULTIPLIED_ALPHA = 1 << 2,
+			PRESERVE_BUFFER = 1 << 3,
+			MSAA = 1 << 4
+		}
+	}
+	interface Math{
+		/**
+		 * `PI2 == PI*2`, also known as tau.
+		 * 
+		 * This is the ratio of the circumference of a circle to its radius.
+		 */
+		readonly PI2: number
+	}
+	/**
+	 * Polyfill of `setImmediate`
+	 * 
+	 * [MDN Reference](https://developer.mozilla.org/docs/Web/API/Window/setImmediate)
+	 */
+	declare function setImmediate(handler: TimerHandler, ...arguments: any[]): number
+	/**
+	 * Polyfill of `clearImmediate`
+	 * 
+	 * [MDN Reference](https://developer.mozilla.org/docs/Web/API/Window/clearImmediate)
+	 */
+	declare function clearImmediate(id: number | undefined): void
 
-namespace Gamma{
+	/** The mathematical constant e. This is Euler's number, the base of natural logarithms. */
+	const E: number
+	/** The natural logarithm of 10. */
+	const LN10: number
+	/** The natural logarithm of 2. */
+	const LN2: number
+	/** The base-2 logarithm of e. */
+	const LOG2E: number
+	/** The base-10 logarithm of e. */
+	const LOG10E: number
+	/** Pi. This is the ratio of the circumference of a circle to its diameter. */
+	const PI: number
+	/**
+	 * `PI2 == PI*2`, also known as tau.
+	 * 
+	 * This is the ratio of the circumference of a circle to its radius.
+	 */
+	const PI2: number
+	/** The square root of 0.5, or, equivalently, one divided by the square root of 2. */
+	const SQRT1_2: number
+	/** The square root of 2. */
+	const SQRT2: number
+	/**
+	 * Returns the absolute value of a number (the value without regard to whether it is positive or negative).
+	 * For example, the absolute value of -5 is the same as the absolute value of 5.
+	 * @param x A numeric expression for which the absolute value is needed.
+	 */
+	function abs(x: number): number
+	/**
+	 * Returns the arc cosine (or inverse cosine) of a number.
+	 * @param x A numeric expression.
+	 */
+	function acos(x: number): number
+	/**
+	 * Returns the arcsine of a number.
+	 * @param x A numeric expression.
+	 */
+	function asin(x: number): number
+	/**
+	 * Returns the arctangent of a number.
+	 * @param x A numeric expression for which the arctangent is needed.
+	 */
+	function atan(x: number): number
+	/**
+	 * Returns the angle (in radians) between the X axis and the line going through both the origin and the given point.
+	 * @param y A numeric expression representing the cartesian y-coordinate.
+	 * @param x A numeric expression representing the cartesian x-coordinate.
+	 */
+	function atan2(y: number, x: number): number
+	/**
+	 * Returns the smallest integer greater than or equal to its numeric argument.
+	 * @param x A numeric expression.
+	 */
+	function ceil(x: number): number
+	/**
+	 * Returns the cosine of a number.
+	 * @param x A numeric expression that contains an angle measured in radians.
+	 */
+	function cos(x: number): number
+	/**
+	 * Returns e (the base of natural logarithms) raised to a power.
+	 * @param x A numeric expression representing the power of e.
+	 */
+	function exp(x: number): number
+	/**
+	 * Returns the greatest integer less than or equal to its numeric argument.
+	 * @param x A numeric expression.
+	 */
+	function floor(x: number): number
+	/**
+	 * Returns the natural logarithm (base e) of a number.
+	 * @param x A numeric expression.
+	 */
+	function log(x: number): number
+	/**
+	 * Returns the larger of a set of supplied numeric expressions.
+	 * @param values Numeric expressions to be evaluated.
+	 */
+	function max(...values: number[]): number
+	/**
+	 * Returns the smaller of a set of supplied numeric expressions.
+	 * @param values Numeric expressions to be evaluated.
+	 */
+	function min(...values: number[]): number
+	/**
+	 * Returns the value of a base expression taken to a specified power.
+	 * @param x The base value of the expression.
+	 * @param y The exponent value of the expression.
+	 */
+	function pow(x: number, y: number): number
+	/** Returns a pseudorandom number between 0 and 1. */
+	function random(): number
+	/**
+	 * Returns a supplied numeric expression rounded to the nearest integer.
+	 * @param x The value to be rounded to the nearest integer.
+	 */
+	function round(x: number): number
+	/**
+	 * Returns the sine of a number.
+	 * @param x A numeric expression that contains an angle measured in radians.
+	 */
+	function sin(x: number): number
+	/**
+	 * Returns the square root of a number.
+	 * @param x A numeric expression.
+	 */
+	function sqrt(x: number): number
+	/**
+	 * Returns the tangent of a number.
+	 * @param x A numeric expression that contains an angle measured in radians.
+	 */
+	function tan(x: number): number
+
+	/**
+	 * Returns the number of leading zero bits in the 32-bit binary representation of a number.
+	 * @param x A numeric expression.
+	 */
+	function clz32(x: number): number
+
+	/**
+	 * Returns the result of 32-bit multiplication of two numbers.
+	 * @param x First number
+	 * @param y Second number
+	 */
+	function imul(x: number, y: number): number
+
+	/**
+	 * Returns the sign of the x, indicating whether x is positive, negative or zero.
+	 * @param x The numeric expression to test
+	 */
+	function sign(x: number): number
+
+	/**
+	 * Returns the base 10 logarithm of a number.
+	 * @param x A numeric expression.
+	 */
+	function log10(x: number): number
+
+	/**
+	 * Returns the base 2 logarithm of a number.
+	 * @param x A numeric expression.
+	 */
+	function log2(x: number): number
+
+	/**
+	 * Returns the natural logarithm of 1 + x.
+	 * @param x A numeric expression.
+	 */
+	function log1p(x: number): number
+
+	/**
+	 * Returns the result of (e^x - 1), which is an implementation-dependent approximation to
+	 * subtracting 1 from the exponential function of x (e raised to the power of x, where e
+	 * is the base of the natural logarithms).
+	 * @param x A numeric expression.
+	 */
+	function expm1(x: number): number
+
+	/**
+	 * Returns the hyperbolic cosine of a number.
+	 * @param x A numeric expression that contains an angle measured in radians.
+	 */
+	function cosh(x: number): number
+
+	/**
+	 * Returns the hyperbolic sine of a number.
+	 * @param x A numeric expression that contains an angle measured in radians.
+	 */
+	function sinh(x: number): number
+
+	/**
+	 * Returns the hyperbolic tangent of a number.
+	 * @param x A numeric expression that contains an angle measured in radians.
+	 */
+	function tanh(x: number): number
+
+	/**
+	 * Returns the inverse hyperbolic cosine of a number.
+	 * @param x A numeric expression that contains an angle measured in radians.
+	 */
+	function acosh(x: number): number
+
+	/**
+	 * Returns the inverse hyperbolic sine of a number.
+	 * @param x A numeric expression that contains an angle measured in radians.
+	 */
+	function asinh(x: number): number
+
+	/**
+	 * Returns the inverse hyperbolic tangent of a number.
+	 * @param x A numeric expression that contains an angle measured in radians.
+	 */
+	function atanh(x: number): number
+
+	/**
+	 * Returns the square root of the sum of squares of its arguments.
+	 * @param values Values to compute the square root for.
+	 *     If no arguments are passed, the result is +0.
+	 *     If there is only one argument, the result is the absolute value.
+	 *     If any argument is +Infinity or -Infinity, the result is +Infinity.
+	 *     If any argument is NaN, the result is NaN.
+	 *     If all arguments are either +0 or −0, the result is +0.
+	 */
+	function hypot(...values: number[]): number
+
+	/**
+	 * Returns the integral part of the a numeric expression, x, removing any fractional digits.
+	 * If x is already an integer, the result is x.
+	 * @param x A numeric expression.
+	 */
+	function trunc(x: number): number
+
+	/**
+	 * Returns the nearest single precision float representation of a number.
+	 * @param x A numeric expression.
+	 */
+	function fround(x: number): number
+
+	/**
+	 * Returns an implementation-dependent approximation to the cube root of number.
+	 * @param x A numeric expression.
+	 */
+	function cbrt(x: number): number
+
+	type GammaInstance = typeof GammaInstance
+namespace GammaInstance{
 	// todo
+/** @type WebGL2RenderingContext */
+const gl = $.gl = ($.canvas = can).getContext('webgl2', {preserveDrawingBuffer: flags&8, antialias: flags&16, depth: false, premultipliedAlpha: flags&4, stencil: flags&1, alpha: flags&2})
+gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1)
+gl.stencilMask(1)
+gl.clearStencil(0)
+gl.disable(gl.DEPTH_TEST)
+gl.enable(gl.BLEND)
+gl.disable(gl.DITHER)
+gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
+gl.pixelStorei(gl.PACK_ALIGNMENT, 1)
+const unpackBuffer = gl.createBuffer()
+gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, unpackBuffer)
+let premultAlpha = true
+class img{
+	get format(){ return this.t.f }
+	get width(){ return this.t.w }
+	get height(){ return this.t.h }
+	get layers(){ return this.t.d }
+	get subWidth(){ return this.t.w*this.w }
+	get subHeight(){ return this.t.h*this.h }
+	get aspectRatio(){ return this.t.w*this.w / (this.t.h*this.h) }
+	constructor(t,x=0,y=0,w=1,h=1,l=0){
+		this.t = t; this.x = x; this.y = y
+		this.w = w; this.h = h; this.l = l
+	}
+	get loaded(){ return !this.t.src }
+	get waiting(){ return !this.t.tex }
+	get then(){ return this.t.src ? this.#then : null }
+	load(){ if(!this.t.tex) img.load(this.t) }
+	sub(x=0, y=0, w=1, h=1, l=this.l){
+		return new img(this.t, this.x+x*this.w, this.y+y*this.h, this.w*w, this.h*h, l)
+	}
+	sup(x=0,y=0,w=1,h=1){
+		const tw = this.w/w, th = this.h/h
+		return new img(this.t, this.x-x*tw, this.y-y*th, tw, th)
+	}
+	crop(x=0, y=0, w=1, h=1, l=this.l){
+		const {t,x:ox,y:oy,h:oh} = this
+		if(!t.src) return new img(t, ox+x/t.w, oy+oh-(y+h)/t.h, w/t.w, h/t.h, l)
+		const i = new img(t, 0, 0, 0, 0, l)
+		if(!t.tex) img.load(t)
+		t.src.push(i => {
+			i.x = ox+x/t.w
+			i.y = oy+oh-(y+h)/t.h
+			i.w = w/t.w; i.h = h/t.h
+		}, undefined, i)
+		return i
+	}
+	layer(l = this.l){ return new img(this.t, this.x, this.y, this.w, this.h, l) }
+	#then(r, j){
+		if(typeof r != 'function') r = Function.prototype
+		if(!this.t.src) return void r(this)
+		if(!this.t.tex) img.load(this.t)
+		this.t.src.push(r, j, this)
+	}
+	static load(t){
+		let src = t.src, loaded = 0
+		t.src = []
+		let w = 0, h = 0
+		t.tex = gl.createTexture()
+		const reject = () => {
+			loaded = -1
+			img.setOptions(t)
+			gl.texStorage3D(gl.TEXTURE_2D_ARRAY, t.m || 1, t.f[0], t.w = w = 1, t.h = h = 1, t.d)
+			if(!premultAlpha){
+				gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1)
+				gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 1)
+				premultAlpha = true
+			}
+			if(t.m) gl.generateMipmap(gl.TEXTURE_2D_ARRAY)
+			if(t.i<0) gl.bindTexture(gl.TEXTURE_2D_ARRAY, null)
+			const cbs = t.src; t.src = null
+			for(let i = 1; i < cbs.length; i+=3) cbs[i]?.(cbs[i+1])
+		}
+		for(let i = 0; i < src.length; i++) resolveData(src[i], data => {
+			if(!loaded) w = data.width, h = data.height
+			else if(w != data.width || h != data.height)
+				return reject('Failed to load image: all layers must be the same size')
+			src[i] = data
+			if(++loaded < src.length) return
+			img.setOptions(t)
+			gl.texStorage3D(gl.TEXTURE_2D_ARRAY, t.m || 1, t.f[0], t.w = w, t.h = h, t.d)
+			if(!premultAlpha){
+				gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1)
+				gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 1)
+				premultAlpha = true
+			}
+			gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, null)
+			for(let l = 0; l < loaded; l++)
+				gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, 0, l, w, h, 1, t.f[1], t.f[2], src[l])
+			gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, unpackBuffer)
+			if(t.m) gl.generateMipmap(gl.TEXTURE_2D_ARRAY)
+			if(t.i<0) gl.bindTexture(gl.TEXTURE_2D_ARRAY, null)
+			const cbs = t.src; t.src = null
+			for(let i = 0; i < cbs.length; i += 3) cbs[i](cbs[i+2])
+		}, reject)
+	}
+	paste(tex, x=0, y=0, l=0, srcX=0, srcY=0, srcL=0, srcW=0, srcH=0, srcD=0, srcMip=0, dstMip=0){
+		const {t} = this
+		if(t.src) return this
+		if(!(tex instanceof img)) return resolveData(tex, i => {
+			img.fakeBind(t)
+			if(!premultAlpha){
+				gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1)
+				gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 1)
+				premultAlpha = true
+			}
+			gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, null)
+			gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, x, y, l, i.width, i.height, 1, t.f[1], t.f[2], i)
+			gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, unpackBuffer)
+			if(t.i<0) gl.bindTexture(gl.TEXTURE_2D_ARRAY, null)
+			return this
+		})
+		const {t: t2} = tex
+		if(t2.src){
+			tex.#then(() => this.paste(tex, x, y, l, srcX, srcY, srcL, srcW, srcH, srcD, srcMip, dstMip))
+			return this
+		}
+		if(t.tex == t2.tex){
+			console.warn('cannot copy from texture to itself')
+			return this
+		}
+		i&&draw()
+		img.fakeBind(t)
+		srcW = srcW || t2.w; srcH = srcH || t2.h; srcD = srcD || t2.d
+		while(srcD--){
+			gl.framebufferTextureLayer(gl.READ_FRAMEBUFFER, 36064, t2.tex, srcMip, srcL++)
+			gl.copyTexSubImage3D(gl.TEXTURE_2D_ARRAY, dstMip, x, y, l++, srcX, srcY, srcW, srcH)
+		}
+		if(t.i < 0) gl.bindTexture(gl.TEXTURE_2D_ARRAY, null)
+		return this
+	}
+	pasteData(data, x=0, y=0, l=0, w=0, h=0, d=0, mip=0){
+		const {t} = this
+		if(t.src) return null
+		w = w || t.w; h = h || t.h; d = d || t.d
+		img.fakeBind(t)
+		if(premultAlpha){
+			gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0)
+			gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 0)
+			premultAlpha = false
+		}
+		gl.bufferData(gl.PIXEL_UNPACK_BUFFER, data, gl.STREAM_COPY)
+		gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, mip, x, y, l, w, h, d, t.f[1], t.f[2], 0)
+		fd += data.byteLength*.25
+		if(t.i<0) gl.bindTexture(gl.TEXTURE_2D_ARRAY, null)
+	}
+	readData(x=0, y=0, l=0, w=0, h=0, d=0, arr=null,mip=0){
+		const {t} = this
+		if(t.src) return null
+		w = w || t.w; h = h || t.h; d = d || t.d
+		i&&draw()
+		let a = t.f[0], sz = w*h*(a==33323||a==33338||a==33340||a==33327||a==33328||a==33336 ? 2
+			: a==33321||a==33330||a==33332||a==33334||a==33325||a==33326? 1 : 4)
+		a = sz==1 ? 6403 : sz==2 ? 33319 : 6408
+		if(!arr || arr.length != sz) arr =
+			  t.f[2] == gl.UNSIGNED_BYTE ? new Uint8Array(sz*d)
+			: t.f[2] == gl.FLOAT ? new Float32Array(sz*d)
+			: t.f[2] == gl.UNSIGNED_INT || t.f[2] == gl.UNSIGNED_INT_10F_11F_11F_REV || t.f[2] == gl.UNSIGNED_INT_2_10_10_10_REV || t.f[2] == gl.UNSIGNED_INT_5_9_9_9_REV ? new Uint32Array(sz*d) : new Uint16Array(sz*d)
+		while(d--){
+			gl.framebufferTextureLayer(gl.READ_FRAMEBUFFER, 36064, t.tex, mip, l)
+			gl.readPixels(x, y, w, h, a, t.f[2], arr.subarray(sz*l, sz*(++l)))
+		}
+		return arr
+	}
+	delete(){
+		if(!this.t.tex) return
+		gl.deleteTexture(this.t.tex)
+		this.t.tex = null
+		if(this.t.i >= 0) bound[this.t.i] = null, this.t.i = -1
+		this.t.d = this.t.w = this.t.h = 0
+	}
+	static auto(t,i=0){
+		if((t.f[3]>>31) != i) return -2
+		if(t.i >= 0){
+			const sl = -2147483648 >>> t.i-(maxTex-shfCount&i)
+			if(!(sl&(i^shfMask))) return boundUsed |= sl, t.i
+			bound[t.i] = null, t.i = -1
+		}
+		if(!t.tex) img.load(t)
+		const j = clz32(~(boundUsed|i^shfMask))
+		if(j >= maxTex) return -1
+		boundUsed |= -2147483648>>>j
+		i = i ? maxTex+j-shfCount : j
+		const o = bound[i]; if(o) o.i = -1
+		gl.activeTexture(33984 + i)
+		gl.bindTexture(gl.TEXTURE_2D_ARRAY, (bound[i]=t).tex)
+		return t.i = i
+	}
+	static fakeBind(t){
+		if(t.i >= 0) gl.activeTexture(33984+t.i)
+		else{
+			const j = maxTex-1+(shfCount==maxTex&&maxTex)
+			if(bound[j]) bound[j].t.i = -1
+			gl.activeTexture(33984+j)
+			gl.bindTexture(gl.TEXTURE_2D_ARRAY, t.tex)
+		}
+	}
+	get options(){ return this.t.o }
+	static setOptions(t){
+		img.fakeBind(t)
+		const {o} = t
+		if(t.f[3]>>31)
+			gl.texParameterf(gl.TEXTURE_2D_ARRAY, 10240, 9728),
+			gl.texParameterf(gl.TEXTURE_2D_ARRAY, 10241, 9728)
+		else
+			gl.texParameterf(gl.TEXTURE_2D_ARRAY, 10240, 9728+(o&1)),
+			gl.texParameterf(gl.TEXTURE_2D_ARRAY, 10241, t.m?9984+(o>>1&3):9728+(o>>1&1))
+		gl.texParameterf(gl.TEXTURE_2D_ARRAY, 10242, o&8?10497:o&16?33648:33071)
+		gl.texParameterf(gl.TEXTURE_2D_ARRAY, 10243, o&32?10497:o&64?33648:33071)
+	}
+	set options(o){
+		const {t} = this
+		t.o = o
+		if(t.src) return
+		img.setOptions(t)
+		if(t.i < 0) gl.bindTexture(gl.TEXTURE_2D_ARRAY, null)
+	}
+	setMipmapRange(s=0, e=65535){
+		const {t} = this
+		if(t.src) return
+		img.fakeBind(t)
+		gl.texParameteri(gl.TEXTURE_2D_ARRAY, 33082, s)
+		gl.texParameteri(gl.TEXTURE_2D_ARRAY, 33083, e)
+		if(t.i < 0) gl.bindTexture(gl.TEXTURE_2D_ARRAY, null)
+	}
+	genMipmaps(){
+		const {t} = this
+		if(!t.m) return
+		img.fakeBind(t)
+		gl.generateMipmap(gl.TEXTURE_2D_ARRAY)
+		if(t.i < 0) gl.bindTexture(gl.TEXTURE_2D_ARRAY, null)
+	}
+}
+$.Drawable = (img, layer = img.l, mip = 0, stencil = false)=>{
+	const {t} = img
+	if(t.src) return null
+	let stencilBuf = null
+	if(stencil){
+		gl.bindRenderbuffer(gl.RENDERBUFFER, stencilBuf = gl.createRenderbuffer())
+		gl.renderbufferStorage(gl.RENDERBUFFER, 36168, t.w, t.h)
+	}
+	return new can({ tex: t.tex, img, layer: layer, stencil: 0, mip, stencilBuf, w: t.w, h: t.h })
+}
+let arr = new Float32Array(16), iarr = new Int32Array(arr.buffer), i = 0
+$.Texture = (w = 0, h = 0, d = 0, o = 0, f = Formats.RGBA, mips = 0) => {
+	const t = { tex: gl.createTexture(), i: -1, a: -1, o, f, src: null, w, h, d: +d||1, m: mips }
+	const tx = new img(t)
+	img.setOptions(t)
+	if(w && h) gl.texStorage3D(gl.TEXTURE_2D_ARRAY, (t.m = mips) || 1, t.f[0], t.w = w, t.h = h, t.d = +d || 1)
+	else gl.texStorage3D(gl.TEXTURE_2D_ARRAY, (t.m = mips) || 1, t.f[0], t.w = 1, t.h = 1, t.d = 1)
+	gl.bindTexture(gl.TEXTURE_2D_ARRAY, null)
+	return tx
+}
+$.Texture.MAX_WIDTH = $.Texture.MAX_HEIGHT = gl.getParameter(gl.MAX_TEXTURE_SIZE)
+$.Texture.MAX_LAYERS = gl.getParameter(gl.MAX_ARRAY_TEXTURE_LAYERS)
+$.Img = (src, o = 0, fmt = Formats.RGBA, mips = 0) => new img({
+	tex: null, i: -1, a: -1, o, f:fmt, src: src ? Array.isArray(src) ? src : [src] : [],
+	w: 0, h: 0, d: src ? Array.isArray(src) ? src.length : 1 : 0, m: mips
+})
+Object.assign($, {
+	UPSCALE_SMOOTH: 1, DOWNSCALE_SMOOTH: 2, MIPMAP_SMOOTH: 4, SMOOTH: 7, REPEAT_X: 8, REPEAT_MIRRORED_X: 16, REPEAT_Y: 32, REPEAT_MIRRORED_Y: 64, REPEAT: 40, REPEAT_MIRRORED: 80,
+	R: 1, G: 2, B: 4, A: 8,
+	RGB: 7, RGBA: 15,
+	IF_SET: 16, IF_UNSET: 32, NO_DRAW: 48,
+	UNSET: 64, SET: 128, FLIP: 192,
+	ONE: 17, ZERO: 0, RGB_ONE: 1, A_ONE: 16,
+	SRC: 34, RGB_SRC: 2,
+	ONE_MINUS_SRC: 51,
+	RGB_ONE_MINUS_SRC: 3,
+	SRC_ALPHA: 68,
+	RGB_SRC_ALPHA: 4,
+	A_SRC: 64,
+	ONE_MINUS_SRC_ALPHA: 85,
+	RGB_ONE_MINUS_SRC_ALPHA: 5,
+	A_ONE_MINUS_SRC: 80,
+	DST: 136, RGB_DST: 8,
+	ONE_MINUS_DST: 153,
+	RGB_ONE_MINUS_DST: 9,
+	DST_ALPHA: 102,
+	RGB_DST_ALPHA: 6,
+	A_DST: 96,
+	ONE_MINUS_DST_ALPHA: 119,
+	RGB_ONE_MINUS_DST_ALPHA: 7,
+	A_ONE_MINUS_DST: 112,
+	SRC_ALPHA_SATURATE: 170,
+	RGB_SRC_ALPHA_SATURATE: 10,
+	ADD: 17, RGB_ADD: 1, A_ADD: 16,
+	SUB: 85,
+	RGB_SUB: 5,
+	A_SUB: 80,
+	SUB_REV: 102,
+	RGB_SUB_REV: 6,
+	A_SUB_REV: 96,
+	MIN: 34, RGB_MIN: 2, A_MIN: 32,
+	MAX: 51, RGB_MAX: 3, A_MAX: 48,
+	FLOAT: 0, VEC2: 1, VEC3: 2, VEC4: 3,
+	INT: 16, IVEC2: 17, IVEC3: 18, IVEC4: 19,
+	UINT: 32, UVEC2: 33, UVEC3: 34, UVEC4: 35,
+	TEXTURE: 20, UTEXTURE: 24, FTEXTURE: 28, COLOR: 4, UCOLOR: 8, FCOLOR: 12,
+	FIXED: 4, _: undefined,
+	TRIANGLE_STRIP: 5, TRIANGLES: 4, TRIANGLE_FAN: 6, LINE_LOOP: 2, LINE_STRIP: 3, LINES: 1, POINTS: 0
+})
+const _vec2 = class vec2{
+	constructor(x,y){this.x=x;this.y=y}
+	copy(){return new _vec2(this.x,this.y)}
+	plus(v=0){return typeof v=='number'?new _vec2(this.x+v,this.y+v):new _vec2(this.x+v.x,this.y+v.y)}
+	minus(v=0){return typeof v=='number'?new _vec2(this.x-v,this.y-v):new _vec2(this.x-v.x,this.y-v.y)}
+	neg(){return new _vec2(-this.x,-this.y)}
+	recip(){return new _vec2(1/this.x,1/this.y)}
+	times(v=1){return typeof v=='number'?new _vec2(this.x*v,this.y*v):new _vec2(this.x*v.x,this.y*v.y)}
+	div(v=1){return typeof v=='number'?new _vec2(this.x/v,this.y/v):new _vec2(this.x/v.x,this.y/v.y)}
+	pow(v=1){return typeof v=='number'?new _vec2(this.x**v,this.y**v):new _vec2(this.x**v.x,this.y**v.y)}
+	set(v=0){if(typeof v=='number')this.x=this.y=v;else this.x=v.x,this.y=v.y}
+	map(fn){return new _vec2(fn(this.x),fn(this.y))}
+	eq(v){return typeof v=='number'?this.x==v&&this.y==v:this.x==v.x&&this.y==v.y}
+	length(){return hypot(this.x,this.y)}
+	get yx(){return _vec2(this.y,this.x)}
+}, _vec3 = class vec3{
+	constructor(x,y,z){this.x=x;this.y=y;this.z=z}
+	copy(){return new _vec3(this.x,this.y,this.z)}
+	plus(v=0){return typeof v=='number'?new _vec3(this.x+v,this.y+v,this.z+v):new _vec3(this.x+v.x,this.y+v.y,this.z+v.z)}
+	minus(v=0){return typeof v=='number'?new _vec3(this.x-v,this.y-v,this.z-v):new _vec3(this.x-v.x,this.y-v.y,this.z-v.z)}
+	neg(){return new _vec3(-this.x,-this.y,-this.z)}
+	recip(){return new _vec3(1/this.x,1/this.y,1/this.z)}
+	times(v=1){return typeof v=='number'?new _vec3(this.x*v,this.y*v,this.z*v):new _vec3(this.x*v.x,this.y*v.y,this.z*v.z)}
+	div(v=1){return typeof v=='number'?new _vec3(this.x/v,this.y/v,this.z/v):new _vec3(this.x/v.x,this.y/v.y,this.z/v.z)}
+	pow(v=1){return typeof v=='number'?new _vec3(this.x**v,this.y**v,this.z**v):new _vec3(this.x**v.x,this.y**v.y,this.z**v.z)}
+	set(v=0){if(typeof v=='number')this.x=this.y=this.z=v;else this.x=v.x,this.y=v.y,this.z=v.z}
+	map(fn){return new _vec3(fn(this.x),fn(this.y),fn(this.z))}
+	eq(v){return typeof v=='number'?this.x==v&&this.y==v&&this.z==v:this.x==v.x&&this.y==v.y&&this.z==v.z}
+	length(){return hypot(this.x,this.y,this.z)}
+	get xy(){return new _vec2(this.x,this.y)}
+	get yz(){return new _vec2(this.y,this.z)}
+	get zyx(){return new _vec3(this.z,this.y,this.x)}
+}, _vec4 = class vec4{
+	constructor(x,y,z,w){this.x=x;this.y=y;this.z=z;this.w=w}
+	copy(){return new _vec4(this.x,this.y,this.z,this.w)}
+	plus(v=0){return typeof v=='number'?new _vec4(this.x+v,this.y+v,this.z+v,this.w+v):new _vec4(this.x+v.x,this.y+v.y,this.z+v.z,this.w+v.w)}
+	minus(v=0){return typeof v=='number'?new _vec4(this.x-v,this.y-v,this.z-v,this.w-v):new _vec4(this.x-v.x,this.y-v.y,this.z-v.z,this.w-v.w)}
+	neg(){return new _vec4(-this.x,-this.y,-this.z,-this.w)}
+	recip(){return new _vec4(1/this.x,1/this.y,1/this.z,1/this.w)}
+	times(v=1){return typeof v=='number'?new _vec4(this.x*v,this.y*v,this.z*v,this.w*v):new _vec4(this.x*v.x,this.y*v.y,this.z*v.z,this.w*v.w)}
+	div(v=1){return typeof v=='number'?new _vec4(this.x/v,this.y/v,this.z/v,this.w/v):new _vec4(this.x/v.x,this.y/v.y,this.z/v.z,this.w/v.w)}
+	pow(v=1){return typeof v=='number'?new _vec4(this.x**v,this.y**v,this.z**v,this.w**v):new _vec4(this.x**v.x,this.y**v.y,this.z**v.z,this.w**v.w)}
+	set(v=0){if(typeof v=='number')this.x=this.y=this.z=this.w=v;else this.x=v.x,this.y=v.y,this.z=v.z,this.w=v.w}
+	map(fn){return new _vec4(fn(this.x),fn(this.y),fn(this.z),fn(this.w))}
+	eq(v){return typeof v=='number'?this.x==v&&this.y==v&&this.z==v&&this.w==v:this.x==v.x&&this.y==v.y&&this.z==v.z&&this.w==v.w}
+	length(){return hypot(this.x,this.y,this.z,this.w)}
+	get xy(){return new _vec2(this.x,this.y)}
+	get yz(){return new _vec2(this.y,this.z)}
+	get zw(){return new _vec2(this.z,this.w)}
+	get xyz(){return new _vec3(this.x,this.y,this.z)}
+	get yzw(){return new _vec3(this.y,this.z,this.w)}
+	get wzyx(){return new _vec4(this.w,this.z,this.y,this.x)}
+}
+$.vec2 = (x=0,y=x) => new _vec2(x,y)
+$.vec2.one = $.vec2(1); const v2z = $.vec2.zero = $.vec2(0)
+$.vec3 = (x=0,y=x,z=x) => new _vec3(x,y,z)
+$.vec3.one = $.vec3(1); const v3z = $.vec3.zero = $.vec3(0)
+$.vec4 = (x=0,y=x,z=x,w=x) => new _vec4(x,y,z,w)
+$.vec4.one = $.vec4(1); const v4z = $.vec4.zero = $.vec4(0)
+$.Formats={R:[33321,6403,gl.UNSIGNED_BYTE],RG:[33323,33319,gl.UNSIGNED_BYTE],RGB:[32849,6407,gl.UNSIGNED_BYTE],RGBA:[32856,T=6408,gl.UNSIGNED_BYTE],RGB565:[36194,6407,33635],R11F_G11F_B10F:[35898,6407,gl.UNSIGNED_INT_10F_11F_11F_REV],RGB5_A1:[32855,T,32820],RGB10_A2:[32857,T,gl.UNSIGNED_INT_2_10_10_10_REV],RGBA4:[32854,T,32819],RGB9_E5:[35901,6407,gl.UNSIGNED_INT_5_9_9_9_REV],R8:[33330,T=36244,gl.UNSIGNED_BYTE,1<<31],RG8:[33336,33320,gl.UNSIGNED_BYTE,1<<31],RGB8:[36221,36248,gl.UNSIGNED_BYTE,1<<31],RGBA8:[36220,36249,gl.UNSIGNED_BYTE,1<<31],R16:[33332,T,5123,1<<31],RG16:[33338,33320,5123,1<<31],RGB16:[36215,36248,5123,1<<31],RGBA16:[36214,36249,5123,1<<31],R32:[33334,T,gl.UNSIGNED_INT,1<<31],RG32:[33340,33320,gl.UNSIGNED_INT,1<<31],RGB32:[36209,36248,gl.UNSIGNED_INT,1<<31],RGBA32:[36208,36249,gl.UNSIGNED_INT,1<<31],R16F:[33325,6403,5131],RG16F:[33327,33319,5131],RGB16F:[34843,6407,5131],RGBA16F:[34842,6408,5131],R16F_32F:[33325,6403,gl.FLOAT],RG16F_32F:[33327,33319,gl.FLOAT],RGB16F_32F:[34843,6407,gl.FLOAT],RGBA16F_32F:[34842,6408,gl.FLOAT],R32F:[33326,6403,gl.FLOAT],RG32F:[33328,33319,gl.FLOAT],RGB32F:[34837,6407,gl.FLOAT],RGBA32F:[34836,6408,gl.FLOAT]}
+const grow = new Function(ArrayBuffer.prototype.transfer?'arr=new Float32Array(arr.buffer.transfer(i*8)),iarr=new Int32Array(arr.buffer)':'const oa=arr;(arr=new Float32Array(i*2)).set(oa,0);iarr=new Int32Array(arr.buffer)')
+class can{
+	t;#a;#b;#c;#d;#e;#f;#m;#shader;s
+	get width(){return this.t.w}
+	get height(){return this.t.h}
+	get texture(){return this.t.img}
+	set texture(i){
+		const t = this.t
+		if(!t.img||!i) return
+		if(ca==t) i&&draw(), ca=null
+		t.img = i
+	}
+	get hasStencil(){return !this.t.img||!!this.t.stencilBuf}
+	set hasStencil(s){
+		let t = this.t, b = t.stencilBuf
+		if(!t.img) return
+		if(s){
+			if(b) return
+			if(ca==t) i&&draw(), ca=null
+			gl.bindRenderbuffer(gl.RENDERBUFFER, t.stencilBuf = b = gl.createRenderbuffer())
+			gl.renderbufferStorage(gl.RENDERBUFFER, 36168, t.w, t.h)
+		}else{
+			if(!b) return
+			if(ca==t) i&&draw(), ca=null
+			t.stencilBuf = null
+			gl.deleteRenderbuffer(b)
+		}
+	}
+	get textureLayer(){return this.t.layer}
+	get textureMipmap(){return this.t.mip}
+	set textureLayer(l=0){
+		if(ca==t) i&&draw(), ca=null
+		this.t.layer = l
+	}
+	set textureMipmap(m=0){
+		if(ca==t) i&&draw(), ca=null
+		this.t.mip = m
+	}
+	constructor(t,a=1,b=0,c=0,d=1,e=0,f=0,m=290787599,s=$.Shader.DEFAULT,sp=defaultShape){this.t=t;this.#a=a;this.#b=b;this.#c=c;this.#d=d;this.#e=e;this.#f=f;this.#m=m;this.#shader=s;this.s=sp}
+	translate(x=0,y=0){ this.#e+=x*this.#a+y*this.#c;this.#f+=x*this.#b+y*this.#d }
+	scale(x=1,y=x){ this.#a*=x; this.#b*=x; this.#c*=y; this.#d*=y }
+	rotate(r=0){
+		const cs = cos(r), sn = sin(r), a=this.#a,b=this.#b,c=this.#c,d=this.#d
+		this.#a=a*cs-c*sn; this.#b=b*cs-d*sn
+		this.#c=a*sn+c*cs; this.#d=b*sn+d*cs
+	}
+	transform(a,b,c,d,e,f){
+		const A=this.#a,B=this.#b,C=this.#c,D=this.#d,E=this.#e,F=this.#f
+		this.#a = A*a+C*b; this.#b = B*a+D*b
+		this.#c = A*c+C*d; this.#d = B*c+D*d
+		this.#e = A*e+C*f+E; this.#f = B*e+D*f+F
+	}
+	skew(x=0, y=0){
+		const ta=this.#a,tb=this.#b
+		this.#a+=this.#c*y; this.#b+=this.#d*y
+		this.#c+=ta*x; this.#d+=tb*x
+	}
+	multiply(x=1, y=0){
+		const ta=this.#a,tb=this.#b
+		this.#a=ta*x-this.#c*y;this.#b=tb*x-this.#d*y
+		this.#c=ta*y+this.#c*x;this.#d=tb*y+this.#d*x
+	}
+	getTransform(){ return {a: this.#a, b: this.#b, c: this.#c, d: this.#d, e: this.#e, f: this.#f} }
+	new(a=1,b=0,c=0,d=1,e=0,f=0){return new can(this.t,a,b,c,d,e,f,this.#m,this.#shader,this.s)}
+	reset(a=1,b=0,c=0,d=1,e=0,f=0){this.#a=a;this.#b=b;this.#c=c;this.#d=d;this.#e=e;this.#f=f;this.#m=290787599;this.#shader=$.Shader.DEFAULT;this.s=defaultShape}
+	box(x=0,y=0,w=1,h=w){ this.#e+=x*this.#a+y*this.#c; this.#f+=x*this.#b+y*this.#d; this.#a*=w; this.#b*=w; this.#c*=h; this.#d*=h }
+	to(x=0, y=0){ if(typeof x=='object'){y=x.y;x=x.x} return new _vec2(this.#a*x+this.#c*y+this.#e,this.#b*x+this.#d*y+this.#f)}
+	from(x=0, y=0){
+		if(typeof x=='object'){y=x.y;x=x.x}
+		const a=this.#a,b=this.#b,c=this.#c,d=this.#d, det = a*d-b*c
+		return new _vec2(
+			(x*d - y*c + c*this.#f - d*this.#e)/det,
+			(y*a - x*b + b*this.#e - a*this.#f)/det
+		)
+	}
+	toDelta(dx=0, dy=0){ if(typeof dx=='object'){dy=dx.y;dx=dx.x} return new _vec2(this.#a*dx+this.#c*dy,this.#b*dx+this.#d*dy)}
+	fromDelta(dx=0, dy=0){
+		if(typeof dx=='object'){dy=dx.y;dx=dx.x}
+		const a=this.#a,b=this.#b,c=this.#c,d=this.#d, det = a*d-b*c
+		return new _vec2((dx*d-dy*c)/det, (dy*a-dx*b)/det)
+	}
+	determinant(){return this.#a*this.#d-this.#b*this.#c}
+	pixelRatio(){return sqrt((this.#a*this.#d-this.#b*this.#c)*this.t.w*this.t.h)}
+	sub(){ return new can(this.t,this.#a,this.#b,this.#c,this.#d,this.#e,this.#f,this.#m,this.#shader,this.s) }
+	resetTo(m){ this.#a=m.#a;this.#b=m.#b;this.#c=m.#c;this.#d=m.#d;this.#e=m.#e;this.#f=m.#f;this.#m=m.#m;this.#shader=m.#shader;this.s=m.s }
+	set shader(sh){ this.#shader=typeof sh=='function'?sh:$.Shader.DEFAULT }
+	get shader(){return this.#shader}
+	set mask(m){this.#m=this.#m&-256|m&255}
+	get mask(){return this.#m&255}
+	set blend(b){this.#m=this.#m&255|(b||1135889)<<8}
+	get blend(){return this.#m>>8}
+	get geometry(){return this.s}
+	set geometry(a){this.s=a||defaultShape}
+	draw(...values){
+		setv(this.t,this.#m); const i = this.#shader(values)
+		arr[i  ] = this.#a; arr[i+1] = this.#c; arr[i+2] = this.#e
+		arr[i+3] = this.#b; arr[i+4] = this.#d; arr[i+5] = this.#f
+	}
+	drawRect(x=0, y=0, w=1, h=1, ...values){
+		setv(this.t,this.#m); const i = this.#shader(values)
+		arr[i  ] = this.#a*w; arr[i+1] = this.#c*h; arr[i+2] = this.#e+x*this.#a+y*this.#c
+		arr[i+3] = this.#b*w; arr[i+4] = this.#d*h; arr[i+5] = this.#f+x*this.#b+y*this.#d
+	}
+	drawMat(a=1, b=0, c=0, d=1, e=0, f=0, ...values){
+		setv(this.t,this.#m); const i = this.#shader(values)
+		const ta=this.#a,tb=this.#b,tc=this.#c,td=this.#d,te=this.#e,tf=this.#f
+		arr[i  ] = ta*a+tc*b; arr[i+1] = ta*c+tc*d; arr[i+2] = ta*e+tc*f+te
+		arr[i+3] = tb*a+td*b; arr[i+4] = tb*c+td*d; arr[i+5] = tb*e+td*f+tf
+	}
+	drawv(values){
+		setv(this.t,this.#m); const i = this.#shader(values)
+		arr[i  ] = this.#a; arr[i+1] = this.#c; arr[i+2] = this.#e
+		arr[i+3] = this.#b; arr[i+4] = this.#d; arr[i+5] = this.#f
+	}
+	drawRectv(x=0, y=0, w=1, h=1, values){
+		setv(this.t,this.#m); const i = this.#shader(values)
+		arr[i  ] = this.#a*w; arr[i+1] = this.#c*h; arr[i+2] = this.#e+x*this.#a+y*this.#c
+		arr[i+3] = this.#b*w; arr[i+4] = this.#d*h; arr[i+5] = this.#f+x*this.#b+y*this.#d
+	}
+	drawMatv(a=1, b=0, c=0, d=1, e=0, f=0, values){
+		setv(this.t,this.#m); const i = this.#shader(values)
+		const ta=this.#a,tb=this.#b,tc=this.#c,td=this.#d,te=this.#e,tf=this.#f
+		arr[i  ] = ta*a+tc*b; arr[i+1] = ta*c+tc*d; arr[i+2] = ta*e+tc*f+te
+		arr[i+3] = tb*a+td*b; arr[i+4] = tb*c+td*d; arr[i+5] = tb*e+td*f+tf
+	}
+	dup(){
+		if(!i) return
+		const s = sh.count
+		if(i+s>arr.length) grow()
+		for(let j=i-s;j<i;j++)iarr[j+s]=iarr[j]
+		arr[i  ] = this.#a; arr[i+1] = this.#c; arr[i+2] = this.#e
+		arr[i+3] = this.#b; arr[i+4] = this.#d; arr[i+5] = this.#f
+		i += s
+	}
+	dupRect(x=0, y=0, w=1, h=1, i){
+		if(!i) return
+		const s = sh.count
+		if(i+s>arr.length) grow()
+		for(let j=i-s;j<i;j++)iarr[j+s]=iarr[j]
+		arr[i  ] = this.#a*w; arr[i+1] = this.#c*h; arr[i+2] = this.#e+x*this.#a+y*this.#c
+		arr[i+3] = this.#b*w; arr[i+4] = this.#d*h; arr[i+5] = this.#f+x*this.#b+y*this.#d
+		i += s
+	}
+	dupMat(a=1, b=0, c=0, d=1, e=0, f=0, i){
+		if(!i) return
+		const s = sh.count
+		if(i+s>arr.length) grow()
+		for(let j=i-s;j<i;j++)iarr[j+s]=iarr[j]
+		const ta=this.#a,tb=this.#b,tc=this.#c,td=this.#d,te=this.#e,tf=this.#f
+		arr[i  ] = ta*a+tc*b; arr[i+1] = ta*c+tc*d; arr[i+2] = ta*e+tc*f+te
+		arr[i+3] = tb*a+td*b; arr[i+4] = tb*c+td*d; arr[i+5] = tb*e+td*f+tf
+		i += s
+	}
+	clear(r = 0, g = r, b = r, a = g){
+		if(typeof r=='object')a=r.w??0,b=r.z??0,g=r.y,r=r.x
+		i&&draw()
+		setv(this.t, this.#m)
+		gl.clearColor(r, g, b, a)
+		const q = this.t.stencil=this.t.stencil+1&7
+		gl.clear(q?16384:(gl.stencilMask(255), 17408))
+		gl.disable(2960); pmask &= -241
+	}
+	clearStencil(){
+		i&&draw()
+		setv(this.t, this.#m)
+		const q = this.t.stencil=this.t.stencil+1&7
+		if(!q) gl.stencilMask(255), gl.clear(1024)
+		gl.disable(2960); pmask &= -241
+	}
+}
+let pmask=285217039
+
+$.Blend = T = (src = 17, combine = 17, dst = 0, dither=false) => src|dst<<8|combine<<16|dither<<23
+Object.assign(T, {
+	REPLACE: 1114129,
+	DEFAULT: 1135889,
+	ADD: 1118481,
+	MULTIPLY: 1122816,
+	SUBTRACT: 5574929,
+	REVERSE_SUBTRACT: 6689041,
+	MIN: 2232593, MAX: 3346705,
+	BEHIND: 1118583,
+	INVERT: 1127321
+})
+function setv(t,m){
+	const s = t.stencil
+	let d = pmask^m
+	if(ca!=t){
+		i&&draw()
+		gl.FRAMEBUFFER
+		if(!t.img) gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER,null),gl.viewport(0,0,t.w,t.h)
+		else{
+			if(ca==ctx.t) gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER,fb)
+			if(t.tex!=fbTex||t.layer!=fbLayer||t.mip!=fbMip) gl.framebufferTextureLayer(gl.DRAW_FRAMEBUFFER,36064,fbTex=t.tex,fbMip=t.mip,fbLayer=t.layer)
+			if(t.stencilBuf!=fbSte) gl.bindRenderbuffer(gl.RENDERBUFFER,fbSte=t.stencilBuf),gl.framebufferRenderbuffer(gl.DRAW_FRAMEBUFFER,36128,gl.RENDERBUFFER,fbSte)
+			const t2 = t.img.t; gl.viewport(0,0,t2.w>>fbMip,t2.h>>fbMip)
+			if(t2.i>=0){
+				gl.activeTexture(33984 + t2.i); gl.bindTexture(gl.TEXTURE_2D_ARRAY, bound[t2.i] = null); t2.i = -1
+			}
+			if(!ca||ca.stencil!=s) d|=240
+		}
+		ca=t
+	}
+	if(d){
+		i&&draw()
+		if(d&15) gl.colorMask(m&1,m&2,m&4,m&8)
+		if(d&240){
+			if(m&240){
+				if(!(pmask&240)) gl.enable(2960) // STENCIL_TEST
+				gl.stencilMask(1<<s)
+				gl.stencilFunc(m&32?m&16?gl.NEVER:gl.NOTEQUAL:m&16?gl.EQUAL:gl.ALWAYS,255,1<<s)
+				const op = m&128?m&64?gl.INVERT:gl.REPLACE:m&64?gl.ZERO:gl.KEEP
+				gl.stencilOp(op, op, op)
+			}else if(pmask&240) gl.disable(2960) // STENCIL_TEST
+		}
+		if(d&1996488704) gl.blendEquationSeparate((m>>24&7)+32773,(m>>28&7)+32773)
+		if(d&16776960) gl.blendFuncSeparate((m>>8&15)+766*!!(m&3584), (m>>16&15)+766*!!(m&917504), (m>>12&15)+766*!!(m&57344), (m>>20&15)+766*!!(m&14680064))
+		if(d&-2147483648) m&-2147483648 ? gl.enable(3024) : gl.disable(3024) // DITHER
+		pmask = m
+	}
+}
+function draw(b=shuniBind){
+	gl.bufferData(34962, iarr.subarray(0, i), 35040)
+	const {type,start:s,length:l}=shp
+	fd += i; i /= sh.count; fdc++; fs += i
+	gl.drawArraysInstanced(type, s, l, i)
+	i = 0; boundUsed = b
+	if(pendingFences.length){ fencetail ??= pendingFences[0]; for(const f of pendingFences){
+		f.sync = gl.fenceSync(37143,0)
+		fencehead = fencehead ? fencehead.next = f : f
+	} pendingFences.length = 0 }
+}
+let sh=null,ca=null,fbTex=null,fbSte=null,fbLayer=0,fbMip=0,shfCount=0,shfMask=0
+const fb = gl.createFramebuffer()
+gl.bindFramebuffer(gl.READ_FRAMEBUFFER, gl.createFramebuffer())
+const buf = gl.createBuffer()
+gl.bindBuffer(34962, buf)
+const maxTex = min(32, gl.getParameter(34930))
+const bound = []; for(let i=maxTex<<1;i>0;i--) bound.push(null)
+T = $.Geometry = (type, points) => {
+	if(points.length&3) throw 'points.length is not a multiple of 4'
+	if(!(points instanceof Float32Array)){
+		T = new Float32Array(points.length)
+		T.set(points, 0); points = T
+	}
+	const b = gl.createBuffer()
+	gl.bindBuffer(34962, b)
+	gl.bufferData(34962, points, 35044)
+	b.type = type
+	gl.bindBuffer(34962, buf)
+	return {type, b, start: 0, length: points.length>>2, sub}
+}
+function sub(s=0,l=this.length-s, type=this.type){
+	return {type, b: this.b, start: this.start+s, length: l, sub}
+}
+let boundUsed = 0, shp = T.DEFAULT = T($.TRIANGLE_STRIP, [0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1]), shuniBind = 0
+const defaultShape = shp
+let g
+const treeIf = (s=0, e=maxTex,o=0) => {
+	if(e<=s+1) return g(s)
+	const m = s+(1<<31-clz32(e-s-1))
+	return `if(u<${m+o}){${treeIf(s,m,o)}}else{${treeIf(m,e,o)}}`
+}
+const names = ['float','vec2','vec3','vec4','int','ivec2','ivec3','ivec4','uint','uvec2','uvec3','uvec4']
+T = $.Shader = (src, inputs, defaults, uniforms, uDefaults, output=4, frat=0.5) => {
+	const fnParams = ['(function({'], fnBody = ['',''], shaderHead = ['#version 300 es\nprecision mediump float;precision highp int;layout(location=0)in vec4 _pos;out vec2 uv,xy;layout(location=1)in mat2x3 m;',''], shaderBody = ['void main(){gl_PointSize=1.0;uv=_pos.zw;gl_Position=vec4((xy=vec3(_pos.xy,1.)*m)*2.-1.,0.,1.);'], shaderHead2 = ['#version 300 es\nprecision mediump float;precision highp int;in vec2 uv,xy;uniform vec2 viewport;out '+(output==0?'highp vec4 color;':output==16||output==32?'uvec4 color;':'lowp vec4 color;'),'']
+	let j = 6, o = 0, fCount = 0, iCount = 0
+	const types = [3,3]
+	const texCheck = []
+	
+	let id = 0
+	inputs = typeof inputs=='number' ? [inputs] : inputs || []
+	uniforms = typeof uniforms=='number' ? [uniforms] : uniforms || []
+	defaults = defaults != null ? Array.isArray(defaults) ? defaults : [defaults] : []
+	uDefaults = uDefaults != null ? Array.isArray(uDefaults) ? uDefaults : [uDefaults] : []
+	for(const t of inputs){
+		let c = (t&3)+1, n = names[t&3|t>>4<<2]
+		const isCol = t==4||t==8||t==12
+		defaults[id] ??= t==4?v4z:c==1?0:c==2?v2z:c==3?v3z:v4z
+		fnParams.push(id+':a'+j+'=defaults['+id+'],')
+		const A = t>15?(o|=1,'iarr[j+'):'arr[j+'
+		if(t==20||t==24||t==28){
+			n='int',o|=(1<<(t>>2)-3),fCount++
+			texCheck.push(`a${j}=(img.auto(a${j+(t==24?'.t,-1':'.t,0')})+1||(i&&draw(b^boundUsed),img.auto(a${j+(t==24?'.t,-1':'.t,0')})+1))-1`)
+		}
+		if(t==12||t==28) o|=2
+		if(t==8||t==24) iCount++,fCount--
+		if(isCol){
+			texCheck.push(`let a${j+1}=${t==4?`-1;if(a${j}.t&&(a${j+1}=img.auto(a${j}.t,0))==-1)`:`img.auto(a${j+(t==8?'.t,-1':'.t,0')});if(a${j+1}==-1)`}{i&&draw(b^boundUsed);a${j+1}=img.auto(a${j+(t==8?'.t,-1':'.t,0')})}`)
+			fCount++
+			const n = `arg${id}raw`
+			shaderHead.push(`layout(location=${types.length+1})in int i${j};layout(location=${types.length+2})in vec4 i${j+1};centroid out vec4 ${n};`)
+			shaderBody.push(t!=4?`${n}=vec4(i${j+1}.xy+uv*i${j+1}.zw,i${j}>>8,i${j}&255);`:`if(i${j}==-1){${n}=i${j+1};${n}.w=max(-15856.,${n}.w);}else{${n}=vec4(i${j+1}.xy+uv*i${j+1}.zw,i${j}>>8,(i${j}&255)==0?-15872:((i${j}&255)<<4)-16384);}`)
+			shaderHead2.push(`centroid in vec4 ${n};${t==4?'lowp ':t==8?'u':'highp '}vec4 arg${id}(){`+(t==4?`if(${n}.w>-15872.)return ${n};return getColor(int(${n}.w)>>4&31,${n}.xyz);}`:t==8?`return uGetColor(int(${n}.w),${n}.xyz);}`:`return fGetColor(int(${n}.w),${n}.xyz);}`))
+			o|=(1<<(t>>2)+1)
+			types.push(17,4)
+			fnBody.push('iarr[j+'+j+']=a'+(j+1)+'|a'+j+'.l<<8')
+			for(c=0;++c<3;) fnBody.push(A+(j+c)+']=a'+j+'.'+' xy'[c])
+			fnBody.push(`if(a${j+1}>=0)${A+(j+3)}]=a${j}.w,${A+(j+4)}]=a${j}.h;else ${A+(j+3)}]=a${j}.z,${A+(j+4)}]=a${j}.w`)
+			c=5
+		}else{
+			shaderHead.push('layout(location='+(types.length+1)+')in '+n+' i'+j+';flat out '+n+' arg'+id+';')
+			shaderBody.push('arg'+id+'=i'+j+';')
+			shaderHead2.push('flat in '+n+' arg'+id+';')
+			types.push(c|t&48)
+			if(c==1) fnBody.push(A+j+']=a'+j)
+			else for(let c1=-1;++c1<c;) fnBody.push(A+(j+c1)+']=a'+j+'.'+'xyzw'[c1])
+		}
+		j += c
+		id++
+	}
+	id = 0; let j2 = 0, j3 = 0
+	const fn2Params = [], fn2Body = ['fd+=j2;i&&draw(0);if(sh!=s){shfCount=fCount;shfMask=fMask;gl.useProgram((sh=s).program);gl.bindVertexArray(s.vao)}'], fn3Body = []
+	const uniTex = [], uniLocs = []
+	for(const t of uniforms){
+		let c = (t&3)+1, n = names[t&3|t>>4<<2]
+		uDefaults[id] ??= t==4?v4z:c==1?0:c==2?v2z:c==3?v3z:v4z
+		fn2Params.push('a'+j2+'=uDefaults['+id+']')
+		if(t==12||t==28) o|=2
+		if(t==8||t==24) iCount++,fCount--
+		if(t==20||t==24||t==28){
+			o|=(1<<(t>>2)-3),fCount++
+			fn3Body.push(`gl.uniform1i(uniLocs[${j3}],uniTex[${uniTex.length}]?img.auto(uniTex[${uniTex.length}]${t==24?',-1':',0'}):${t==24?maxTex:0})`)
+			shaderHead2.push('uniform int uni'+id+';')
+			fn2Body.push(`uniTex[${uniTex.length}]=a${j2}.t`)
+			uniTex.push(null)
+		}else if(t==4||t==8||t==12){
+			fn3Body.push(`gl.uniform1i(uniLocs[${j3++}],(uniTex[${uniTex.length}]?img.auto(uniTex[${uniTex.length}]${t==8?',-1':',0'}):${t==8?maxTex:0})|uniTex[${uniTex.length+1}])`)
+			uniTex.push(null,0)
+			fCount++
+			const n = `uni${id}raw`
+			shaderHead.push(`uniform int u${j2};uniform vec4 u${j2+1};centroid out vec4 ${n};`)
+			shaderBody.push(t!=4?`${n}=vec4(u${j2+1}.xy+uv*u${j2+1}.zw,u${j2}>>8,u${j2}&255);`:`if(u${j2}==-1){${n}=u${j2+1};${n}.w=max(-15856.,${n}.w);}else{${n}=vec4(u${j2+1}.xy+uv*u${j2+1}.zw,u${j2}>>8,(u${j2}&255)==0?-15872:((u${j2}&255)<<4)-16384);}`)
+			shaderHead2.push(`centroid in vec4 ${n};${t==4?'lowp ':t==8?'u':'highp '}vec4 uni${id}(){`+(t==4?`if(${n}.w>-15872.)return ${n};return getColor(int(${n}.w)>>4&31,${n}.xyz);}`:t==8?`return uGetColor(int(${n}.w),${n}.xyz);}`:`return fGetColor(int(${n}.w),${n}.xyz);}`))
+			o|=(1<<(t>>2)+1)
+			fn2Body.push(`uniTex[${uniTex.length-2}]=a${j2}.t;uniTex[${uniTex.length-1}]=a${j2}.l<<8;gl.uniform4f(uniLocs[${j3}],a${j2}.x,a${j2}.y,a${j2}.w,a${j2}.h)`)
+		}else{
+			shaderHead2.push('uniform '+n+' uni'+id+';')
+			let args = `gl.uniform${c+(t<16?'f':t<32?'i':'ui')}(uniLocs[${j3}]`
+			if(c==1) args += ',a'+j2
+			else for(let c1=-1;++c1<c;) args += ',a'+j2+'.'+'xyzw'[c1]
+			fn2Body.push(args+')')
+		}
+		j2 += c
+		id++; j3++
+	}
+	if(fCount+iCount>16) throw 'Shaders cannot use more than 16 textures/colors'
+	fCount = fCount?iCount?fCount+round(frat * (maxTex-fCount-iCount)):maxTex:0
+	iCount = iCount && maxTex - fCount
+	g=i=>'return texture(GL_f['+i+'],p);'; let T=null
+	shaderHead2[1] =
+		(o&20?'uniform '+(o&2?'highp':'lowp')+' sampler2DArray GL_f['+fCount+'];':'')
+		+(o&8?'uniform highp usampler2DArray GL_i['+iCount+'];':'')
+		+(o&4?`lowp vec4 getColor(int u,vec3 p){${T=treeIf(0,fCount)}}`:'')
+		+(o&16?`highp vec4 fGetColor(int u,vec3 p){${T||treeIf(0,fCount)}}`:'')
+		+(o&8?`uvec4 uGetColor(int u,vec3 p){${g=i=>'return texture(GL_i['+i+'],p);',treeIf(0,maxTex-fCount,maxTex)}}`:'')
+	shaderHead2[1] +=
+		(o&4?`lowp vec4 getPixel(int u,ivec3 p,int l){${g=i=>'return texelFetch(GL_f['+i+'],p,l);',T=treeIf(0,fCount)}}`:'')
+		+(o&16?`highp vec4 fGetPixel(int u,ivec3 p,int l){${T||treeIf(0,fCount)}}`:'')
+		+(o&8?`uvec4 uGetPixel(int u,ivec3 p,int l){${g=i=>'return texelFetch(GL_i['+i+'],p,l);',treeIf(0,maxTex-fCount,maxTex)}}`:'')
+		+(o&28?`ivec3 getSize(int u,int l){${g=i=>'return textureSize(GL_'+(i<fCount?'f['+i:'i['+(i-fCount))+'],l);',T=treeIf(0,maxTex)}}`:'')
+	fnBody[0] = '}){if(sh!=s){i&&draw(0);shfCount=fCount;shfMask=fMask;gl.useProgram((sh=s).program);gl.bindVertexArray(s.vao);bindUniTex()}if(shp!=this.s){i&&draw();shp=this.s}if(s.geometry!=this.s.b){gl.bindBuffer(34962,s.geometry=this.s.b);gl.vertexAttribPointer(0,4,gl.FLOAT,0,0,0);gl.bindBuffer(34962,buf)}const b=boundUsed^shuniBind;'+texCheck.join(';')+';const j=i;if((i=j+'+j+')>arr.length)'+(ArrayBuffer.prototype.transfer?'arr=new Float32Array(arr.buffer.transfer(i*8)),iarr=new Int32Array(arr.buffer)':'{const oa=arr;(arr=new Float32Array(i*2)).set(oa,0);iarr=new Int32Array(arr.buffer)}')
+	fnBody.push('return j})')
+	const s = eval(fnParams.join('')+fnBody.join(';')), p = s.program = gl.createProgram()
+	s.uniforms = eval(`(function(${fn2Params}){${fn2Body.join(';')};bindUniTex()})`)
+	const bindUniTex = eval(`(function(){${fn3Body.join(';')};shuniBind=boundUsed})`)
+	const fMask = 32-fCount&&(-1>>>fCount)
+	s.outInt = (output==16||output==32)<<31
+	const v=gl.createShader(35633), f=gl.createShader(35632)
+	shaderBody.push('}')
+	gl.shaderSource(v, shaderHead.join('')+shaderBody.join(''))
+	gl.compileShader(v)
+	gl.shaderSource(f, shaderHead2.join('')+'\n'+src)
+	gl.compileShader(f)
+	gl.attachShader(p, v)
+	gl.attachShader(p, f)
+	if(T=gl.getShaderInfoLog(f)) console.warn('GLSL Error:\n'+T)
+	gl.linkProgram(p)
+	gl.useProgram(p)
+	while(j3--) uniLocs.push(gl.getUniformLocation(p, 'uni'+uniLocs.length))
+	for(let i = 0; i < maxTex; i++)
+		gl.uniform1i(gl.getUniformLocation(p, i<fCount?'GL_f['+i+']':'GL_i['+(i-fCount)+']'), i>=fCount?maxTex+i-fCount:i)
+	s.count = j
+	gl.bindVertexArray(s.vao = gl.createVertexArray())
+	let i1 = 1, i2 = 0
+	gl.bindBuffer(34962, s.geometry = defaultShape.b)
+	gl.enableVertexAttribArray(0)
+	gl.vertexAttribPointer(0, 4, gl.FLOAT, 0, 0, 0)
+	gl.bindBuffer(34962, buf)
+	for(const t of types){
+		gl.enableVertexAttribArray(i1)
+		if(t>>4) gl.vertexAttribIPointer(i1, t&15, (t>31)+5124, j<<2, i2)
+		else gl.vertexAttribPointer(i1, t&15, gl.FLOAT, 0, j<<2, i2)
+		gl.vertexAttribDivisor(i1++, 1)
+		i2 += (t&15)<<2
+	}
+	if(sh) gl.useProgram(sh.program), gl.bindVertexArray(sh.vao)
+	return s
+}
+let fdc = 0, fs = 0, fd = 0
+T.DEFAULT = sh = T(`void main(){color=arg0()*arg1;}`, [$.COLOR, $.VEC4], [void 0, $.vec4.one])
+T.UINT = T(`void main(){color=arg0();}`, $.UCOLOR, void 0, void 0, void 0, $.UINT)
+T.NONE = T(`void main(){color=vec4(0,0,0,1);}`)
+gl.useProgram(sh.program)
+gl.bindVertexArray(sh.vao)
+$.flush = () => i&&draw()
+const ctx = $.ctx = new can(ca={tex:gl.canvas,img:null,layer:0,stencil:0,mip:0,stencilBuf:null,w:0,h:0})
+$.setSize = (w = 0, h = 0) => {
+	ctx.t.w = gl.canvas.width = w
+	ctx.t.h = gl.canvas.height = h
+	if(ca==ctx.t) gl.viewport(0, 0, w, h)
+}
+let fencetail = null, fencehead = null
+const pendingFences = []
+$.wait = () => new Promise(r => {
+	if(i) r.sync = null, pendingFences.push(r)
+	else{
+		r.sync = gl.fenceSync(37143, 0)
+		fencetail ??= r
+		fencehead = fencehead ? fencehead.next = r : r
+	}
+	if(!intv) intv = setInterval(() => {
+		while(fencetail && gl.getSyncParameter(fencetail.sync, 37140) == 37145){
+			gl.deleteSync(fencetail.sync)
+			fencetail()
+			fencetail = fencetail.next
+		}
+		if(!fencetail){
+			fencehead = null
+			clearInterval(intv)
+			intv = 0
+		}
+	}, 0)
+})
+let intv = 0
+$.loop = render => {
+	if('t' in $) return $
+	$.frameDrawCalls = 0
+	$.frameSprites = 0
+	$.frameData = 0
+	$.t = performance.now()*.001; $.dt = 0
+	$.timeToFrame = 0
+	$.glLost ??= null
+	requestAnimationFrame(function f(){
+		requestAnimationFrame(f)
+		if(gl.isContextLost?.()) return $.glLost?.(), $.glLost = fencetail = fencehead = null
+		i&&draw()
+		gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null)
+		ca = ctx.t; gl.viewport(0, 0, ca.w, ca.h)
+		dt = max(.001, min(-($.t-($.t=performance.now()*.001)), .5))
+		$.frameDrawCalls = fdc; $.frameSprites = fs; $.frameData = fd*4+fdc*24; fdc = fs = fd = 0
+		ctx.reset(); try{ render() }catch(e){ Promise.reject(e) } i&&draw()
+		timeToFrame = performance.now()*.001 - $.t
+	})
+	return gl.canvas
+}
 }
 }

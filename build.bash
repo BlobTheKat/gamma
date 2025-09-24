@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
-
-cd docs
+cd "$(dirname $0)/docs"
+rm monolith*.d.ts 2>/dev/null
 for src in *-global.d.ts; do
-dst="${src:0:${#src}-12}.d.ts"
-if [[ "$dst" == "gamma.d.ts" ]]; then
-printf "export {}\ndeclare global{\n\tfunction Gamma(canvas?: HTMLCanvasElement): typeof Gamma\n\tfunction Gamma(canvas?: HTMLCanvasElement, o: object): asserts o is typeof Gamma\n\nnamespace Gamma{\n" > $dst
-tail -n +3 $src >> $dst
+dst="${src:0:${#src}-12}"
+if [[ "$dst" == "gamma" ]]; then
+head -n -1 _gamma.d.ts > gamma.d.ts
 else
-printf "export {}\ndeclare global{\n\tnamespace Gamma{\n\tfunction font(): typeof Gamma.font\n\tfunction font(o: object): asserts o is typeof Gamma.font\n}\nnamespace Gamma.font{\n" > $dst
-tail -n +3 $src >> $dst
+printf "export {}\ndeclare global{\n\tnamespace GammaExtensions{ type $dst = typeof GammaExtensions.$dst; }\n\tnamespace Gamma{\n\t\tfunction $dst(): GammaExtensions.$dst\n\t\tfunction $dst(o: object): asserts o is GammaExtensions.$dst\n\t}\nnamespace GammaExtensions.$dst{\n" > "$dst.d.ts"
 fi
-printf "\n}" >> $dst
+tail -n +4 $src >> "$dst.d.ts"
+printf "\n}" >> "$dst.d.ts"
+echo "export * from './$dst.d.ts'" >> monolith.d.ts
+echo "export * from './$dst-global.d.ts'" >> monolith-global.d.ts
 done
 cd ../src
 rm ../min/*

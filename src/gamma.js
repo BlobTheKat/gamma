@@ -55,6 +55,7 @@ const unpackBuffer = gl.createBuffer()
 gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, unpackBuffer)
 let premultAlpha = true
 class img{
+	get isInteger(){ return this.t.f.length>3 }
 	get format(){ return this.t.f }
 	get width(){ return this.t.w }
 	get height(){ return this.t.h }
@@ -297,6 +298,7 @@ $.Texture = (w = 0, h = 0, d = 0, o = 0, f = Formats.RGBA, mips = 0) => {
 }
 $.Texture.MAX_WIDTH = $.Texture.MAX_HEIGHT = gl.getParameter(gl.MAX_TEXTURE_SIZE)
 $.Texture.MAX_LAYERS = gl.getParameter(gl.MAX_ARRAY_TEXTURE_LAYERS)
+$.Texture.FILTER_32F = !!gl.getExtension('OES_texture_float_linear')
 $.Img = (src, o = 0, fmt = Formats.RGBA, mips = 0) => new img({
 	tex: null, i: -1, a: -1, o, f:fmt, src: src ? Array.isArray(src) ? src : [src] : [],
 	w: 0, h: 0, d: src ? Array.isArray(src) ? src.length : 1 : 0, m: mips
@@ -341,7 +343,7 @@ Object.assign($, {
 	INT: 16, IVEC2: 17, IVEC3: 18, IVEC4: 19,
 	UINT: 32, UVEC2: 33, UVEC3: 34, UVEC4: 35,
 	TEXTURE: 20, UTEXTURE: 24, FTEXTURE: 28, COLOR: 4, UCOLOR: 8, FCOLOR: 12,
-	FIXED: 4, _: undefined,
+	FIXED: 4,
 	TRIANGLE_STRIP: 5, TRIANGLES: 4, TRIANGLE_FAN: 6, LINE_LOOP: 2, LINE_STRIP: 3, LINES: 1, POINTS: 0
 })
 const _vec2 = class vec2{

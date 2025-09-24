@@ -1,3 +1,5 @@
+/// <reference path="../min/gamma.min.js" />
+
 const font = await Font.chlumsky('fonts/ankacoder/')
 
 // One tab = 3 spaces. Cry about it
