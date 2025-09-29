@@ -302,8 +302,10 @@ $.Drawable = (img, layer = img.l, mip = 0, stencil = false)=>{
 	}
 	return new drw({ tex: t.tex, img, stencil: 0, lmip: mip&255|layer<<8, stencilBuf, w: t.w>>mip, h: t.h>>mip })
 }
-$.DrawableMSAA = (w=0, h=0, f=Formats.RGBA, msaa=32767, stencil = false)=>{
+const maxSamples = gl.getParameter(gl.MAX_SAMPLES)
+$.DrawableMSAA = (w=0, h=0, f=Formats.RGBA, msaa=Infinity, stencil = false)=>{
 	let stencilBuf = null
+	msaa = min(msaa, maxSamples)
 	if(stencil){
 		gl.bindRenderbuffer(gl.RENDERBUFFER, stencilBuf = gl.createRenderbuffer())
 		gl.renderbufferStorageMultisample(gl.RENDERBUFFER, msaa, gl.STENCIL_INDEX8, w, h)
@@ -311,7 +313,7 @@ $.DrawableMSAA = (w=0, h=0, f=Formats.RGBA, msaa=32767, stencil = false)=>{
 	const rb = gl.createRenderbuffer()
 	gl.bindRenderbuffer(gl.RENDERBUFFER, rb)
 	gl.renderbufferStorageMultisample(gl.RENDERBUFFER, msaa, f[0], w, h)
-	return new drw({ tex: rb, img: null, stencil: 0, lmip: 0, stencilBuf, w, h })
+	return new drw({ tex: rb, img: null, stencil: 0, lmip: gl.getRenderbufferParameter(gl.RENDERBUFFER, gl.RENDERBUFFER_SAMPLES), stencilBuf, w, h })
 }
 let arr = new Float32Array(16), iarr = new Int32Array(arr.buffer), i = 0
 $.Texture = (w = 0, h = 0, d = 0, o = 0, f = Formats.RGBA, mips = 0) => {
@@ -389,6 +391,11 @@ class drw{
 	set texture(i){
 		const t = this.t
 		if(!t.img||!(i instanceof img)) return
+		if(t.stencilBuf&&(t.w!=i.t.w||t.h!=i.t.h)){
+			gl.deleteRenderbuffer(t.stencilBuf)
+			gl.bindRenderbuffer(gl.RENDERBUFFER, t.stencilBuf = gl.createRenderbuffer())
+			gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, i.t.w, i.t.h)
+		}
 		if(ca==t) i&&draw(), ca=null
 		t.img = i; t.w = i.t.w; t.h = i.t.h
 	}
@@ -400,7 +407,7 @@ class drw{
 			if(b) return
 			if(ca==t) i&&draw(), ca=null
 			gl.bindRenderbuffer(gl.RENDERBUFFER, t.stencilBuf = b = gl.createRenderbuffer())
-			gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, t.w, t.h)
+			t.tex&&!t.img ? gl.renderbufferStorageMultisample(gl.RENDERBUFFER, t.lmip, gl.STENCIL_INDEX8, t.w, t.h) : gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, t.w, t.h)
 		}else{
 			if(!b) return
 			if(ca==t) i&&draw(), ca=null
@@ -408,17 +415,40 @@ class drw{
 			gl.deleteRenderbuffer(b)
 		}
 	}
-	get textureLayer(){return this.t.lmip>>>8}
-	get textureMipmap(){return this.t.lmip&255}
+	get textureLayer(){return this.t.img ? this.t.lmip>>>8 : 0}
+	get msaa(){return this.t.img ? 1 : this.t.lmip}
+	get textureMipmap(){return this.t.img ? this.t.lmip&255 : 0}
 	set textureLayer(l=0){
 		const {t} = this
+		if(!t.img) return
 		if(ca==t) i&&draw(), ca=null
 		t.lmip = t.lmip&255|l<<8
 	}
 	set textureMipmap(m=0){
 		const {t} = this
+		if(!t.img) return
 		if(ca==t) i&&draw(), ca=null
 		t.lmip = t.lmip&-256|m&255
+	}
+	paste(drw, x=0, y=0, srcX=0, srcY=0, srcW=0, srcH=0){
+		i&&draw()
+		const {t} = this, {t:t2} = drw
+		srcW = srcW || t2.w; srcH = srcH || t2.h
+		if(t2.img)
+			gl.framebufferTextureLayer(gl.READ_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, t2.tex, t2.lmip&255, t2.lmip>>>8)
+		else
+			gl.framebufferRenderbuffer(gl.READ_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, t2.tex)
+		if(ca!=t){
+			if(t==ca0){
+				gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null)
+				ca = t
+			}else{
+				if(ca==ca0) gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, fb)
+				if(fbTex != t.tex || fbLmip != t.lmip) t.img ? gl.framebufferTextureLayer(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, fbTex = t.tex, (fbLmip = t.lmip)&255, fbLmip>>>8) : (fbLmip = t.lmip, gl.framebufferRenderbuffer(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, fbTex = t.tex))
+				ca = null
+			}
+		}
+		gl.blitFramebuffer(srcX, srcY, srcX+srcW, srcY+srcH, x, y, x+srcW, y+srcH, gl.COLOR_BUFFER_BIT, gl.NEAREST)
 	}
 	constructor(t,a=1,b=0,c=0,d=1,e=0,f=0,m=290787599,s=$.Shader.DEFAULT,sp=defaultShape){this.t=t;this.#a=a;this.#b=b;this.#c=c;this.#d=d;this.#e=e;this.#f=f;this.#m=m;this.#shader=s;this.s=sp}
 	translate(x=0,y=0){ this.#e+=x*this.#a+y*this.#c;this.#f+=x*this.#b+y*this.#d }
@@ -576,7 +606,7 @@ function setv(t,m){
 			if(fbAtch) gl.drawBuffers([gl.COLOR_ATTACHMENT0]), fbAtch = 0
 			if(ca==ca0) gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, fb)
 			if(t.tex != fbTex || t.lmip != fbLmip)
-				t.img ? gl.framebufferTextureLayer(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, fbTex=t.tex, (fbLmip=t.lmip)&255, fbLmip>>>8) : gl.framebufferRenderbuffer(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, fbTex = t.tex)
+				t.img ? gl.framebufferTextureLayer(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, fbTex=t.tex, (fbLmip=t.lmip)&255, fbLmip>>>8) : (fbLmip = t.lmip,gl.framebufferRenderbuffer(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, fbTex = t.tex))
 			if(t.stencilBuf != fbSte){
 				gl.bindRenderbuffer(gl.RENDERBUFFER, fbSte = t.stencilBuf)
 				gl.framebufferRenderbuffer(gl.DRAW_FRAMEBUFFER, gl.STENCIL_ATTACHMENT, gl.RENDERBUFFER, fbSte)
@@ -798,7 +828,7 @@ T.NONE = T(`void main(){color=vec4(0,0,0,1);}`)
 gl.useProgram(sh.program)
 gl.bindVertexArray(sh.vao)
 $.flush = () => i&&draw()
-const ctx = $.ctx = new drw(ca={tex:gl.canvas,img:null,lmip:0,stencil:0,stencilBuf:null,w:0,h:0})
+const ctx = $.ctx = new drw(ca={tex:gl.canvas,img:null,lmip:flags&16?maxSamples:1,stencil:0,stencilBuf:null,w:0,h:0})
 $.setSize = (w = 0, h = 0) => {
 	ca0.w = gl.canvas.width = w
 	ca0.h = gl.canvas.height = h
