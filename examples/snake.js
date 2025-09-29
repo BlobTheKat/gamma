@@ -1,3 +1,5 @@
+/// <reference path="../docs/monolith-global.d.ts" />
+
 title = 'Snake game'
 
 const src = loader(import.meta)
@@ -42,7 +44,8 @@ class Tooltip{
 			this.w2 = this.font.measure(this.txt, lsb) * .5
 		}
 		ctx.translate(-this.w2, 0)
-		this.font.draw(ctx, this.txt, [vec4(alpha*.5)], lsb)
+		ctx.shader = Shader.MSDF
+		this.font.draw(ctx, this.txt, [vec4(alpha*.5)], 0, TEXT_AA, lsb)
 	}
 }
 
@@ -124,7 +127,8 @@ render = (w, h) => {
 		ct2.translate(0, 3)
 		ct2.scale(inflate)
 		ct2.translate(-.5 * ubuntu.measure(scoreLabel), 0)
-		ubuntu.draw(ct2, scoreLabel, [])
+		ct2.shader = Shader.MSDF
+		ubuntu.draw(ct2, scoreLabel)
 	}
 
 	ctx.shader = Shader.AA_CIRCLE

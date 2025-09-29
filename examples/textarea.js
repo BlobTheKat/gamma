@@ -1,4 +1,4 @@
-/// <reference path="../min/gamma.min.js" />
+/// <reference path="../docs/monolith-global.d.ts" />
 
 const font = await Font.chlumsky('fonts/ankacoder/')
 

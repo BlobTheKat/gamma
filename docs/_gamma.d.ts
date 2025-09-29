@@ -3,12 +3,30 @@ declare global{
 	function Gamma(canvas?: HTMLCanvasElement, _?: undefined, flags?: GammaCreationFlags): GammaInstance
 	function Gamma(canvas?: HTMLCanvasElement, o: object, flags?: GammaCreationFlags): asserts o is GammaInstance
 	namespace Gamma{
-		let bitmapOpts: ImageBitmapOptions
+		/**
+		 * Options used internally for createImageBitmap(). Do not modify this unless you absolutely know what you are doing
+		 */
+		const bitmapOpts: ImageBitmapOptions
 		const enum GammaCreationFlags{
+			/**
+			 * Allocate a stencil buffer for IF_SET/IF_UNSET/SET/UNSET functionality. When this flag is disabled, the stencil buffer will not be allocated and will behave as if it is always 0.
+			 */
 			STENCIL = 1 << 0,
+			/**
+			 * Allocate an alpha channel. When this flag is disabled, the default draw target acts like an RGB texture and some blending tricks no longer work.
+			 */
 			ALPHA_CHANNEL = 1 << 1,
+			/**
+			 * Assumes the values drawn are premultiplied, which is standard for the blending model used by Gamma
+			 */
 			PREMULTIPLIED_ALPHA = 1 << 2,
-			PRESERVE_BUFFER = 1 << 3,
+			/**
+			 * Automatically clear the canvas before each frame, which allows for an optimization to avoid copying the entire canvas contents each frame
+			 */
+			AUTO_CLEAR_BUFFER = 1 << 3,
+			/**
+			 * Use implementation-defined antialiasing for the default draw target. This antialiasing is _usually_ MSAA but may be faked on low end devices or not used at all (e.g retina display where the browser has decided that aliasing is not noticeable enough at default scale to justify the performance cost). This antialiasing is never edge smoothing, which means it should not cause artifacts to appear and "break" your render (e.g gaps between tiled sprites)
+			 */
 			MSAA = 1 << 4
 		}
 	}

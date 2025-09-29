@@ -3,12 +3,30 @@ declare global{
 	function Gamma(canvas?: HTMLCanvasElement, _?: undefined, flags?: GammaCreationFlags): GammaInstance
 	function Gamma(canvas?: HTMLCanvasElement, o: object, flags?: GammaCreationFlags): asserts o is GammaInstance
 	namespace Gamma{
-		let bitmapOpts: ImageBitmapOptions
+		/**
+		 * Options used internally for createImageBitmap(). Do not modify this unless you absolutely know what you are doing
+		 */
+		const bitmapOpts: ImageBitmapOptions
 		const enum GammaCreationFlags{
+			/**
+			 * Allocate a stencil buffer for IF_SET/IF_UNSET/SET/UNSET functionality. When this flag is disabled, the stencil buffer will not be allocated and will behave as if it is always 0.
+			 */
 			STENCIL = 1 << 0,
+			/**
+			 * Allocate an alpha channel. When this flag is disabled, the default draw target acts like an RGB texture and some blending tricks no longer work.
+			 */
 			ALPHA_CHANNEL = 1 << 1,
+			/**
+			 * Assumes the values drawn are premultiplied, which is standard for the blending model used by Gamma
+			 */
 			PREMULTIPLIED_ALPHA = 1 << 2,
-			PRESERVE_BUFFER = 1 << 3,
+			/**
+			 * Automatically clear the canvas before each frame, which allows for an optimization to avoid copying the entire canvas contents each frame
+			 */
+			AUTO_CLEAR_BUFFER = 1 << 3,
+			/**
+			 * Use implementation-defined antialiasing for the default draw target. This antialiasing is _usually_ MSAA but may be faked on low end devices or not used at all (e.g retina display where the browser has decided that aliasing is not noticeable enough at default scale to justify the performance cost). This antialiasing is never edge smoothing, which means it should not cause artifacts to appear and "break" your render (e.g gaps between tiled sprites)
+			 */
 			MSAA = 1 << 4
 		}
 	}
@@ -259,371 +277,492 @@ declare global{
 
 	type GammaInstance = typeof GammaInstance
 namespace GammaInstance{
-	// todo
-/** @type WebGL2RenderingContext */
-const gl = $.gl = ($.canvas = can).getContext('webgl2', {preserveDrawingBuffer: flags&8, antialias: flags&16, depth: false, premultipliedAlpha: flags&4, stencil: flags&1, alpha: flags&2})
-gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1)
-gl.stencilMask(1)
-gl.clearStencil(0)
-gl.disable(gl.DEPTH_TEST)
-gl.enable(gl.BLEND)
-gl.disable(gl.DITHER)
-gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
-gl.pixelStorei(gl.PACK_ALIGNMENT, 1)
-const unpackBuffer = gl.createBuffer()
-gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, unpackBuffer)
-let premultAlpha = true
-class img{
-	get format(){ return this.t.f }
-	get width(){ return this.t.w }
-	get height(){ return this.t.h }
-	get layers(){ return this.t.d }
-	get subWidth(){ return this.t.w*this.w }
-	get subHeight(){ return this.t.h*this.h }
-	get aspectRatio(){ return this.t.w*this.w / (this.t.h*this.h) }
-	constructor(t,x=0,y=0,w=1,h=1,l=0){
-		this.t = t; this.x = x; this.y = y
-		this.w = w; this.h = h; this.l = l
+	/**
+	 * The canvas element passed to Gamma(), or a new canvas element if none was provided
+	 */
+	const canvas: HTMLCanvasElement
+	/**
+	 * The backing WebGL2 context for this canvas
+	 */
+	const gl: WebGL2RenderingContext
+	
+	enum Formats{
+		/** Fixed-point 1-channel format, usually 8 bits, in the range [0,1] */ R,
+		/** Fixed-point 2-channel format, usually 8 bits per channel, in the range [0,1] */ RG,
+		/** Fixed-point 3-channel format, usually 8 bits per channel, in the range [0,1] */ RGB,
+		/** Fixed-point 4-channel format, usually 8 bits per channel, in the range [0,1] */ RGBA,
+		/**
+		 * Fixed-point 3-channel format, with (R: 5, G: 6, B: 5) bits for respective channels. Values are decoded into the range [0,1].
+		 * 
+		 * Values are specified using 16 bit integers, with red packed into the highest bits, green in the middle, and blue lowest.
+		 */
+		RGB565,
+		/**
+		 * Fixed-point 4-channel format, with (R: 5, G: 5, B: 5, A: 1) bits for respective channels. Values are decoded into the range [0,1].
+		 * 
+		 * Values are specified using 16 bit integers, with red packed into the highest bits, green in the middle, blue lower, and alpha lowest.
+		 * 
+		 * It is recommended to use Uint16Array to avoid having to detect or deal with host endianness
+		 */
+		RGB5_A1,
+		/**
+		 * Floating-point 3-channel format, with (R: 11, G: 11, B: 10) bits for respective channels. Values are encoded as an IEEE floating point with:
+		 * - No sign bit
+		 * - 5 bit exponent with bias=15, just like half-precision floats
+		 * - 5 or 6 mantissa bits
+		 * 
+		 * Exponent is always encoded in bits just above the mantissa (i.e `eeeeemmmmmm`). Red packed into the highest bits, green in the middle, blue lowest.
+		 * It is recommended to use Uint32Array/Int32Array to avoid having to detect or deal with host endianness
+		 */
+		R11F_G11F_B10F,
+		/**
+		 * Fixed-point 4-channel format, with (R: 10, G: 10, B: 10, A: 2) bits for respective channels. Values are decoded into the range [0,1].
+		 * 
+		 * Values are specified using 32 bit integers, with red packed into the highest bits, green in the middle, blue lower, and alpha lowest.
+		 * 
+		 * It is recommended to use Uint32Array/Int32Array to avoid having to detect or deal with host endianness
+		 */
+		RGB10_A2,
+		/**
+		 * Fixed-point 4-channel format, with 4 bits per channels. Values are decoded into the range [0,1].
+		 * 
+		 * Values are specified using 16 bit integers, with red packed into the highest bits, green in the middle, blue lower, and alpha lowest.
+		 * 
+		 * It is recommended to use Uint16Array to avoid having to detect or deal with host endianness
+		 */
+		RGBA4,
+		/**
+		 * Floating-point 3-channel format, with 9 bits per channels, and an additional 5 bit shared exponent
+		 * 
+		 * Values are specified using 32 bit integers, with red packed into the LOWEST bits (unlike other formats), green in the middle, blue higher, and the exponent highest.
+		 * 
+		 * Colors are decoded for any given channel as `(channnel_value / 512) * pow(2, exponent - 15)`. The exponent can then be used to mimic a **HDR**-like effect, efficiently encoding very bright or very dim colors without loss in precision
+		 * 
+		 * It is recommended to use Uint32Array/Int32Array to avoid having to detect or deal with host endianness
+		 */
+		RGB9_E5,
+		/** Unsigned 1-channel 8-bit format */ R8, /** Unsigned 2-channel 8-bit-per-channel format */ RG8, /** Unsigned 3-channel 8-bit-per-channel format */ RGB8, /** Unsigned 4-channel 8-bit-per-channel format */ RGBA8,
+		/** Unsigned 1-channel 16-bit format */ R16, /** Unsigned 2-channel 16-bit-per-channel format */ RG16, /** Unsigned 3-channel 16-bit-per-channel format */ RGB16, /** Unsigned 4-channel 32-bit-per-channel format */ RGBA32,
+		/** Unsigned 1-channel 32-bit format */ R32, /** Unsigned 2-channel 32-bit-per-channel format */ RG32, /** Unsigned 3-channel 32-bit-per-channel format */ RGB32, /** Unsigned 4-channel 32-bit-per-channel format */ RGBA32,
+		/** Half-float 1-channel format */ R16F, /** Half-float 2-channel format */ RG16F,
+		/** Half-float 3-channel format */ RGB16F, /** Half-float 4-channel format */ RGBA16F,
+		/** Float 1-channel format */ R32F, /** Float 2-channel format */ RG32F,
+		/** Float 3-channel format */ RGB32F, /** Float 4-channel format */ RGBA32F,
 	}
-	get loaded(){ return !this.t.src }
-	get waiting(){ return !this.t.tex }
-	get then(){ return this.t.src ? this.#then : null }
-	load(){ if(!this.t.tex) img.load(this.t) }
-	sub(x=0, y=0, w=1, h=1, l=this.l){
-		return new img(this.t, this.x+x*this.w, this.y+y*this.h, this.w*w, this.h*h, l)
+
+	/**
+	 * Create a texture with specified dimensions, format, and mipmaps
+	 * @param width Width of texture in pixels. Cannot be changed later
+	 * @param height Height of texture in pixels. Cannot be changed later
+	 * @param layers Number of layers in texture. Cannot be changed later. Default: 1 
+	 * @param options Texture options. See the `Texture.options` property (property can be changed at any time)
+	 * @param format Texture format. See `Formats`. Cannot be changed later. Default: `Formats.RGBA`
+	 * @param mipmaps Number of mipmaps to allocate. Default: 1 (_"no mipmaps"_)
+	 */
+	function Texture(width: number, height: number, layers?: number, options?: number, format?: Formats, mipmaps?: number): Texture
+	/** An image source from which to populate a Texture object. String values indicate a url that is `fetch()`ed on-demand */
+	type ImageSource = string | ImageBitmap | Blob | ImageBitmapSource
+	/**
+	 * Create an image-backed texture. This texture is lazily loaded from the source(s)
+	 * @param src 
+	 * @param options Texture options. See the `Texture.options` property (property can be changed at any time)
+	 * @param format Texture format. See `Formats`. Cannot be changed later. Default: `Formats.RGBA`
+	 * @param mipmaps Number of mipmaps to allocate. Default: 1 (_"no mipmaps"_)
+	 */
+	function Img(src: ImageSource | ImageSource[], options?: number, format?: Formats, mipmaps?: number): Texture
+
+	interface Texture{
+		/** Not all implementations support linear filtering (SMOOTH) for xxx32F textures. This boolean indicates if this kind of filtering is supported. If it is not, nearest-neighbor (pixelated) will be used instead for those texture types */
+		static readonly FILTER_32F: boolean
+
+		/**
+		 * The maximum texture width supported by the underlying hardware
+		 * According to OpenGL ES Specs, this value is required to be at least 2048, however virtually all environments will support at least 4096. Support for > 4096 is not very common.
+		 */
+		static readonly MAX_WIDTH: number
+		/**
+		 * The maximum texture height supported by the underlying hardware
+		 * According to OpenGL ES Specs, this value is required to be at least 2048, however virtually all environments will support at least 4096. Support for > 4096 is not very common.
+		 */
+		static readonly MAX_HEIGHT: number
+		/**
+		 * The maximum number of layers per texture supported by the underlying hardware
+		 * According to OpenGL ES Specs, this value is required to be at least 256, and this is what most environments support. For more layers, you should instead use atlases (combining textures vertically/horizontally/both), or use multiple textures.
+		 */
+		static readonly MAX_LAYERS: number
+
+		/**
+		 * Whether this texture's format is an integer-type format
+		 * 
+		 * Integer formats will end in 8, 16, or 32 (e.g `Formats.RGBA32`, `Formats.R8`)
+		 * 
+		 * Non-integer formats will typically end in F for floating-point (e.g `Formats.RG16F`, `Formats.R11F_G11F_B10F`), or nothing in particular for fixed-point (e.g `Formats.RGB`, `Formats.RGB565`)
+		 * 
+		 * The two texture types CANNOT be used interchangeably when drawing, as shaders declare and use them differently (`vec4` vs `ivec4`)
+		 * 
+		 * Note that floating-point and fixed-point textures CAN be interchanged freely and are often both referred to as "float" textures for brevity
+		 */
+		readonly isInteger: boolean
+		/** Texture format. See `Formats`. Format is supplied on texture creation and cannot be changed later */
+		readonly format: Formats
+
+		/** Texture's width (resolution, pixels). Width is supplied on texture creation and cannot be changed later */
+		readonly width: number
+		/** Texture's height (resolution, pixels). Height is supplied on texture creation and cannot be changed later */
+		readonly height: number
+		/** Number of layers. A single texture object can hold multiple layers, thus acting like an array of textures. Most textures will only have 1 layer. Number of layers is supplied on texture creation and cannot be changed later */
+		readonly layers: number
+
+		/**
+		 * Width, in pixels of a subtexture, when accounting for its crop
+		 */
+		readonly subWidth: number
+		/**
+		 * Height, in pixels of a subtexture, when accounting for its crop
+		 */
+		readonly subHeight: number
+		/**
+		 * Aspect ratio of a subtexture, i.e subWidth/subHeight.
+		 * 
+		 * Value will be < 1 for vertical textures, > 1 for horizontal textures and == 1 for square textures
+		 */
+		readonly aspectRatio: number
+
+		/**
+		 * Whether the image-backed texture is loaded.
+		 * Always true for non-image-backed textures
+		 */
+		readonly loaded: boolean
+
+		/**
+		 * Whether the image-backed texture is currently being loaded.
+		 * Always false for non-image-backed textures
+		 */
+		readonly waiting: boolean
+
+		/** Used to make image-backed textures `await`able. Will trigger a load. */
+		readonly then: ((resolve: (res: Texture) => any, reject: (err: any) => any) => void) | null
+
+		/** `x` parameter used to define a subtexture. Can be safely modified at any time */
+		x: number
+		/** `y` parameter used to define a subtexture. Can be safely modified at any time */
+		y: number
+		/** `width` parameter used to define a subtexture. Can be safely modified at any time */
+		w: number
+		/** `height` parameter used to define a subtexture. Can be safely modified at any time */
+		h: number
+		/** `layer` parameter used to define a subtexture. Can be safely modified at any time */
+		l: number
+
+		/**
+		 * Texture options bitfield. One or more of the following options OR'd together
+		 * 
+		 * `UPSCALE_SMOOTH`: Perform linear sampling when the texture is upscaled. This makes the texture look blurry or "smoother", rather than pixelated
+		 * 
+		 * `DOWNSCALE_SMOOTH`: Perform linear sampling when the texture is downscaled. This is mainly to reduce moiré effects
+		 * 
+		 * `MIPMAP_SMOOTH`: Perform blending between multiple mipmaps to further reduce moiré effects and reduce visible seams with animations involving scaling. This has no effect on textures without mipmaps
+		 * 
+		 * `REPEAT`: Coordinates outside [0,1] will repeat (tile) the texture infinitely
+		 * `REPEAT_X`, `REPEAT_Y`: Same as `REPEAT` but for the X or Y axis only. These values can be OR'd, i.e `(REPEAT_X | REPEAT_Y) == REPEAT`
+		 * 
+		 * `REPEAT_MIRRORED`: Coordinates outside [0,1] will repeat (tile) the texture infinitely
+		 * `REPEAT_MIRRORED_X`, `REPEAT_MIRRORED_Y`: Same as `REPEAT` but for the X or Y axis only. These values can be OR'd appropriately, e.g `REPEAT_X | REPEAT_MIRRORED_Y`
+		 * 
+		 * @example
+		 * ```js
+		 * tex.options = SMOOTH | REPEAT_X | REPEAT_MIRRORED_Y
+		 * ```
+		 */
+		options: number
+
+		/**
+		 * Trigger an image-backed texture to be loaded.
+		 * 
+		 * If the image is already loaded or loading (i.e `this.loaded || this.waiting`), this is a no-op.
+		 * 
+		 * Otherwise, `waiting` immediately becomes true, then, once the image has finished loading and the texture object has been populated, `loaded` will become true and `waiting` will become false
+		 */
+		load(): void
+
+		/**
+		 * Returns a subtexture. The underlying data pointed to by a subtexture is the same, so that modifications to a texture are seen through all its subtextures. A `Texture` object is then just a view into its backing data. This is analogous to `TypedArray`s, `DataView` or `Buffer` being views into an `ArrayBuffer`. Note that all textures and subtextures are of the same class and thus the same methods and properties are available on them
+		 * 
+		 * Coordinates are usually the range [0,1] however taking coordinates outside is completely valid and will use the texture's wrapping mode to fill the outside
+		 * 
+		 * @param l Layer. By default subtextures use the same layer as the texture they are made from, and the original texture object uses layer 0
+		 */
+		sub(x: number, y: number, w: number, h: number, l?: number): Texture
+
+		/**
+		 * Returns a "super texture" subtexture. The underlying data pointed to by a subtexture is the same, so that modifications to a texture are seen through all its subtextures. A `Texture` object is then just a view into its backing data. This is analogous to `TypedArray`s, `DataView` or `Buffer` being views into an `ArrayBuffer`. Note that all textures and subtextures are of the same class and thus the same methods and properties are available on them
+		 * 
+		 * Unlike .sub(), the subtexture returned is such that its subtexture defined by the provided values contains the whole of this texture. In other words, `tex.super(a, b, c, d).sub(a, b, c, d)` is the same as `tex`
+		 * 
+		 * @param l Layer. By default subtextures use the same layer as the texture they are made from, and the original texture object uses layer 0
+		 */
+		super(x: number, y: number, w: number, h: number, l?: number): Texture
+
+		/**
+		 * Returns a subtexture. The underlying data pointed to by a subtexture is the same, so that modifications to a texture are seen through all its subtextures. A `Texture` object is then just a view into its backing data. This is analogous to `TypedArray`s, `DataView` or `Buffer` being views into an `ArrayBuffer`. Note that all textures and subtextures are of the same class and thus the same methods and properties are available on them
+		 * 
+		 * Unlike .sub(), the provided values are measured in pixels and usually in the range [0,w] / [0,h]
+		 * 
+		 * @param l Layer. By default subtextures use the same layer as the texture they are made from, and the original texture object uses layer 0
+		 */
+		crop(x: number, y: number, w: number, h: number, l?: number): Texture
+
+		/**
+		 * Returns a subtexture. The underlying data pointed to by a subtexture is the same, so that modifications to a texture are seen through all its subtextures. A `Texture` object is then just a view into its backing data. This is analogous to `TypedArray`s, `DataView` or `Buffer` being views into an `ArrayBuffer`. Note that all textures and subtextures are of the same class and thus the same methods and properties are available on them
+		 * 
+		 * The subtexture is not cropped in any way: only the layer is changed
+		 */
+		layer(layer: number): Texture
+
+		/**
+		 * Copy data from one texture (tex) object to another (this)
+		 * @param tex The source to copy data from
+		 * @param x Left edge of area to paste, in pixels. Default: 0
+		 * @param y Bottom edge of area to paste, in pixels. Default: 0
+		 * @param layer First layer of area to paste. Default: 0
+		 * @param srcX Left edge of area to copy data from in the source texture, in pixels. Default: 0
+		 * @param srcY Bottom edge of area to copy data from in the source texture, in pixels. Default: 0
+		 * @param srcLayer First layer of area to copy data from in the source texture. Default: 0
+		 * @param srcWidth Width of area to copy in pixels. Defaults to the source's width
+		 * @param srcHeight Height of area to copy in pixels. Defaults to the source's height
+		 * @param srcLayers Nnumber of layers to copy. Defaults to the source's layer count
+		 * @param srcMip Which mipmap to read data from in the source texture. Default: 0
+		 * @param dstMip Which mipmap to write data to. Default: 0
+		 */
+		paste(tex: Texture, x?: number, y?: number, layer?: number, dstMip?: number, srcX?: number, srcY?: number, srcLayer?: number, srcWidth?: number, srcHeight?: number, srcLayers?: number, srcMip?: number): this
+
+		/**
+		 * Copy data from an image-like (img) object to another (this)
+		 * @param img The source to copy data from
+		 * @param x Left edge of area to paste, in pixels. Default: 0
+		 * @param y Bottom edge of area to paste, in pixels. Default: 0
+		 * @param layer First layer of area to paste. Default: 0
+		 * @param dstMip Which mipmap to write data to. Default: 0
+		 */
+		paste(img: ImageSource, x?: number, y?: number, layer?: number, dstMip?: number): Promise<this>
+
+		/**
+		 * Copy data from a drawable object (other than the main canvas target) to this
+		 * @param ctx The source to copy data from
+		 * @param x Left edge of area to paste, in pixels. Default: 0
+		 * @param y Bottom edge of area to paste, in pixels. Default: 0
+		 * @param layer First layer of area to paste. Default: 0
+		 * @param srcX Left edge of area to copy data from in the source texture, in pixels. Default: 0
+		 * @param srcY Bottom edge of area to copy data from in the source texture, in pixels. Default: 0
+		 * @param srcWidth Width of area to copy in pixels. Defaults to the source's width
+		 * @param srcHeight Height of area to copy in pixels. Defaults to the source's height
+		 * @param dstMip Which mipmap to write data to. Default: 0
+		 */
+		paste(ctx: Drawable, x?: number, y?: number, layer?: number, dstMip?: number, srcX?: number, srcY?: number, srcWidth?: number, srcHeight?: number): this
+
+		/**
+		 * Copy data from memory to this texture
+		 * @param data A `TypedArray` of the correct type and size (see table below)
+		 * @param x Left edge of area to paste, in pixels. Default: 0
+		 * @param y Bottom edge of area to paste, in pixels. Default: 0
+		 * @param layer First layer of area to paste. Default: 0
+		 * @param width Width of area to paste in pixels. Defaults to this texture's width
+		 * @param height Height of area to paste in pixels. Defaults to this texture's height
+		 * @param layers Nnumber of layers to paste. Defaults to this texture's number of layers
+		 * @param mip Which mipmap to write data to. Default: 0
+		 * 
+		 * | For format                        | Use                                | of length          |
+		 * |-----------------------------------|------------------------------------|--------------------|
+		 * | R, RG, RGB, RGBA                  | `Uint8Array` / `Uint8ClampedArray` | `w*h*d * channels` |
+		 * | R8, RG8, RGB8, RGBA8              | `Uint8Array` / `Uint8ClampedArray` | `w*h*d * channels` |
+		 * | R16, RG16, RGB16, RGBA16          | `Uint16Array`                      | `w*h*d * channels` |
+		 * | R32, RG32, RGB32, RGBA32          | `Uint32Array`                      | `w*h*d * channels` |
+		 * | RGB565, RGB5_A1, RGBA4            | `Uint16Array`                      | `w*h*d`            |
+		 * | RGB10_A2, R11F_G11F_B10F, RGB9_E5 | `Uint32Array`                      | `w*h*d`            |
+		 * | R16F, RG16F, RGB16F, RGBA16F      | `Uint16Array` / `Float16Array`     | `w*h*d * channels` |
+		 * | R32F, RG32F, RGB32F, RGBA32F      | `Float32Array`                     | `w*h*d * channels` |
+		 */
+		pasteData(data: Uint8Array | Uint8ClampedArray | Uint16Array | Uint32Array | Float16Array | Float32Array, x?: number, y?: number, layer?: number, width?: number, height?: number, layers?: number, mip?: number)
+
+		/**
+		 * Copy data from this texture to memory
+		 * @param x Left edge of area to copy from, in pixels. Default: 0
+		 * @param y Bottom edge of area to copy from, in pixels. Default: 0
+		 * @param layer First layer of area to copy from. Default: 0
+		 * @param width Width of area to copy from in pixels. Defaults to this texture's width
+		 * @param height Height of area to copy from in pixels. Defaults to this texture's height
+		 * @param layers Number of layers to copy. Defaults to this texture's number of layers
+		 * @param mip Which mipmap to read data from. Default: 0
+		 * @param data A `TypedArray` of the correct type and size (see table below). If none is passed, one is created and returned
+		 * 
+		 * | For format                        | Use                                | of length          |
+		 * |-----------------------------------|------------------------------------|--------------------|
+		 * | R, RG, RGB, RGBA                  | `Uint8Array` / `Uint8ClampedArray` | `w*h*d * channels` |
+		 * | R8, RG8, RGB8, RGBA8              | `Uint8Array` / `Uint8ClampedArray` | `w*h*d * channels` |
+		 * | R16, RG16, RGB16, RGBA16          | `Uint16Array`                      | `w*h*d * channels` |
+		 * | R32, RG32, RGB32, RGBA32          | `Uint32Array`                      | `w*h*d * channels` |
+		 * | RGB565, RGB5_A1, RGBA4            | `Uint16Array`                      | `w*h*d`            |
+		 * | RGB10_A2, R11F_G11F_B10F, RGB9_E5 | `Uint32Array`                      | `w*h*d`            |
+		 * | R16F, RG16F, RGB16F, RGBA16F      | `Uint16Array` / `Float16Array`     | `w*h*d * channels` |
+		 * | R32F, RG32F, RGB32F, RGBA32F      | `Float32Array`                     | `w*h*d * channels` |
+		 */
+		readData<T = ArrayBufferView>(x?: number, y?: number, l?: number, w?: number, h?: number, d?: number, data?: T, mip?: number): T
+		readData<T = ArrayBufferView>(x?: number, y?: number, l?: number, w?: number, h?: number, d?: number, mip: number, data?: T): T
+		
+		/**
+		 * Set the range of mipmaps that can be used by this texture during drawing
+		 * @param min Lowest (highest-resolution) mipmap, inclusive, where the original texture is mipmap `0`
+		 * @param max Highest (lowest-resolution) mipmap, inclusive. Omit to set no upper bound
+		 */
+		setMipmapRange(min?: number, max?: number)
+		/**
+		 * Regenerate all mipmaps from the original texture (mipmap 0)
+		 * 
+		 * Note that this method has no effect on image-backed textures as their mipmaps (if present) are automatically generated on load, and the texture contents are immutable, so mipmaps never change
+		 */
+		genMipmaps(): void
+
+		/**
+		 * Free the resources of this texture as soon as possible. It is invalid to use the texture object for anything beyond this point, the object should be "forgotten" and cannot be reinitialized.
+		 * Under the hood, the texture's data will be freed by the GPU once all draw operations using it have finished
+		 */
+		delete(): void
 	}
-	sup(x=0,y=0,w=1,h=1){
-		const tw = this.w/w, th = this.h/h
-		return new img(this.t, this.x-x*tw, this.y-y*th, tw, th)
+
+	/** See `Texture.options` */ const UPSCALE_SMOOTH = 1
+	/** See `Texture.options` */ const DOWNSCALE_SMOOTH = 2
+	/** See `Texture.options` */ const MIPMAP_SMOOTH = 4
+	/** See `Texture.options` */ const SMOOTH = 7
+	/** See `Texture.options` */ const REPEAT_X = 8
+	/** See `Texture.options` */ const REPEAT_MIRRORED_X = 16
+	/** See `Texture.options` */ const REPEAT_Y = 32
+	/** See `Texture.options` */ const REPEAT_MIRRORED_Y = 64
+	/** See `Texture.options` */ const REPEAT = 40
+	/** See `Texture.options` */ const REPEAT_MIRRORED = 80
+
+	/**
+	 * Create a drawable context for a single layer of a texture
+	 * @param tex The texture that draw operations will write to
+	 * @param layer Which layer to draw stuff to
+	 * @param mip If the texture has mipmaps, they cannot all be modified simultaneously for performance reasons. To draw to all mipmaps, draw to mipmap 0 and then call tex.genMipmaps() once done to generate all other mipmaps from mipmap 0
+	 * @param stencil Whether to also allocate a stencil buffer for IF_SET/IF_UNSET/SET/UNSET functionality. When this parameter is false, the stencil buffer will not be allocated and will behave as if it is always 0. Default: false (for performance reasons. Set to true only when you actually need it)
+	 */
+	function Drawable(tex: Texture, layer?: number, mip?: number, stencil?: boolean): Drawable
+	/**
+	 * Create a multisampled drawable context
+	 * @param width Width of draw target, in logical pixels
+	 * @param height Height of draw target, in logical pixels
+	 * @param format Most hardware will only support RGBA8, RGB565, RGBA4 and RGB5_A1
+	 * @param msaa How many samples per logical pixel to allocate. This is a hint and the actual value may be rounded or clamped. Set to a high value like 64 to use as many as available.
+	 * @param stencil Whether to also allocate a stencil buffer for IF_SET/IF_UNSET/SET/UNSET functionality. When this parameter is false, the stencil buffer will not be allocated and will behave as if it is always 0. Default: false (for performance reasons. Set to true only when you actually need it)
+	 */
+	function DrawableMSAA(width: number, height: number, format: Formats, msaa: number, stencil?: boolean): Drawable
+
+	// .mask
+	const R = 1, G = 2, B = 4, A = 8, RGB = 7, RGBA = 15
+	const IF_SET = 16, IF_UNSET = 32, NO_DRAW = 48,
+	const UNSET = 64, SET = 128, FLIP = 192
+
+
+	// Blend
+	const ONE = 17, ZERO = 0, RGB_ONE = 1, A_ONE = 16,
+	SRC = 34, RGB_SRC = 2,
+	ONE_MINUS_SRC = 51,
+	RGB_ONE_MINUS_SRC = 3,
+	SRC_ALPHA = 68,
+	RGB_SRC_ALPHA = 4,
+	A_SRC = 64,
+	ONE_MINUS_SRC_ALPHA = 85,
+	RGB_ONE_MINUS_SRC_ALPHA = 5,
+	A_ONE_MINUS_SRC = 80,
+	DST = 136, RGB_DST = 8,
+	ONE_MINUS_DST = 153,
+	RGB_ONE_MINUS_DST = 9,
+	DST_ALPHA = 102,
+	RGB_DST_ALPHA = 6,
+	A_DST = 96,
+	ONE_MINUS_DST_ALPHA = 119,
+	RGB_ONE_MINUS_DST_ALPHA = 7,
+	A_ONE_MINUS_DST = 112,
+	SRC_ALPHA_SATURATE = 170,
+	RGB_SRC_ALPHA_SATURATE = 10,
+	ADD = 17, RGB_ADD = 1, A_ADD = 16,
+	SUB = 85,
+	RGB_SUB = 5,
+	A_SUB = 80,
+	SUB_REV = 102,
+	RGB_SUB_REV = 6,
+	A_SUB_REV = 96,
+	MIN = 34, RGB_MIN = 2, A_MIN = 32,
+	MAX = 51, RGB_MAX = 3, A_MAX = 48
+	// Shader params
+	const FLOAT = 0, VEC2 = 1, VEC3 = 2, VEC4 = 3,
+	INT = 16, IVEC2 = 17, IVEC3 = 18, IVEC4 = 19,
+	UINT = 32, UVEC2 = 33, UVEC3 = 34, UVEC4 = 35,
+	TEXTURE = 20, UTEXTURE = 24, FTEXTURE = 28, COLOR = 4, UCOLOR = 8, FCOLOR = 12,
+	FIXED = 4
+	// Geometry types
+	const TRIANGLE_STRIP = 5, TRIANGLES = 4, TRIANGLE_FAN = 6, LINE_LOOP = 2, LINE_STRIP = 3, LINES = 1, POINTS = 0
+
+	interface vec2{
+		static readonly one: vec2, readonly zero: vec2
+		copy(): vec2
+		plus(v: number | vec2): vec2
+		minus(v: number | vec2): vec2
+		neg(): vec2
+		recip(): vec2
+		times(v: number | vec2): vec2
+		div(v: number | vec2): vec2
+		pow(v: number | vec2): vec2
+		set(v: number | vec2): void
+		map(fn: (x: number) => number): vec2
+		eq(v: number | vec2): boolean
+		length(): number
+		get yx(): vec2
 	}
-	crop(x=0, y=0, w=1, h=1, l=this.l){
-		const {t,x:ox,y:oy,h:oh} = this
-		if(!t.src) return new img(t, ox+x/t.w, oy+oh-(y+h)/t.h, w/t.w, h/t.h, l)
-		const i = new img(t, 0, 0, 0, 0, l)
-		if(!t.tex) img.load(t)
-		t.src.push(i => {
-			i.x = ox+x/t.w
-			i.y = oy+oh-(y+h)/t.h
-			i.w = w/t.w; i.h = h/t.h
-		}, undefined, i)
-		return i
+	interface vec3{
+		static readonly one: vec3, readonly zero: vec3
+		copy(): vec3
+		plus(v: number | vec3): vec3
+		minus(v: number | vec3): vec3
+		neg(): vec3
+		recip(): vec3
+		times(v: number | vec3): vec3
+		div(v: number | vec3): vec3
+		pow(v: number | vec3): vec3
+		set(v: number | vec3): void
+		map(fn: (x: number) => number): vec3
+		eq(v: number | vec3): boolean
+		length(): number
+		get xy(): vec2
+		get yz(): vec2
+		get zyx(): vec3
 	}
-	layer(l = this.l){ return new img(this.t, this.x, this.y, this.w, this.h, l) }
-	#then(r, j){
-		if(typeof r != 'function') r = Function.prototype
-		if(!this.t.src) return void r(this)
-		if(!this.t.tex) img.load(this.t)
-		this.t.src.push(r, j, this)
+	interface vec4{
+		static readonly one: vec4, readonly zero: vec4
+		copy(): vec4
+		plus(v: number | vec4): vec4
+		minus(v: number | vec4): vec4
+		neg(): vec4
+		recip(): vec4
+		times(v: number | vec4): vec4
+		div(v: number | vec4): vec4
+		pow(v: number | vec4): vec4
+		set(v: number | vec4): void
+		map(fn: (x: number) => number): vec4
+		eq(v: number | vec4): boolean
+		length(): number
+		get xy(): vec2
+		get yz(): vec2
+		get zw(): vec2
+		get xyz(): vec3
+		get yzw(): vec3
+		get wzyx(): vec4
 	}
-	static load(t){
-		let src = t.src, loaded = 0
-		t.src = []
-		let w = 0, h = 0
-		t.tex = gl.createTexture()
-		const reject = () => {
-			loaded = -1
-			img.setOptions(t)
-			gl.texStorage3D(gl.TEXTURE_2D_ARRAY, t.m || 1, t.f[0], t.w = w = 1, t.h = h = 1, t.d)
-			if(!premultAlpha){
-				gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1)
-				gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 1)
-				premultAlpha = true
-			}
-			if(t.m) gl.generateMipmap(gl.TEXTURE_2D_ARRAY)
-			if(t.i<0) gl.bindTexture(gl.TEXTURE_2D_ARRAY, null)
-			const cbs = t.src; t.src = null
-			for(let i = 1; i < cbs.length; i+=3) cbs[i]?.(cbs[i+1])
-		}
-		for(let i = 0; i < src.length; i++) resolveData(src[i], data => {
-			if(!loaded) w = data.width, h = data.height
-			else if(w != data.width || h != data.height)
-				return reject('Failed to load image: all layers must be the same size')
-			src[i] = data
-			if(++loaded < src.length) return
-			img.setOptions(t)
-			gl.texStorage3D(gl.TEXTURE_2D_ARRAY, t.m || 1, t.f[0], t.w = w, t.h = h, t.d)
-			if(!premultAlpha){
-				gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1)
-				gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 1)
-				premultAlpha = true
-			}
-			gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, null)
-			for(let l = 0; l < loaded; l++)
-				gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, 0, l, w, h, 1, t.f[1], t.f[2], src[l])
-			gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, unpackBuffer)
-			if(t.m) gl.generateMipmap(gl.TEXTURE_2D_ARRAY)
-			if(t.i<0) gl.bindTexture(gl.TEXTURE_2D_ARRAY, null)
-			const cbs = t.src; t.src = null
-			for(let i = 0; i < cbs.length; i += 3) cbs[i](cbs[i+2])
-		}, reject)
-	}
-	paste(tex, x=0, y=0, l=0, srcX=0, srcY=0, srcL=0, srcW=0, srcH=0, srcD=0, srcMip=0, dstMip=0){
-		const {t} = this
-		if(t.src) return this
-		if(!(tex instanceof img)) return resolveData(tex, i => {
-			img.fakeBind(t)
-			if(!premultAlpha){
-				gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1)
-				gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 1)
-				premultAlpha = true
-			}
-			gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, null)
-			gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, x, y, l, i.width, i.height, 1, t.f[1], t.f[2], i)
-			gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, unpackBuffer)
-			if(t.i<0) gl.bindTexture(gl.TEXTURE_2D_ARRAY, null)
-			return this
-		})
-		const {t: t2} = tex
-		if(t2.src){
-			tex.#then(() => this.paste(tex, x, y, l, srcX, srcY, srcL, srcW, srcH, srcD, srcMip, dstMip))
-			return this
-		}
-		if(t.tex == t2.tex){
-			console.warn('cannot copy from texture to itself')
-			return this
-		}
-		i&&draw()
-		img.fakeBind(t)
-		srcW = srcW || t2.w; srcH = srcH || t2.h; srcD = srcD || t2.d
-		while(srcD--){
-			gl.framebufferTextureLayer(gl.READ_FRAMEBUFFER, 36064, t2.tex, srcMip, srcL++)
-			gl.copyTexSubImage3D(gl.TEXTURE_2D_ARRAY, dstMip, x, y, l++, srcX, srcY, srcW, srcH)
-		}
-		if(t.i < 0) gl.bindTexture(gl.TEXTURE_2D_ARRAY, null)
-		return this
-	}
-	pasteData(data, x=0, y=0, l=0, w=0, h=0, d=0, mip=0){
-		const {t} = this
-		if(t.src) return null
-		w = w || t.w; h = h || t.h; d = d || t.d
-		img.fakeBind(t)
-		if(premultAlpha){
-			gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0)
-			gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 0)
-			premultAlpha = false
-		}
-		gl.bufferData(gl.PIXEL_UNPACK_BUFFER, data, gl.STREAM_COPY)
-		gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, mip, x, y, l, w, h, d, t.f[1], t.f[2], 0)
-		fd += data.byteLength*.25
-		if(t.i<0) gl.bindTexture(gl.TEXTURE_2D_ARRAY, null)
-	}
-	readData(x=0, y=0, l=0, w=0, h=0, d=0, arr=null,mip=0){
-		const {t} = this
-		if(t.src) return null
-		w = w || t.w; h = h || t.h; d = d || t.d
-		i&&draw()
-		let a = t.f[0], sz = w*h*(a==33323||a==33338||a==33340||a==33327||a==33328||a==33336 ? 2
-			: a==33321||a==33330||a==33332||a==33334||a==33325||a==33326? 1 : 4)
-		a = sz==1 ? 6403 : sz==2 ? 33319 : 6408
-		if(!arr || arr.length != sz) arr =
-			  t.f[2] == gl.UNSIGNED_BYTE ? new Uint8Array(sz*d)
-			: t.f[2] == gl.FLOAT ? new Float32Array(sz*d)
-			: t.f[2] == gl.UNSIGNED_INT || t.f[2] == gl.UNSIGNED_INT_10F_11F_11F_REV || t.f[2] == gl.UNSIGNED_INT_2_10_10_10_REV || t.f[2] == gl.UNSIGNED_INT_5_9_9_9_REV ? new Uint32Array(sz*d) : new Uint16Array(sz*d)
-		while(d--){
-			gl.framebufferTextureLayer(gl.READ_FRAMEBUFFER, 36064, t.tex, mip, l)
-			gl.readPixels(x, y, w, h, a, t.f[2], arr.subarray(sz*l, sz*(++l)))
-		}
-		return arr
-	}
-	delete(){
-		if(!this.t.tex) return
-		gl.deleteTexture(this.t.tex)
-		this.t.tex = null
-		if(this.t.i >= 0) bound[this.t.i] = null, this.t.i = -1
-		this.t.d = this.t.w = this.t.h = 0
-	}
-	static auto(t,i=0){
-		if((t.f[3]>>31) != i) return -2
-		if(t.i >= 0){
-			const sl = -2147483648 >>> t.i-(maxTex-shfCount&i)
-			if(!(sl&(i^shfMask))) return boundUsed |= sl, t.i
-			bound[t.i] = null, t.i = -1
-		}
-		if(!t.tex) img.load(t)
-		const j = clz32(~(boundUsed|i^shfMask))
-		if(j >= maxTex) return -1
-		boundUsed |= -2147483648>>>j
-		i = i ? maxTex+j-shfCount : j
-		const o = bound[i]; if(o) o.i = -1
-		gl.activeTexture(33984 + i)
-		gl.bindTexture(gl.TEXTURE_2D_ARRAY, (bound[i]=t).tex)
-		return t.i = i
-	}
-	static fakeBind(t){
-		if(t.i >= 0) gl.activeTexture(33984+t.i)
-		else{
-			const j = maxTex-1+(shfCount==maxTex&&maxTex)
-			if(bound[j]) bound[j].t.i = -1
-			gl.activeTexture(33984+j)
-			gl.bindTexture(gl.TEXTURE_2D_ARRAY, t.tex)
-		}
-	}
-	get options(){ return this.t.o }
-	static setOptions(t){
-		img.fakeBind(t)
-		const {o} = t
-		if(t.f[3]>>31)
-			gl.texParameterf(gl.TEXTURE_2D_ARRAY, 10240, 9728),
-			gl.texParameterf(gl.TEXTURE_2D_ARRAY, 10241, 9728)
-		else
-			gl.texParameterf(gl.TEXTURE_2D_ARRAY, 10240, 9728+(o&1)),
-			gl.texParameterf(gl.TEXTURE_2D_ARRAY, 10241, t.m?9984+(o>>1&3):9728+(o>>1&1))
-		gl.texParameterf(gl.TEXTURE_2D_ARRAY, 10242, o&8?10497:o&16?33648:33071)
-		gl.texParameterf(gl.TEXTURE_2D_ARRAY, 10243, o&32?10497:o&64?33648:33071)
-	}
-	set options(o){
-		const {t} = this
-		t.o = o
-		if(t.src) return
-		img.setOptions(t)
-		if(t.i < 0) gl.bindTexture(gl.TEXTURE_2D_ARRAY, null)
-	}
-	setMipmapRange(s=0, e=65535){
-		const {t} = this
-		if(t.src) return
-		img.fakeBind(t)
-		gl.texParameteri(gl.TEXTURE_2D_ARRAY, 33082, s)
-		gl.texParameteri(gl.TEXTURE_2D_ARRAY, 33083, e)
-		if(t.i < 0) gl.bindTexture(gl.TEXTURE_2D_ARRAY, null)
-	}
-	genMipmaps(){
-		const {t} = this
-		if(!t.m) return
-		img.fakeBind(t)
-		gl.generateMipmap(gl.TEXTURE_2D_ARRAY)
-		if(t.i < 0) gl.bindTexture(gl.TEXTURE_2D_ARRAY, null)
-	}
-}
-$.Drawable = (img, layer = img.l, mip = 0, stencil = false)=>{
-	const {t} = img
-	if(t.src) return null
-	let stencilBuf = null
-	if(stencil){
-		gl.bindRenderbuffer(gl.RENDERBUFFER, stencilBuf = gl.createRenderbuffer())
-		gl.renderbufferStorage(gl.RENDERBUFFER, 36168, t.w, t.h)
-	}
-	return new can({ tex: t.tex, img, layer: layer, stencil: 0, mip, stencilBuf, w: t.w, h: t.h })
-}
-let arr = new Float32Array(16), iarr = new Int32Array(arr.buffer), i = 0
-$.Texture = (w = 0, h = 0, d = 0, o = 0, f = Formats.RGBA, mips = 0) => {
-	const t = { tex: gl.createTexture(), i: -1, a: -1, o, f, src: null, w, h, d: +d||1, m: mips }
-	const tx = new img(t)
-	img.setOptions(t)
-	if(w && h) gl.texStorage3D(gl.TEXTURE_2D_ARRAY, (t.m = mips) || 1, t.f[0], t.w = w, t.h = h, t.d = +d || 1)
-	else gl.texStorage3D(gl.TEXTURE_2D_ARRAY, (t.m = mips) || 1, t.f[0], t.w = 1, t.h = 1, t.d = 1)
-	gl.bindTexture(gl.TEXTURE_2D_ARRAY, null)
-	return tx
-}
-$.Texture.MAX_WIDTH = $.Texture.MAX_HEIGHT = gl.getParameter(gl.MAX_TEXTURE_SIZE)
-$.Texture.MAX_LAYERS = gl.getParameter(gl.MAX_ARRAY_TEXTURE_LAYERS)
-$.Img = (src, o = 0, fmt = Formats.RGBA, mips = 0) => new img({
-	tex: null, i: -1, a: -1, o, f:fmt, src: src ? Array.isArray(src) ? src : [src] : [],
-	w: 0, h: 0, d: src ? Array.isArray(src) ? src.length : 1 : 0, m: mips
-})
-Object.assign($, {
-	UPSCALE_SMOOTH: 1, DOWNSCALE_SMOOTH: 2, MIPMAP_SMOOTH: 4, SMOOTH: 7, REPEAT_X: 8, REPEAT_MIRRORED_X: 16, REPEAT_Y: 32, REPEAT_MIRRORED_Y: 64, REPEAT: 40, REPEAT_MIRRORED: 80,
-	R: 1, G: 2, B: 4, A: 8,
-	RGB: 7, RGBA: 15,
-	IF_SET: 16, IF_UNSET: 32, NO_DRAW: 48,
-	UNSET: 64, SET: 128, FLIP: 192,
-	ONE: 17, ZERO: 0, RGB_ONE: 1, A_ONE: 16,
-	SRC: 34, RGB_SRC: 2,
-	ONE_MINUS_SRC: 51,
-	RGB_ONE_MINUS_SRC: 3,
-	SRC_ALPHA: 68,
-	RGB_SRC_ALPHA: 4,
-	A_SRC: 64,
-	ONE_MINUS_SRC_ALPHA: 85,
-	RGB_ONE_MINUS_SRC_ALPHA: 5,
-	A_ONE_MINUS_SRC: 80,
-	DST: 136, RGB_DST: 8,
-	ONE_MINUS_DST: 153,
-	RGB_ONE_MINUS_DST: 9,
-	DST_ALPHA: 102,
-	RGB_DST_ALPHA: 6,
-	A_DST: 96,
-	ONE_MINUS_DST_ALPHA: 119,
-	RGB_ONE_MINUS_DST_ALPHA: 7,
-	A_ONE_MINUS_DST: 112,
-	SRC_ALPHA_SATURATE: 170,
-	RGB_SRC_ALPHA_SATURATE: 10,
-	ADD: 17, RGB_ADD: 1, A_ADD: 16,
-	SUB: 85,
-	RGB_SUB: 5,
-	A_SUB: 80,
-	SUB_REV: 102,
-	RGB_SUB_REV: 6,
-	A_SUB_REV: 96,
-	MIN: 34, RGB_MIN: 2, A_MIN: 32,
-	MAX: 51, RGB_MAX: 3, A_MAX: 48,
-	FLOAT: 0, VEC2: 1, VEC3: 2, VEC4: 3,
-	INT: 16, IVEC2: 17, IVEC3: 18, IVEC4: 19,
-	UINT: 32, UVEC2: 33, UVEC3: 34, UVEC4: 35,
-	TEXTURE: 20, UTEXTURE: 24, FTEXTURE: 28, COLOR: 4, UCOLOR: 8, FCOLOR: 12,
-	FIXED: 4, _: undefined,
-	TRIANGLE_STRIP: 5, TRIANGLES: 4, TRIANGLE_FAN: 6, LINE_LOOP: 2, LINE_STRIP: 3, LINES: 1, POINTS: 0
-})
-const _vec2 = class vec2{
-	constructor(x,y){this.x=x;this.y=y}
-	copy(){return new _vec2(this.x,this.y)}
-	plus(v=0){return typeof v=='number'?new _vec2(this.x+v,this.y+v):new _vec2(this.x+v.x,this.y+v.y)}
-	minus(v=0){return typeof v=='number'?new _vec2(this.x-v,this.y-v):new _vec2(this.x-v.x,this.y-v.y)}
-	neg(){return new _vec2(-this.x,-this.y)}
-	recip(){return new _vec2(1/this.x,1/this.y)}
-	times(v=1){return typeof v=='number'?new _vec2(this.x*v,this.y*v):new _vec2(this.x*v.x,this.y*v.y)}
-	div(v=1){return typeof v=='number'?new _vec2(this.x/v,this.y/v):new _vec2(this.x/v.x,this.y/v.y)}
-	pow(v=1){return typeof v=='number'?new _vec2(this.x**v,this.y**v):new _vec2(this.x**v.x,this.y**v.y)}
-	set(v=0){if(typeof v=='number')this.x=this.y=v;else this.x=v.x,this.y=v.y}
-	map(fn){return new _vec2(fn(this.x),fn(this.y))}
-	eq(v){return typeof v=='number'?this.x==v&&this.y==v:this.x==v.x&&this.y==v.y}
-	length(){return hypot(this.x,this.y)}
-	get yx(){return _vec2(this.y,this.x)}
-}, _vec3 = class vec3{
-	constructor(x,y,z){this.x=x;this.y=y;this.z=z}
-	copy(){return new _vec3(this.x,this.y,this.z)}
-	plus(v=0){return typeof v=='number'?new _vec3(this.x+v,this.y+v,this.z+v):new _vec3(this.x+v.x,this.y+v.y,this.z+v.z)}
-	minus(v=0){return typeof v=='number'?new _vec3(this.x-v,this.y-v,this.z-v):new _vec3(this.x-v.x,this.y-v.y,this.z-v.z)}
-	neg(){return new _vec3(-this.x,-this.y,-this.z)}
-	recip(){return new _vec3(1/this.x,1/this.y,1/this.z)}
-	times(v=1){return typeof v=='number'?new _vec3(this.x*v,this.y*v,this.z*v):new _vec3(this.x*v.x,this.y*v.y,this.z*v.z)}
-	div(v=1){return typeof v=='number'?new _vec3(this.x/v,this.y/v,this.z/v):new _vec3(this.x/v.x,this.y/v.y,this.z/v.z)}
-	pow(v=1){return typeof v=='number'?new _vec3(this.x**v,this.y**v,this.z**v):new _vec3(this.x**v.x,this.y**v.y,this.z**v.z)}
-	set(v=0){if(typeof v=='number')this.x=this.y=this.z=v;else this.x=v.x,this.y=v.y,this.z=v.z}
-	map(fn){return new _vec3(fn(this.x),fn(this.y),fn(this.z))}
-	eq(v){return typeof v=='number'?this.x==v&&this.y==v&&this.z==v:this.x==v.x&&this.y==v.y&&this.z==v.z}
-	length(){return hypot(this.x,this.y,this.z)}
-	get xy(){return new _vec2(this.x,this.y)}
-	get yz(){return new _vec2(this.y,this.z)}
-	get zyx(){return new _vec3(this.z,this.y,this.x)}
-}, _vec4 = class vec4{
-	constructor(x,y,z,w){this.x=x;this.y=y;this.z=z;this.w=w}
-	copy(){return new _vec4(this.x,this.y,this.z,this.w)}
-	plus(v=0){return typeof v=='number'?new _vec4(this.x+v,this.y+v,this.z+v,this.w+v):new _vec4(this.x+v.x,this.y+v.y,this.z+v.z,this.w+v.w)}
-	minus(v=0){return typeof v=='number'?new _vec4(this.x-v,this.y-v,this.z-v,this.w-v):new _vec4(this.x-v.x,this.y-v.y,this.z-v.z,this.w-v.w)}
-	neg(){return new _vec4(-this.x,-this.y,-this.z,-this.w)}
-	recip(){return new _vec4(1/this.x,1/this.y,1/this.z,1/this.w)}
-	times(v=1){return typeof v=='number'?new _vec4(this.x*v,this.y*v,this.z*v,this.w*v):new _vec4(this.x*v.x,this.y*v.y,this.z*v.z,this.w*v.w)}
-	div(v=1){return typeof v=='number'?new _vec4(this.x/v,this.y/v,this.z/v,this.w/v):new _vec4(this.x/v.x,this.y/v.y,this.z/v.z,this.w/v.w)}
-	pow(v=1){return typeof v=='number'?new _vec4(this.x**v,this.y**v,this.z**v,this.w**v):new _vec4(this.x**v.x,this.y**v.y,this.z**v.z,this.w**v.w)}
-	set(v=0){if(typeof v=='number')this.x=this.y=this.z=this.w=v;else this.x=v.x,this.y=v.y,this.z=v.z,this.w=v.w}
-	map(fn){return new _vec4(fn(this.x),fn(this.y),fn(this.z),fn(this.w))}
-	eq(v){return typeof v=='number'?this.x==v&&this.y==v&&this.z==v&&this.w==v:this.x==v.x&&this.y==v.y&&this.z==v.z&&this.w==v.w}
-	length(){return hypot(this.x,this.y,this.z,this.w)}
-	get xy(){return new _vec2(this.x,this.y)}
-	get yz(){return new _vec2(this.y,this.z)}
-	get zw(){return new _vec2(this.z,this.w)}
-	get xyz(){return new _vec3(this.x,this.y,this.z)}
-	get yzw(){return new _vec3(this.y,this.z,this.w)}
-	get wzyx(){return new _vec4(this.w,this.z,this.y,this.x)}
-}
-$.vec2 = (x=0,y=x) => new _vec2(x,y)
-$.vec2.one = $.vec2(1); const v2z = $.vec2.zero = $.vec2(0)
-$.vec3 = (x=0,y=x,z=x) => new _vec3(x,y,z)
-$.vec3.one = $.vec3(1); const v3z = $.vec3.zero = $.vec3(0)
-$.vec4 = (x=0,y=x,z=x,w=x) => new _vec4(x,y,z,w)
-$.vec4.one = $.vec4(1); const v4z = $.vec4.zero = $.vec4(0)
-$.Formats={R:[33321,6403,gl.UNSIGNED_BYTE],RG:[33323,33319,gl.UNSIGNED_BYTE],RGB:[32849,6407,gl.UNSIGNED_BYTE],RGBA:[32856,T=6408,gl.UNSIGNED_BYTE],RGB565:[36194,6407,33635],R11F_G11F_B10F:[35898,6407,gl.UNSIGNED_INT_10F_11F_11F_REV],RGB5_A1:[32855,T,32820],RGB10_A2:[32857,T,gl.UNSIGNED_INT_2_10_10_10_REV],RGBA4:[32854,T,32819],RGB9_E5:[35901,6407,gl.UNSIGNED_INT_5_9_9_9_REV],R8:[33330,T=36244,gl.UNSIGNED_BYTE,1<<31],RG8:[33336,33320,gl.UNSIGNED_BYTE,1<<31],RGB8:[36221,36248,gl.UNSIGNED_BYTE,1<<31],RGBA8:[36220,36249,gl.UNSIGNED_BYTE,1<<31],R16:[33332,T,5123,1<<31],RG16:[33338,33320,5123,1<<31],RGB16:[36215,36248,5123,1<<31],RGBA16:[36214,36249,5123,1<<31],R32:[33334,T,gl.UNSIGNED_INT,1<<31],RG32:[33340,33320,gl.UNSIGNED_INT,1<<31],RGB32:[36209,36248,gl.UNSIGNED_INT,1<<31],RGBA32:[36208,36249,gl.UNSIGNED_INT,1<<31],R16F:[33325,6403,5131],RG16F:[33327,33319,5131],RGB16F:[34843,6407,5131],RGBA16F:[34842,6408,5131],R16F_32F:[33325,6403,gl.FLOAT],RG16F_32F:[33327,33319,gl.FLOAT],RGB16F_32F:[34843,6407,gl.FLOAT],RGBA16F_32F:[34842,6408,gl.FLOAT],R32F:[33326,6403,gl.FLOAT],RG32F:[33328,33319,gl.FLOAT],RGB32F:[34837,6407,gl.FLOAT],RGBA32F:[34836,6408,gl.FLOAT]}
-const grow = new Function(ArrayBuffer.prototype.transfer?'arr=new Float32Array(arr.buffer.transfer(i*8)),iarr=new Int32Array(arr.buffer)':'const oa=arr;(arr=new Float32Array(i*2)).set(oa,0);iarr=new Int32Array(arr.buffer)')
+	function vec2(x?: number, y?: number): vec2
+	function vec3(x?: number, y?: number, z?: number): vec3
+	function vec4(x?: number, y?: number, z?: number, w?: number): vec4
+
 class can{
 	t;#a;#b;#c;#d;#e;#f;#m;#shader;s
 	get width(){return this.t.w}
@@ -793,8 +932,6 @@ class can{
 		gl.disable(2960); pmask &= -241
 	}
 }
-let pmask=285217039
-
 $.Blend = T = (src = 17, combine = 17, dst = 0, dither=false) => src|dst<<8|combine<<16|dither<<23
 Object.assign(T, {
 	REPLACE: 1114129,
@@ -807,61 +944,6 @@ Object.assign(T, {
 	BEHIND: 1118583,
 	INVERT: 1127321
 })
-function setv(t,m){
-	const s = t.stencil
-	let d = pmask^m
-	if(ca!=t){
-		i&&draw()
-		gl.FRAMEBUFFER
-		if(!t.img) gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER,null),gl.viewport(0,0,t.w,t.h)
-		else{
-			if(ca==ctx.t) gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER,fb)
-			if(t.tex!=fbTex||t.layer!=fbLayer||t.mip!=fbMip) gl.framebufferTextureLayer(gl.DRAW_FRAMEBUFFER,36064,fbTex=t.tex,fbMip=t.mip,fbLayer=t.layer)
-			if(t.stencilBuf!=fbSte) gl.bindRenderbuffer(gl.RENDERBUFFER,fbSte=t.stencilBuf),gl.framebufferRenderbuffer(gl.DRAW_FRAMEBUFFER,36128,gl.RENDERBUFFER,fbSte)
-			const t2 = t.img.t; gl.viewport(0,0,t2.w>>fbMip,t2.h>>fbMip)
-			if(t2.i>=0){
-				gl.activeTexture(33984 + t2.i); gl.bindTexture(gl.TEXTURE_2D_ARRAY, bound[t2.i] = null); t2.i = -1
-			}
-			if(!ca||ca.stencil!=s) d|=240
-		}
-		ca=t
-	}
-	if(d){
-		i&&draw()
-		if(d&15) gl.colorMask(m&1,m&2,m&4,m&8)
-		if(d&240){
-			if(m&240){
-				if(!(pmask&240)) gl.enable(2960) // STENCIL_TEST
-				gl.stencilMask(1<<s)
-				gl.stencilFunc(m&32?m&16?gl.NEVER:gl.NOTEQUAL:m&16?gl.EQUAL:gl.ALWAYS,255,1<<s)
-				const op = m&128?m&64?gl.INVERT:gl.REPLACE:m&64?gl.ZERO:gl.KEEP
-				gl.stencilOp(op, op, op)
-			}else if(pmask&240) gl.disable(2960) // STENCIL_TEST
-		}
-		if(d&1996488704) gl.blendEquationSeparate((m>>24&7)+32773,(m>>28&7)+32773)
-		if(d&16776960) gl.blendFuncSeparate((m>>8&15)+766*!!(m&3584), (m>>16&15)+766*!!(m&917504), (m>>12&15)+766*!!(m&57344), (m>>20&15)+766*!!(m&14680064))
-		if(d&-2147483648) m&-2147483648 ? gl.enable(3024) : gl.disable(3024) // DITHER
-		pmask = m
-	}
-}
-function draw(b=shuniBind){
-	gl.bufferData(34962, iarr.subarray(0, i), 35040)
-	const {type,start:s,length:l}=shp
-	fd += i; i /= sh.count; fdc++; fs += i
-	gl.drawArraysInstanced(type, s, l, i)
-	i = 0; boundUsed = b
-	if(pendingFences.length){ fencetail ??= pendingFences[0]; for(const f of pendingFences){
-		f.sync = gl.fenceSync(37143,0)
-		fencehead = fencehead ? fencehead.next = f : f
-	} pendingFences.length = 0 }
-}
-let sh=null,ca=null,fbTex=null,fbSte=null,fbLayer=0,fbMip=0,shfCount=0,shfMask=0
-const fb = gl.createFramebuffer()
-gl.bindFramebuffer(gl.READ_FRAMEBUFFER, gl.createFramebuffer())
-const buf = gl.createBuffer()
-gl.bindBuffer(34962, buf)
-const maxTex = min(32, gl.getParameter(34930))
-const bound = []; for(let i=maxTex<<1;i>0;i--) bound.push(null)
 T = $.Geometry = (type, points) => {
 	if(points.length&3) throw 'points.length is not a multiple of 4'
 	if(!(points instanceof Float32Array)){
@@ -875,159 +957,18 @@ T = $.Geometry = (type, points) => {
 	gl.bindBuffer(34962, buf)
 	return {type, b, start: 0, length: points.length>>2, sub}
 }
-function sub(s=0,l=this.length-s, type=this.type){
-	return {type, b: this.b, start: this.start+s, length: l, sub}
-}
-let boundUsed = 0, shp = T.DEFAULT = T($.TRIANGLE_STRIP, [0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1]), shuniBind = 0
-const defaultShape = shp
-let g
-const treeIf = (s=0, e=maxTex,o=0) => {
-	if(e<=s+1) return g(s)
-	const m = s+(1<<31-clz32(e-s-1))
-	return `if(u<${m+o}){${treeIf(s,m,o)}}else{${treeIf(m,e,o)}}`
-}
-const names = ['float','vec2','vec3','vec4','int','ivec2','ivec3','ivec4','uint','uvec2','uvec3','uvec4']
+T.DEFAULT = T($.TRIANGLE_STRIP, [0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1])
 T = $.Shader = (src, inputs, defaults, uniforms, uDefaults, output=4, frat=0.5) => {
-	const fnParams = ['(function({'], fnBody = ['',''], shaderHead = ['#version 300 es\nprecision mediump float;precision highp int;layout(location=0)in vec4 _pos;out vec2 uv,xy;layout(location=1)in mat2x3 m;',''], shaderBody = ['void main(){gl_PointSize=1.0;uv=_pos.zw;gl_Position=vec4((xy=vec3(_pos.xy,1.)*m)*2.-1.,0.,1.);'], shaderHead2 = ['#version 300 es\nprecision mediump float;precision highp int;in vec2 uv,xy;uniform vec2 viewport;out '+(output==0?'highp vec4 color;':output==16||output==32?'uvec4 color;':'lowp vec4 color;'),'']
-	let j = 6, o = 0, fCount = 0, iCount = 0
-	const types = [3,3]
-	const texCheck = []
-	
-	let id = 0
 	inputs = typeof inputs=='number' ? [inputs] : inputs || []
 	uniforms = typeof uniforms=='number' ? [uniforms] : uniforms || []
 	defaults = defaults != null ? Array.isArray(defaults) ? defaults : [defaults] : []
 	uDefaults = uDefaults != null ? Array.isArray(uDefaults) ? uDefaults : [uDefaults] : []
-	for(const t of inputs){
-		let c = (t&3)+1, n = names[t&3|t>>4<<2]
-		const isCol = t==4||t==8||t==12
-		defaults[id] ??= t==4?v4z:c==1?0:c==2?v2z:c==3?v3z:v4z
-		fnParams.push(id+':a'+j+'=defaults['+id+'],')
-		const A = t>15?(o|=1,'iarr[j+'):'arr[j+'
-		if(t==20||t==24||t==28){
-			n='int',o|=(1<<(t>>2)-3),fCount++
-			texCheck.push(`a${j}=(img.auto(a${j+(t==24?'.t,-1':'.t,0')})+1||(i&&draw(b^boundUsed),img.auto(a${j+(t==24?'.t,-1':'.t,0')})+1))-1`)
-		}
-		if(t==12||t==28) o|=2
-		if(t==8||t==24) iCount++,fCount--
-		if(isCol){
-			texCheck.push(`let a${j+1}=${t==4?`-1;if(a${j}.t&&(a${j+1}=img.auto(a${j}.t,0))==-1)`:`img.auto(a${j+(t==8?'.t,-1':'.t,0')});if(a${j+1}==-1)`}{i&&draw(b^boundUsed);a${j+1}=img.auto(a${j+(t==8?'.t,-1':'.t,0')})}`)
-			fCount++
-			const n = `arg${id}raw`
-			shaderHead.push(`layout(location=${types.length+1})in int i${j};layout(location=${types.length+2})in vec4 i${j+1};centroid out vec4 ${n};`)
-			shaderBody.push(t!=4?`${n}=vec4(i${j+1}.xy+uv*i${j+1}.zw,i${j}>>8,i${j}&255);`:`if(i${j}==-1){${n}=i${j+1};${n}.w=max(-15856.,${n}.w);}else{${n}=vec4(i${j+1}.xy+uv*i${j+1}.zw,i${j}>>8,(i${j}&255)==0?-15872:((i${j}&255)<<4)-16384);}`)
-			shaderHead2.push(`centroid in vec4 ${n};${t==4?'lowp ':t==8?'u':'highp '}vec4 arg${id}(){`+(t==4?`if(${n}.w>-15872.)return ${n};return getColor(int(${n}.w)>>4&31,${n}.xyz);}`:t==8?`return uGetColor(int(${n}.w),${n}.xyz);}`:`return fGetColor(int(${n}.w),${n}.xyz);}`))
-			o|=(1<<(t>>2)+1)
-			types.push(17,4)
-			fnBody.push('iarr[j+'+j+']=a'+(j+1)+'|a'+j+'.l<<8')
-			for(c=0;++c<3;) fnBody.push(A+(j+c)+']=a'+j+'.'+' xy'[c])
-			fnBody.push(`if(a${j+1}>=0)${A+(j+3)}]=a${j}.w,${A+(j+4)}]=a${j}.h;else ${A+(j+3)}]=a${j}.z,${A+(j+4)}]=a${j}.w`)
-			c=5
-		}else{
-			shaderHead.push('layout(location='+(types.length+1)+')in '+n+' i'+j+';flat out '+n+' arg'+id+';')
-			shaderBody.push('arg'+id+'=i'+j+';')
-			shaderHead2.push('flat in '+n+' arg'+id+';')
-			types.push(c|t&48)
-			if(c==1) fnBody.push(A+j+']=a'+j)
-			else for(let c1=-1;++c1<c;) fnBody.push(A+(j+c1)+']=a'+j+'.'+'xyzw'[c1])
-		}
-		j += c
-		id++
-	}
-	id = 0; let j2 = 0, j3 = 0
-	const fn2Params = [], fn2Body = ['fd+=j2;i&&draw(0);if(sh!=s){shfCount=fCount;shfMask=fMask;gl.useProgram((sh=s).program);gl.bindVertexArray(s.vao)}'], fn3Body = []
-	const uniTex = [], uniLocs = []
-	for(const t of uniforms){
-		let c = (t&3)+1, n = names[t&3|t>>4<<2]
-		uDefaults[id] ??= t==4?v4z:c==1?0:c==2?v2z:c==3?v3z:v4z
-		fn2Params.push('a'+j2+'=uDefaults['+id+']')
-		if(t==12||t==28) o|=2
-		if(t==8||t==24) iCount++,fCount--
-		if(t==20||t==24||t==28){
-			o|=(1<<(t>>2)-3),fCount++
-			fn3Body.push(`gl.uniform1i(uniLocs[${j3}],uniTex[${uniTex.length}]?img.auto(uniTex[${uniTex.length}]${t==24?',-1':',0'}):${t==24?maxTex:0})`)
-			shaderHead2.push('uniform int uni'+id+';')
-			fn2Body.push(`uniTex[${uniTex.length}]=a${j2}.t`)
-			uniTex.push(null)
-		}else if(t==4||t==8||t==12){
-			fn3Body.push(`gl.uniform1i(uniLocs[${j3++}],(uniTex[${uniTex.length}]?img.auto(uniTex[${uniTex.length}]${t==8?',-1':',0'}):${t==8?maxTex:0})|uniTex[${uniTex.length+1}])`)
-			uniTex.push(null,0)
-			fCount++
-			const n = `uni${id}raw`
-			shaderHead.push(`uniform int u${j2};uniform vec4 u${j2+1};centroid out vec4 ${n};`)
-			shaderBody.push(t!=4?`${n}=vec4(u${j2+1}.xy+uv*u${j2+1}.zw,u${j2}>>8,u${j2}&255);`:`if(u${j2}==-1){${n}=u${j2+1};${n}.w=max(-15856.,${n}.w);}else{${n}=vec4(u${j2+1}.xy+uv*u${j2+1}.zw,u${j2}>>8,(u${j2}&255)==0?-15872:((u${j2}&255)<<4)-16384);}`)
-			shaderHead2.push(`centroid in vec4 ${n};${t==4?'lowp ':t==8?'u':'highp '}vec4 uni${id}(){`+(t==4?`if(${n}.w>-15872.)return ${n};return getColor(int(${n}.w)>>4&31,${n}.xyz);}`:t==8?`return uGetColor(int(${n}.w),${n}.xyz);}`:`return fGetColor(int(${n}.w),${n}.xyz);}`))
-			o|=(1<<(t>>2)+1)
-			fn2Body.push(`uniTex[${uniTex.length-2}]=a${j2}.t;uniTex[${uniTex.length-1}]=a${j2}.l<<8;gl.uniform4f(uniLocs[${j3}],a${j2}.x,a${j2}.y,a${j2}.w,a${j2}.h)`)
-		}else{
-			shaderHead2.push('uniform '+n+' uni'+id+';')
-			let args = `gl.uniform${c+(t<16?'f':t<32?'i':'ui')}(uniLocs[${j3}]`
-			if(c==1) args += ',a'+j2
-			else for(let c1=-1;++c1<c;) args += ',a'+j2+'.'+'xyzw'[c1]
-			fn2Body.push(args+')')
-		}
-		j2 += c
-		id++; j3++
-	}
-	if(fCount+iCount>16) throw 'Shaders cannot use more than 16 textures/colors'
-	fCount = fCount?iCount?fCount+round(frat * (maxTex-fCount-iCount)):maxTex:0
-	iCount = iCount && maxTex - fCount
-	g=i=>'return texture(GL_f['+i+'],p);'; let T=null
-	shaderHead2[1] =
-		(o&20?'uniform '+(o&2?'highp':'lowp')+' sampler2DArray GL_f['+fCount+'];':'')
-		+(o&8?'uniform highp usampler2DArray GL_i['+iCount+'];':'')
-		+(o&4?`lowp vec4 getColor(int u,vec3 p){${T=treeIf(0,fCount)}}`:'')
-		+(o&16?`highp vec4 fGetColor(int u,vec3 p){${T||treeIf(0,fCount)}}`:'')
-		+(o&8?`uvec4 uGetColor(int u,vec3 p){${g=i=>'return texture(GL_i['+i+'],p);',treeIf(0,maxTex-fCount,maxTex)}}`:'')
-	shaderHead2[1] +=
-		(o&4?`lowp vec4 getPixel(int u,ivec3 p,int l){${g=i=>'return texelFetch(GL_f['+i+'],p,l);',T=treeIf(0,fCount)}}`:'')
-		+(o&16?`highp vec4 fGetPixel(int u,ivec3 p,int l){${T||treeIf(0,fCount)}}`:'')
-		+(o&8?`uvec4 uGetPixel(int u,ivec3 p,int l){${g=i=>'return texelFetch(GL_i['+i+'],p,l);',treeIf(0,maxTex-fCount,maxTex)}}`:'')
-		+(o&28?`ivec3 getSize(int u,int l){${g=i=>'return textureSize(GL_'+(i<fCount?'f['+i:'i['+(i-fCount))+'],l);',T=treeIf(0,maxTex)}}`:'')
-	fnBody[0] = '}){if(sh!=s){i&&draw(0);shfCount=fCount;shfMask=fMask;gl.useProgram((sh=s).program);gl.bindVertexArray(s.vao);bindUniTex()}if(shp!=this.s){i&&draw();shp=this.s}if(s.geometry!=this.s.b){gl.bindBuffer(34962,s.geometry=this.s.b);gl.vertexAttribPointer(0,4,gl.FLOAT,0,0,0);gl.bindBuffer(34962,buf)}const b=boundUsed^shuniBind;'+texCheck.join(';')+';const j=i;if((i=j+'+j+')>arr.length)'+(ArrayBuffer.prototype.transfer?'arr=new Float32Array(arr.buffer.transfer(i*8)),iarr=new Int32Array(arr.buffer)':'{const oa=arr;(arr=new Float32Array(i*2)).set(oa,0);iarr=new Int32Array(arr.buffer)}')
-	fnBody.push('return j})')
-	const s = eval(fnParams.join('')+fnBody.join(';')), p = s.program = gl.createProgram()
-	s.uniforms = eval(`(function(${fn2Params}){${fn2Body.join(';')};bindUniTex()})`)
-	const bindUniTex = eval(`(function(){${fn3Body.join(';')};shuniBind=boundUsed})`)
-	const fMask = 32-fCount&&(-1>>>fCount)
-	s.outInt = (output==16||output==32)<<31
-	const v=gl.createShader(35633), f=gl.createShader(35632)
-	shaderBody.push('}')
-	gl.shaderSource(v, shaderHead.join('')+shaderBody.join(''))
-	gl.compileShader(v)
-	gl.shaderSource(f, shaderHead2.join('')+'\n'+src)
-	gl.compileShader(f)
-	gl.attachShader(p, v)
-	gl.attachShader(p, f)
-	if(T=gl.getShaderInfoLog(f)) console.warn('GLSL Error:\n'+T)
-	gl.linkProgram(p)
-	gl.useProgram(p)
-	while(j3--) uniLocs.push(gl.getUniformLocation(p, 'uni'+uniLocs.length))
-	for(let i = 0; i < maxTex; i++)
-		gl.uniform1i(gl.getUniformLocation(p, i<fCount?'GL_f['+i+']':'GL_i['+(i-fCount)+']'), i>=fCount?maxTex+i-fCount:i)
-	s.count = j
-	gl.bindVertexArray(s.vao = gl.createVertexArray())
-	let i1 = 1, i2 = 0
-	gl.bindBuffer(34962, s.geometry = defaultShape.b)
-	gl.enableVertexAttribArray(0)
-	gl.vertexAttribPointer(0, 4, gl.FLOAT, 0, 0, 0)
-	gl.bindBuffer(34962, buf)
-	for(const t of types){
-		gl.enableVertexAttribArray(i1)
-		if(t>>4) gl.vertexAttribIPointer(i1, t&15, (t>31)+5124, j<<2, i2)
-		else gl.vertexAttribPointer(i1, t&15, gl.FLOAT, 0, j<<2, i2)
-		gl.vertexAttribDivisor(i1++, 1)
-		i2 += (t&15)<<2
-	}
-	if(sh) gl.useProgram(sh.program), gl.bindVertexArray(sh.vao)
+	s.uniforms
 	return s
 }
-let fdc = 0, fs = 0, fd = 0
 T.DEFAULT = sh = T(`void main(){color=arg0()*arg1;}`, [$.COLOR, $.VEC4], [void 0, $.vec4.one])
 T.UINT = T(`void main(){color=arg0();}`, $.UCOLOR, void 0, void 0, void 0, $.UINT)
 T.NONE = T(`void main(){color=vec4(0,0,0,1);}`)
-gl.useProgram(sh.program)
-gl.bindVertexArray(sh.vao)
 $.flush = () => i&&draw()
 const ctx = $.ctx = new can(ca={tex:gl.canvas,img:null,layer:0,stencil:0,mip:0,stencilBuf:null,w:0,h:0})
 $.setSize = (w = 0, h = 0) => {
@@ -1035,29 +976,7 @@ $.setSize = (w = 0, h = 0) => {
 	ctx.t.h = gl.canvas.height = h
 	if(ca==ctx.t) gl.viewport(0, 0, w, h)
 }
-let fencetail = null, fencehead = null
-const pendingFences = []
-$.wait = () => new Promise(r => {
-	if(i) r.sync = null, pendingFences.push(r)
-	else{
-		r.sync = gl.fenceSync(37143, 0)
-		fencetail ??= r
-		fencehead = fencehead ? fencehead.next = r : r
-	}
-	if(!intv) intv = setInterval(() => {
-		while(fencetail && gl.getSyncParameter(fencetail.sync, 37140) == 37145){
-			gl.deleteSync(fencetail.sync)
-			fencetail()
-			fencetail = fencetail.next
-		}
-		if(!fencetail){
-			fencehead = null
-			clearInterval(intv)
-			intv = 0
-		}
-	}, 0)
-})
-let intv = 0
+$.wait = () => new Promise()
 $.loop = render => {
 	if('t' in $) return $
 	$.frameDrawCalls = 0

@@ -1,12 +1,19 @@
 Gamma.font = $ => {
-	const vec4one = $.vec4.one, msdfShader = $.Shader.MSDF = $.Shader(`
+	const vec4one = $.vec4.one, vec2l = {x:0,y:1}, msdfShader = $.Shader.MSDF = $.Shader(`
 void main(){
 	vec3 c = arg0().rgb;
-	float sd = (uni0 < 0. ? c.r : max(min(c.r, c.g), min(max(c.r, c.g), c.b)))-.5+arg3*abs(uni0);
-	float o = clamp(arg1*sd+.5,0.,1.);
-	color = arg2*o;
-}`, [$.COLOR, $.FLOAT, $.VEC4, $.FLOAT], [undefined, 1, vec4one, 0], [$.FLOAT])
-msdfShader._unifVal = 0
+	float sd = max(min(c.r, c.g), min(max(c.r, c.g), c.b))-.5+arg1.x;
+	color = arg2 * clamp(arg1.y*sd+.5,0.,1.); /* x2 is a good tradeoff for sharpness */
+}`, [$.COLOR, $.VEC2, $.VEC4], [undefined, {x:0,y:1}, vec4one, 0])
+$.TEXT_AA=NaN
+/*$.Shader.font = (src, args=[], defaults=[], uni=[], uniDefaults = [], a) => {
+	let pr = 'float field(){ vec3 c = arg0().rgb; return ((uni0 < 0. ? c.r : max(min(c.r, c.g), min(max(c.r, c.g), c.b)))-.5)*abs(uni0); }\n'
+	for(let i = 0; i < args.length; i++)
+		pr += `#define value${i} arg${i+2}\n`
+	args.unshift($.COLOR, $.FLOAT); defaults.unshift(undefined, {x:0,y:1})
+	return $.Shader(pr+src, args, defaults, uni, uniDefaults, a)
+}
+$.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 	const BreakToken = $.BreakToken = (regex, type = 0, sep = '', next = undefined) => {
 		if(regex instanceof RegExp){
 			let f = regex.flags, g = f.indexOf('g')
@@ -56,7 +63,7 @@ msdfShader._unifVal = 0
 
 	const defaultSet = [BreakToken(/\r\n?|\n/y, BreakToken.WRAP_AFTER | BreakToken.INVISIBLE, ''), BreakToken(/[$£"+]?[\w'-]+[,.!?:;"^%€*]?/yi, BreakToken.NORMAL, '-'), BreakToken(/[ \t]+/y, BreakToken.VANISH)]
 	const defaultToken = BreakToken(/[^]/y)
-	const M = new Map, O = {0:null,1:0}, E1 = [0,0,0,O]
+	const M = new Map, V = {x: 0, y: 0}, O = {off:0,spr:NaN,0:null,1:V}, E1 = [0,0,0,O]
 	const ADV = 1, SH = 2, SC = 3, YO = 4, ST = 5, SK = 6, LSB = 7, ARC = 8, RONLY = -3, IONLY = -2
 	const getSw = (t, f, ar, lsb = 0) => {
 		t.sepL = f; t.sepA = ar; t.sepS = lsb
@@ -214,9 +221,9 @@ msdfShader._unifVal = 0
 			}
 			#v = E1
 			// Sets the shader's values at this point in the stream
-			addTextPass(ord, x, y, ...a){
-				const o = a.length ? {0:null,1:0} : O
-				for(let i=0;i<a.length;i++) o[i+2]=a[i]
+			addTextPass(ord, x, y, a, off=0, spr=NaN){
+				const o = {off, spr: 1/spr, 0: null, 1: V}
+				if(a) for(let i=0;i<a.length;i++) o[i+2] = a[i]
 				const v = this.#v, v2 = this.#v = []
 				let i = 0
 				for(; i < v.length; i += 4) if(v[i] < ord){
@@ -226,9 +233,9 @@ msdfShader._unifVal = 0
 				while(i < v.length) v2.push(v[i], v[i+1], v[i+2], v[i+3]), i += 4
 				this.#q.#l = null
 			}
-			addLinePass(ord, y0, h, ...a){
-				const o = a.length ? {0:null,1:0} : O
-				for(let i=0;i<a.length;i++) o[i+2]=a[i]
+			addLinePass(ord, y0, h, a){
+				const o = {0: vec4one, 1: vec2l}
+				for(let i=0;i<a.length;i++) o[i+2] = a[i]
 				const v = this.#v, v2 = this.#v = []
 				let i = 0
 				for(; i < v.length; i += 4) if(v[i] < ord){
@@ -238,12 +245,12 @@ msdfShader._unifVal = 0
 				while(i < v.length) v2.push(v[i], v[i+1], v[i+2], v[i+3]), i += 4
 				this.#q.#l = null
 			}
-			setValues(ord, ...a){
+			setValues(ord, a){
 				const v = this.#v = this.#v.slice()
 				for(let i = 0; i < v.length; i += 4) if(v[i] == ord){
 					let a2 = v[i+=3]
 					if(typeof a2=='number') a2 = v[i-=2]
-					v[i] = a2 = a2 ? Object.assign({}, a2) : {0:null,1:0}
+					v[i] = a2 = Object.assign({}, a2)
 					for(let i=a.length-1;i>=0;i--){
 						const a1 = a[i]
 						if(a1 !== undefined) a2[i+2] = a1
@@ -254,16 +261,17 @@ msdfShader._unifVal = 0
 			}
 			delPass(ord){
 				const v = this.#v, v2 = this.#v = []
-				for(let i = 0; i < v.length; i += 4) if(v[i] < ord){
+				let i = 0
+				for(; i < v.length; i += 4) if(v[i] < ord){
 					v2.push(v[i],v[i+1],v[i+2],v[i+3])
-				}else{ if(v[i]==ord)i+=4; break }
+				}else{ if(v[i]==ord) i+=4; break }
 				while(i < v.length) v2.push(v[i], v[i+1], v[i+2], v[i+3]), i += 4
 				this.#q.#l = null
 			}
 
-			insertTextPass(ord, x, y, ...a){
-				const o = a.length ? {0:null,1:0} : O
-				for(let i=0;i<a.length;i++) o[i+2]=a[i]
+			insertTextPass(ord, x, y, a, off=0, spr=NaN){
+				const o = {off, spr: 1/spr, 0:null,1: V}
+				if(a) for(let i=0;i<a.length;i++) o[i+2] = a[i]
 				const q = this.#q, len = q.length
 				let idx = 0, p = 0
 				while(idx < len){
@@ -284,9 +292,9 @@ msdfShader._unifVal = 0
 				if(p != 1) q.unshift(ord>0?[0,0,0,O,ord,x,y,o]:ord<0?[ord,x,y,o,0,0,0,O]:[ord,x,y,o])
 				q.#l = null
 			}
-			insertLinePass(ord, y0, h, ...a){
-				const o = a.length ? {0:null,1:0} : O
-				for(let i=0;i<a.length;i++) o[i+2]=a[i]
+			insertLinePass(ord, y0, h, a){
+				const o = {0: vec4one, 1: vec2l}
+				for(let i=0;i<a.length;i++) o[i+2] = a[i]
 				const q = this.#q, len = q.length
 				let idx = 0, p = 0
 				while(idx < len){
@@ -307,7 +315,7 @@ msdfShader._unifVal = 0
 				if(p != 1) q.unshift(ord>0?[0,0,0,O,ord,o,y0,h]:ord<0?[ord,o,y0,h,0,0,0,O]:[ord,o,y0,h])
 				q.#l = null
 			}
-			adjustValues(ord, ...a){
+			adjustValues(ord, a){
 				const q = this.#q, len = q.length
 				let idx = 0, p = 0
 				while(idx < len){
@@ -321,7 +329,7 @@ msdfShader._unifVal = 0
 						for(; i < v.length; i += 4) if(v[i] == ord){
 							let a2 = v[i+=3]
 							if(typeof a2=='number') a2 = v[i-=2]
-							v[i] = a2 = a2 ? Object.assign({}, a2) : {0:null,1:0}
+							v[i] = a2 = Object.assign({}, a2)
 							for(let i=a.length-1;i>=0;i--){
 								const a1 = a[i]
 								if(a1 !== undefined) a2[i+2] = a1
@@ -351,9 +359,6 @@ msdfShader._unifVal = 0
 					}
 				}
 			}
-			get values(){ return this.#v }
-			set values(a){ this.#v = a?.length ? a : null; this.#q.#l==this&&(this.#q.#l=null) }
-
 			drawOnly(){this.#q.push(this.#q.#_m = RONLY)}
 			indexOnly(){this.#q.push(this.#q.#_m = IONLY)}
 			drawAndIndex(){this.#q.push(this.#q.#_m = RONLY|IONLY)}
@@ -695,9 +700,8 @@ msdfShader._unifVal = 0
 				let sc = 1, sc1 = 1, st = 1, lsb = 0, sk = 0, yo = 0, xo = 0, ar = 0, mask = -1
 				let sh = ctx.shader = msdfShader
 				let vs = E1, vlen = 3, font = null, dsc = 0
-				vs[3][1] = 1
 				let last = -1, lastSt = 1
-				const pxr0 = ctx.pixelRatio(); let pxr = 1
+				const pxr0 = ctx.pixelRatio()*2; let pxr = 1, rf = 1, rf1 = 1
 				let ea = 0
 				w: while(idx < q.length){
 					let s = q[idx++]
@@ -718,14 +722,13 @@ msdfShader._unifVal = 0
 								continue w
 							case SC:
 								const a = v*sc1; sc1 = 1/v; ctx.scale(a); yo *= sc *= sc1; xo *= sc;
-								lastSt *= a; ar *= a; sc = v;
-								if(font) pxr=pxr0*font.normDistRange*sc
-								for(let i=0;i<vlen;i+=4) (typeof vs[i+3]=='object'?vs[i+3]:vs[i+1])[1]=pxr
+								lastSt *= a; ar *= a; sc = v
+								if(font) pxr = pxr0*sc*font.rangeFactor
 								continue w
 							case YO: yo = v*sc1; xo = yo*sk; continue w
 							case SH: ctx.shader = sh = s; break
 							case ST: st = v; continue w
-							case SK: ctx.skew(v-sk, 0); sk = v; xo=yo*v; continue w
+							case SK: ctx.skew(v-sk, 0); sk = v; xo = yo*v; continue w
 							case LSB: lsb = v*.5; continue w
 							case ARC: ar = v*sc; continue w
 							default: continue w
@@ -747,10 +750,12 @@ msdfShader._unifVal = 0
 								const x = vs[i+1], y = vs[i+2]+yo, v1 = vs[i+3]
 								if(typeof x == 'object'){
 									const ox = ar*w*(y+dsc)
-									x[0] = vec4one
 									ctx.drawRectv(xr+ox,y+dsc,w-ox-ox,v1,x)
 								}else if(g.tex){
 									v1[0] = g.tex
+									V.x = v1.off*rf1
+									const {spr} = v1
+									V.y = spr!==spr?pxr:spr*rf
 									ctx.drawRectv((g.x+lsb)*st+x+xr,g.y+y,g.w*st,g.h,v1)
 								}
 							}
@@ -765,17 +770,11 @@ msdfShader._unifVal = 0
 					}else{
 						if(!s){cmap=kmap=M;continue}
 						if(Array.isArray(s)){
-							vlen=(vs=s).length
-							for(let i=0;i<vlen;i+=4) (typeof vs[i+3]=='object'?vs[i+3]:vs[i+1])[1]=pxr
+							vlen = (vs = s).length
 							continue
 						}
 						font = s; dsc = font.ascend-1; cmap = s.map; kmap = s.kmap
-						pxr = pxr0*font.normDistRange*sc
-						for(let i=0;i<vlen;i+=4) (typeof vs[i+3]=='object'?vs[i+3]:vs[i+1])[1]=pxr
-					}
-					if(font){
-						const f = (font._flags&1?.5:-.5)/font.normDistRange
-						if(f!=sh._unifVal) sh.uniforms(sh._unifVal=f)
+						pxr = pxr0*sc*(rf=font.rangeFactor); rf1 = 1/rf
 					}
 				}
 				if(sk) ctx.skew(-sk,0)
@@ -1047,12 +1046,10 @@ msdfShader._unifVal = 0
 	
 	
 	class font{
-		_flags = 0; normDistRange = 0; #cb = []; map = new Map; ascend = 0
+		rangeFactor = 0; #cb = []; map = new Map; ascend = 0
 		kmap = new Map
 		get then(){return this.#cb?this.#then:undefined}
 		#then(cb,rj){this.#cb?.push(cb,rj)}
-		get isMsdf(){return!!(this._flags&1)}
-		set isMsdf(a){this._flags=this._flags&-2|a}
 		done(){
 			const cb = this.#cb; this.#cb = null
 			if(cb) for(let i=0;i<cb.length;i+=2) cb[i]?.(this)
@@ -1098,9 +1095,8 @@ msdfShader._unifVal = 0
 		}
 		chlumsky(src, atlas = 'atlas.png'){ if(src.endsWith('/')) src += 'index.json'; fetch(src).then(a => (src=a.url,a.json())).then(d => {
 			const {atlas:{type,distanceRange,size,width,height},metrics:{ascender,descender},glyphs,kerning} = d
-			const fmt = (this.isMsdf = type.toLowerCase().endsWith('msdf')) ? $.Formats.RGB : $.Formats.R
-			const img = $.Img(new URL(atlas, src).href,$.SMOOTH,fmt)
-			this.normDistRange = distanceRange/size*2 //*2 is a good tradeoff for sharpness
+			this.rangeFactor = distanceRange/size
+			const img = $.Img(new URL(atlas, src).href,$.SMOOTH, type.toLowerCase().endsWith('msdf') ? $.Formats.RGB : $.Formats.RG)
 			this.ascend = ascender/(ascender-descender)
 			for(const {unicode1,unicode2,advance} of kerning) this.kmap.set(unicode2+unicode1*1114112, advance)
 			for(const {unicode,advance,planeBounds:pb,atlasBounds:ab} of glyphs) this.map.set(unicode, pb ? {
@@ -1113,10 +1109,9 @@ msdfShader._unifVal = 0
 		bmfont(src, baselineOffset=0){ fetch(src).then(a => (src=a.url,a.json())).then(d => {
 			const {chars,distanceField:df,pages,common:{base,lineHeight:sc,scaleW,scaleH},kernings} = d
 			const s = 1/d.info.size
-			const fmt = (this.isMsdf = df.fieldType.toLowerCase().endsWith('msdf')) ? $.Formats.RGB : $.Formats.R
-			this.normDistRange = df.distanceRange/sc*2 //*2 is a good tradeoff for sharpness
+			this.rangeFactor = df.distanceRange/sc
 			const b = this.ascend = base/sc
-			const p = pages.map(a => $.Img(new URL(a,src).href,$.SMOOTH,fmt))
+			const p = pages.map(a => $.Img(new URL(a,src).href,$.SMOOTH, df.fieldType.toLowerCase().endsWith('msdf') ? $.Formats.RGB : $.Formats.RG))
 			for(const {first,second,amount} of kernings) this.kmap.set(second+first*1114112, amount/s)
 			for(const {id,x,y,width,height,xoffset,yoffset,xadvance,page} of chars) this.map.set(id, {
 				x: xoffset*s, y: b-(yoffset-baselineOffset+height)*s,
@@ -1126,13 +1121,10 @@ msdfShader._unifVal = 0
 			})
 			this.done()
 		}, this.error.bind(this)); return this}
-		draw(ctx, txt, v, lsb = 0, last = -1){
+		draw(ctx, txt, v=[], off=0, spr=NaN, lsb = 0, last = -1){
 			if(this.#cb) return
 			lsb *= .5
-			let pxr = ctx.pixelRatio()*this.normDistRange, sh = ctx.shader
-			if(sh._unifVal === undefined) sh = ctx.shader = msdfShader
-			const f = (this._flags&1?.5:-.5)/this.normDistRange
-			if(f!=sh._unifVal) sh.uniforms(sh._unifVal=f)
+			spr = spr!==spr ? ctx.pixelRatio()*2*this.rangeFactor : this.rangeFactor/spr
 			const {map, kmap} = this
 			for(const ch of txt){
 				const c = ch.codePointAt()
@@ -1140,7 +1132,7 @@ msdfShader._unifVal = 0
 				if(!g) continue
 				const ker = kmap.get(c+last*1114112) ?? 0; last = c
 				const w = g.xadv + lsb + lsb + ker
-				if(g.tex) ctx.drawRect(g.x+lsb+ker,g.y,g.w,g.h,g.tex,pxr,...v)
+				if(g.tex) V.x = off, V.y = spr, ctx.drawRect(g.x+lsb+ker,g.y,g.w,g.h,g.tex,V,...v)
 				ctx.translate(w, 0)
 			}
 			return last

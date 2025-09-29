@@ -37,12 +37,11 @@ const resolveData = (val, cb, err) => typeof val == 'string' ?
 	fetch(val).then(a => a.blob()).then(val => createImageBitmap(val, imageBitmapOpts)).then(cb, err)
 	: val instanceof Blob ?
 		createImageBitmap(val, imageBitmapOpts).then(cb, err)
-		: val instanceof ImageBitmap ? cb(val)
-			: (err ?? Promise.reject)(new TypeError('Invalid src'))
+		: cb(val)
 
-$.Gamma = (can = document.createElement('canvas'), $ = {}, flags = 7) => {
+$.Gamma = (can = document.createElement('canvas'), $ = {}, flags = 15) => {
 /** @type WebGL2RenderingContext */
-const gl = $.gl = ($.canvas = can).getContext('webgl2', {preserveDrawingBuffer: flags&8, antialias: flags&16, depth: false, premultipliedAlpha: flags&4, stencil: flags&1, alpha: flags&2})
+const gl = $.gl = ($.canvas = can).getContext('webgl2', {preserveDrawingBuffer: !(flags&8), antialias: flags&16, depth: false, premultipliedAlpha: flags&4, stencil: flags&1, alpha: flags&2})
 gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1)
 gl.stencilMask(1)
 gl.clearStencil(0)
@@ -60,6 +59,7 @@ class img{
 	get width(){ return this.t.w }
 	get height(){ return this.t.h }
 	get layers(){ return this.t.d }
+	get mipmaps(){ return this.t.m }
 	get subWidth(){ return this.t.w*this.w }
 	get subHeight(){ return this.t.h*this.h }
 	get aspectRatio(){ return this.t.w*this.w / (this.t.h*this.h) }
@@ -74,11 +74,11 @@ class img{
 	sub(x=0, y=0, w=1, h=1, l=this.l){
 		return new img(this.t, this.x+x*this.w, this.y+y*this.h, this.w*w, this.h*h, l)
 	}
-	sup(x=0,y=0,w=1,h=1){
+	super(x=0, y=0, w=1, h=1, l=this.l){
 		const tw = this.w/w, th = this.h/h
-		return new img(this.t, this.x-x*tw, this.y-y*th, tw, th)
+		return new img(this.t, this.x-x*tw, this.y-y*th, tw, th, l)
 	}
-	crop(x=0, y=0, w=1, h=1, l=this.l){
+	crop(x=0, y=0, w=0, h=0, l=this.l){
 		const {t,x:ox,y:oy,h:oh} = this
 		if(!t.src) return new img(t, ox+x/t.w, oy+oh-(y+h)/t.h, w/t.w, h/t.h, l)
 		const i = new img(t, 0, 0, 0, 0, l)
@@ -105,13 +105,13 @@ class img{
 		const reject = () => {
 			loaded = -1
 			img.setOptions(t)
-			gl.texStorage3D(gl.TEXTURE_2D_ARRAY, t.m || 1, t.f[0], t.w = w = 1, t.h = h = 1, t.d)
+			gl.texStorage3D(gl.TEXTURE_2D_ARRAY, t.m, t.f[0], t.w = w = 1, t.h = h = 1, t.d)
 			if(!premultAlpha){
 				gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1)
 				gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 1)
 				premultAlpha = true
 			}
-			if(t.m) gl.generateMipmap(gl.TEXTURE_2D_ARRAY)
+			if(t.m>1) gl.generateMipmap(gl.TEXTURE_2D_ARRAY)
 			if(t.i<0) gl.bindTexture(gl.TEXTURE_2D_ARRAY, null)
 			const cbs = t.src; t.src = null
 			for(let i = 1; i < cbs.length; i+=3) cbs[i]?.(cbs[i+1])
@@ -123,7 +123,7 @@ class img{
 			src[i] = data
 			if(++loaded < src.length) return
 			img.setOptions(t)
-			gl.texStorage3D(gl.TEXTURE_2D_ARRAY, t.m || 1, t.f[0], t.w = w, t.h = h, t.d)
+			gl.texStorage3D(gl.TEXTURE_2D_ARRAY, t.m, t.f[0], t.w = w, t.h = h, t.d)
 			if(!premultAlpha){
 				gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1)
 				gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 1)
@@ -133,15 +133,28 @@ class img{
 			for(let l = 0; l < loaded; l++)
 				gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, 0, 0, l, w, h, 1, t.f[1], t.f[2], src[l])
 			gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, unpackBuffer)
-			if(t.m) gl.generateMipmap(gl.TEXTURE_2D_ARRAY)
+			if(t.m>1) gl.generateMipmap(gl.TEXTURE_2D_ARRAY)
 			if(t.i<0) gl.bindTexture(gl.TEXTURE_2D_ARRAY, null)
 			const cbs = t.src; t.src = null
 			for(let i = 0; i < cbs.length; i += 3) cbs[i](cbs[i+2])
 		}, reject)
 	}
-	paste(tex, x=0, y=0, l=0, srcX=0, srcY=0, srcL=0, srcW=0, srcH=0, srcD=0, srcMip=0, dstMip=0){
+	paste(tex, x=0, y=0, l=0, dstMip=0, srcX=0, srcY=0, srcL=0, srcW=0, srcH=0, srcD=0, srcMip=0){
 		const {t} = this
 		if(t.src) return this
+		if(tex instanceof drw){
+			const {t:t2} = tex
+			srcH = srcW || t2.h; srcW = srcL || t2.w
+			if(t2.img)
+				gl.framebufferTextureLayer(gl.READ_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, t2.tex, t2.lmip&255, t2.lmip>>>8)
+			else
+				gl.framebufferRenderbuffer(gl.READ_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, t2.tex)
+			if(ca==ca0) gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, fb), ca=null
+			gl.framebufferTextureLayer(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, fbTex = t.tex, dstMip, l)
+			fbLmip = dstMip&255|l<<8
+			gl.blitFramebuffer(srcX, srcY, srcX+srcW, srcY+srcH, x, y, x+srcW, y+srcH, gl.COLOR_BUFFER_BIT, gl.NEAREST)
+			return this
+		}
 		if(!(tex instanceof img)) return resolveData(tex, i => {
 			img.fakeBind(t)
 			if(!premultAlpha){
@@ -150,25 +163,25 @@ class img{
 				premultAlpha = true
 			}
 			gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, null)
-			gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, 0, x, y, l, i.width, i.height, 1, t.f[1], t.f[2], i)
+			gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, dstMip, x, y, l, i.width, i.height, 1, t.f[1], t.f[2], i)
 			gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, unpackBuffer)
 			if(t.i<0) gl.bindTexture(gl.TEXTURE_2D_ARRAY, null)
 			return this
 		})
 		const {t: t2} = tex
 		if(t2.src){
-			tex.#then(() => this.paste(tex, x, y, l, srcX, srcY, srcL, srcW, srcH, srcD, srcMip, dstMip))
+			console.warn('Source texture is not loaded')
 			return this
 		}
 		if(t.tex == t2.tex){
-			console.warn('cannot copy from texture to itself')
+			console.warn('Cannot copy from texture to itself')
 			return this
 		}
 		i&&draw()
 		img.fakeBind(t)
 		srcW = srcW || t2.w; srcH = srcH || t2.h; srcD = srcD || t2.d
 		while(srcD--){
-			gl.framebufferTextureLayer(gl.READ_FRAMEBUFFER, 36064, t2.tex, srcMip, srcL++)
+			gl.framebufferTextureLayer(gl.READ_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, t2.tex, srcMip, srcL++)
 			gl.copyTexSubImage3D(gl.TEXTURE_2D_ARRAY, dstMip, x, y, l++, srcX, srcY, srcW, srcH)
 		}
 		if(t.i < 0) gl.bindTexture(gl.TEXTURE_2D_ARRAY, null)
@@ -192,6 +205,7 @@ class img{
 	readData(x=0, y=0, l=0, w=0, h=0, d=0, arr=null,mip=0){
 		const {t} = this
 		if(t.src) return null
+		if(typeof arr == 'number'){ const a = arr; arr = mip||null; mip=a }
 		w = w || t.w; h = h || t.h; d = d || t.d
 		i&&draw()
 		let a = t.f[0], sz = w*h*(a==33323||a==33338||a==33340||a==33327||a==33328||a==33336 ? 2
@@ -202,7 +216,7 @@ class img{
 			: t.f[2] == gl.FLOAT ? new Float32Array(sz*d)
 			: t.f[2] == gl.UNSIGNED_INT || t.f[2] == gl.UNSIGNED_INT_10F_11F_11F_REV || t.f[2] == gl.UNSIGNED_INT_2_10_10_10_REV || t.f[2] == gl.UNSIGNED_INT_5_9_9_9_REV ? new Uint32Array(sz*d) : new Uint16Array(sz*d)
 		while(d--){
-			gl.framebufferTextureLayer(gl.READ_FRAMEBUFFER, 36064, t.tex, mip, l)
+			gl.framebufferTextureLayer(gl.READ_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, t.tex, mip, l)
 			gl.readPixels(x, y, w, h, a, t.f[2], arr.subarray(sz*l, sz*(++l)))
 		}
 		return arr
@@ -232,8 +246,10 @@ class img{
 		return t.i = i
 	}
 	static fakeBind(t){
-		if(t.i >= 0) gl.activeTexture(33984+t.i)
-		else{
+		if(t.i >= 0){
+			i&&draw()
+			gl.activeTexture(33984+t.i)
+		}else{
 			const j = maxTex-1+(shfCount==maxTex&&maxTex)
 			if(bound[j]) bound[j].t.i = -1
 			gl.activeTexture(33984+j)
@@ -245,13 +261,13 @@ class img{
 		img.fakeBind(t)
 		const {o} = t
 		if(t.f[3]>>31)
-			gl.texParameterf(gl.TEXTURE_2D_ARRAY, 10240, 9728),
-			gl.texParameterf(gl.TEXTURE_2D_ARRAY, 10241, 9728)
+			gl.texParameterf(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, 9728),
+			gl.texParameterf(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, 9728)
 		else
-			gl.texParameterf(gl.TEXTURE_2D_ARRAY, 10240, 9728+(o&1)),
-			gl.texParameterf(gl.TEXTURE_2D_ARRAY, 10241, t.m?9984+(o>>1&3):9728+(o>>1&1))
-		gl.texParameterf(gl.TEXTURE_2D_ARRAY, 10242, o&8?10497:o&16?33648:33071)
-		gl.texParameterf(gl.TEXTURE_2D_ARRAY, 10243, o&32?10497:o&64?33648:33071)
+			gl.texParameterf(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, 9728+(o&1)),
+			gl.texParameterf(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, t.m>1?9984+(o>>1&3):9728+(o>>1&1))
+		gl.texParameterf(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, o&8?10497:o&16?33648:33071)
+		gl.texParameterf(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, o&32?10497:o&64?33648:33071)
 	}
 	set options(o){
 		const {t} = this
@@ -264,13 +280,13 @@ class img{
 		const {t} = this
 		if(t.src) return
 		img.fakeBind(t)
-		gl.texParameteri(gl.TEXTURE_2D_ARRAY, 33082, s)
-		gl.texParameteri(gl.TEXTURE_2D_ARRAY, 33083, e)
+		gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_LOD, s)
+		gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAX_LOD, e)
 		if(t.i < 0) gl.bindTexture(gl.TEXTURE_2D_ARRAY, null)
 	}
 	genMipmaps(){
 		const {t} = this
-		if(!t.m) return
+		if(t.m<2) return
 		img.fakeBind(t)
 		gl.generateMipmap(gl.TEXTURE_2D_ARRAY)
 		if(t.i < 0) gl.bindTexture(gl.TEXTURE_2D_ARRAY, null)
@@ -282,17 +298,28 @@ $.Drawable = (img, layer = img.l, mip = 0, stencil = false)=>{
 	let stencilBuf = null
 	if(stencil){
 		gl.bindRenderbuffer(gl.RENDERBUFFER, stencilBuf = gl.createRenderbuffer())
-		gl.renderbufferStorage(gl.RENDERBUFFER, 36168, t.w, t.h)
+		gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, t.w, t.h)
 	}
-	return new can({ tex: t.tex, img, layer: layer, stencil: 0, mip, stencilBuf, w: t.w, h: t.h })
+	return new drw({ tex: t.tex, img, stencil: 0, lmip: mip&255|layer<<8, stencilBuf, w: t.w>>mip, h: t.h>>mip })
+}
+$.DrawableMSAA = (w=0, h=0, f=Formats.RGBA, msaa=32767, stencil = false)=>{
+	let stencilBuf = null
+	if(stencil){
+		gl.bindRenderbuffer(gl.RENDERBUFFER, stencilBuf = gl.createRenderbuffer())
+		gl.renderbufferStorageMultisample(gl.RENDERBUFFER, msaa, gl.STENCIL_INDEX8, w, h)
+	}
+	const rb = gl.createRenderbuffer()
+	gl.bindRenderbuffer(gl.RENDERBUFFER, rb)
+	gl.renderbufferStorageMultisample(gl.RENDERBUFFER, msaa, f[0], w, h)
+	return new drw({ tex: rb, img: null, stencil: 0, lmip: 0, stencilBuf, w, h })
 }
 let arr = new Float32Array(16), iarr = new Int32Array(arr.buffer), i = 0
 $.Texture = (w = 0, h = 0, d = 0, o = 0, f = Formats.RGBA, mips = 0) => {
-	const t = { tex: gl.createTexture(), i: -1, a: -1, o, f, src: null, w, h, d: +d||1, m: mips }
+	const t = { tex: gl.createTexture(), i: -1, a: -1, o, f, src: null, w, h, d: +d||1, m: mips = mips || 1 }
 	const tx = new img(t)
 	img.setOptions(t)
-	if(w && h) gl.texStorage3D(gl.TEXTURE_2D_ARRAY, (t.m = mips) || 1, t.f[0], t.w = w, t.h = h, t.d = +d || 1)
-	else gl.texStorage3D(gl.TEXTURE_2D_ARRAY, (t.m = mips) || 1, t.f[0], t.w = 1, t.h = 1, t.d = 1)
+	if(w && h) gl.texStorage3D(gl.TEXTURE_2D_ARRAY, mips, t.f[0], w, h, t.d)
+	else gl.texStorage3D(gl.TEXTURE_2D_ARRAY, mips, t.f[0], t.w = 1, t.h = 1, t.d)
 	gl.bindTexture(gl.TEXTURE_2D_ARRAY, null)
 	return tx
 }
@@ -301,7 +328,7 @@ $.Texture.MAX_LAYERS = gl.getParameter(gl.MAX_ARRAY_TEXTURE_LAYERS)
 $.Texture.FILTER_32F = !!gl.getExtension('OES_texture_float_linear')
 $.Img = (src, o = 0, fmt = Formats.RGBA, mips = 0) => new img({
 	tex: null, i: -1, a: -1, o, f:fmt, src: src ? Array.isArray(src) ? src : [src] : [],
-	w: 0, h: 0, d: src ? Array.isArray(src) ? src.length : 1 : 0, m: mips
+	w: 0, h: 0, d: src ? Array.isArray(src) ? src.length : 1 : 0, m: mips||1
 })
 Object.assign($, {
 	UPSCALE_SMOOTH: 1, DOWNSCALE_SMOOTH: 2, MIPMAP_SMOOTH: 4, SMOOTH: 7, REPEAT_X: 8, REPEAT_MIRRORED_X: 16, REPEAT_Y: 32, REPEAT_MIRRORED_Y: 64, REPEAT: 40, REPEAT_MIRRORED: 80,
@@ -346,87 +373,34 @@ Object.assign($, {
 	FIXED: 4,
 	TRIANGLE_STRIP: 5, TRIANGLES: 4, TRIANGLE_FAN: 6, LINE_LOOP: 2, LINE_STRIP: 3, LINES: 1, POINTS: 0
 })
-const _vec2 = class vec2{
-	constructor(x,y){this.x=x;this.y=y}
-	copy(){return new _vec2(this.x,this.y)}
-	plus(v=0){return typeof v=='number'?new _vec2(this.x+v,this.y+v):new _vec2(this.x+v.x,this.y+v.y)}
-	minus(v=0){return typeof v=='number'?new _vec2(this.x-v,this.y-v):new _vec2(this.x-v.x,this.y-v.y)}
-	neg(){return new _vec2(-this.x,-this.y)}
-	recip(){return new _vec2(1/this.x,1/this.y)}
-	times(v=1){return typeof v=='number'?new _vec2(this.x*v,this.y*v):new _vec2(this.x*v.x,this.y*v.y)}
-	div(v=1){return typeof v=='number'?new _vec2(this.x/v,this.y/v):new _vec2(this.x/v.x,this.y/v.y)}
-	pow(v=1){return typeof v=='number'?new _vec2(this.x**v,this.y**v):new _vec2(this.x**v.x,this.y**v.y)}
-	set(v=0){if(typeof v=='number')this.x=this.y=v;else this.x=v.x,this.y=v.y}
-	map(fn){return new _vec2(fn(this.x),fn(this.y))}
-	eq(v){return typeof v=='number'?this.x==v&&this.y==v:this.x==v.x&&this.y==v.y}
-	length(){return hypot(this.x,this.y)}
-	get yx(){return _vec2(this.y,this.x)}
-}, _vec3 = class vec3{
-	constructor(x,y,z){this.x=x;this.y=y;this.z=z}
-	copy(){return new _vec3(this.x,this.y,this.z)}
-	plus(v=0){return typeof v=='number'?new _vec3(this.x+v,this.y+v,this.z+v):new _vec3(this.x+v.x,this.y+v.y,this.z+v.z)}
-	minus(v=0){return typeof v=='number'?new _vec3(this.x-v,this.y-v,this.z-v):new _vec3(this.x-v.x,this.y-v.y,this.z-v.z)}
-	neg(){return new _vec3(-this.x,-this.y,-this.z)}
-	recip(){return new _vec3(1/this.x,1/this.y,1/this.z)}
-	times(v=1){return typeof v=='number'?new _vec3(this.x*v,this.y*v,this.z*v):new _vec3(this.x*v.x,this.y*v.y,this.z*v.z)}
-	div(v=1){return typeof v=='number'?new _vec3(this.x/v,this.y/v,this.z/v):new _vec3(this.x/v.x,this.y/v.y,this.z/v.z)}
-	pow(v=1){return typeof v=='number'?new _vec3(this.x**v,this.y**v,this.z**v):new _vec3(this.x**v.x,this.y**v.y,this.z**v.z)}
-	set(v=0){if(typeof v=='number')this.x=this.y=this.z=v;else this.x=v.x,this.y=v.y,this.z=v.z}
-	map(fn){return new _vec3(fn(this.x),fn(this.y),fn(this.z))}
-	eq(v){return typeof v=='number'?this.x==v&&this.y==v&&this.z==v:this.x==v.x&&this.y==v.y&&this.z==v.z}
-	length(){return hypot(this.x,this.y,this.z)}
-	get xy(){return new _vec2(this.x,this.y)}
-	get yz(){return new _vec2(this.y,this.z)}
-	get zyx(){return new _vec3(this.z,this.y,this.x)}
-}, _vec4 = class vec4{
-	constructor(x,y,z,w){this.x=x;this.y=y;this.z=z;this.w=w}
-	copy(){return new _vec4(this.x,this.y,this.z,this.w)}
-	plus(v=0){return typeof v=='number'?new _vec4(this.x+v,this.y+v,this.z+v,this.w+v):new _vec4(this.x+v.x,this.y+v.y,this.z+v.z,this.w+v.w)}
-	minus(v=0){return typeof v=='number'?new _vec4(this.x-v,this.y-v,this.z-v,this.w-v):new _vec4(this.x-v.x,this.y-v.y,this.z-v.z,this.w-v.w)}
-	neg(){return new _vec4(-this.x,-this.y,-this.z,-this.w)}
-	recip(){return new _vec4(1/this.x,1/this.y,1/this.z,1/this.w)}
-	times(v=1){return typeof v=='number'?new _vec4(this.x*v,this.y*v,this.z*v,this.w*v):new _vec4(this.x*v.x,this.y*v.y,this.z*v.z,this.w*v.w)}
-	div(v=1){return typeof v=='number'?new _vec4(this.x/v,this.y/v,this.z/v,this.w/v):new _vec4(this.x/v.x,this.y/v.y,this.z/v.z,this.w/v.w)}
-	pow(v=1){return typeof v=='number'?new _vec4(this.x**v,this.y**v,this.z**v,this.w**v):new _vec4(this.x**v.x,this.y**v.y,this.z**v.z,this.w**v.w)}
-	set(v=0){if(typeof v=='number')this.x=this.y=this.z=this.w=v;else this.x=v.x,this.y=v.y,this.z=v.z,this.w=v.w}
-	map(fn){return new _vec4(fn(this.x),fn(this.y),fn(this.z),fn(this.w))}
-	eq(v){return typeof v=='number'?this.x==v&&this.y==v&&this.z==v&&this.w==v:this.x==v.x&&this.y==v.y&&this.z==v.z&&this.w==v.w}
-	length(){return hypot(this.x,this.y,this.z,this.w)}
-	get xy(){return new _vec2(this.x,this.y)}
-	get yz(){return new _vec2(this.y,this.z)}
-	get zw(){return new _vec2(this.z,this.w)}
-	get xyz(){return new _vec3(this.x,this.y,this.z)}
-	get yzw(){return new _vec3(this.y,this.z,this.w)}
-	get wzyx(){return new _vec4(this.w,this.z,this.y,this.x)}
-}
-$.vec2 = (x=0,y=x) => new _vec2(x,y)
+$.vec2 = (x=0,y=x) => ({x,y})
 $.vec2.one = $.vec2(1); const v2z = $.vec2.zero = $.vec2(0)
-$.vec3 = (x=0,y=x,z=x) => new _vec3(x,y,z)
+$.vec3 = (x=0,y=x,z=x) => ({x,y,z})
 $.vec3.one = $.vec3(1); const v3z = $.vec3.zero = $.vec3(0)
-$.vec4 = (x=0,y=x,z=x,w=x) => new _vec4(x,y,z,w)
+$.vec4 = (x=0,y=x,z=x,w=x) => ({x,y,z,w})
 $.vec4.one = $.vec4(1); const v4z = $.vec4.zero = $.vec4(0)
 $.Formats={R:[33321,6403,gl.UNSIGNED_BYTE],RG:[33323,33319,gl.UNSIGNED_BYTE],RGB:[32849,6407,gl.UNSIGNED_BYTE],RGBA:[32856,T=6408,gl.UNSIGNED_BYTE],RGB565:[36194,6407,33635],R11F_G11F_B10F:[35898,6407,gl.UNSIGNED_INT_10F_11F_11F_REV],RGB5_A1:[32855,T,32820],RGB10_A2:[32857,T,gl.UNSIGNED_INT_2_10_10_10_REV],RGBA4:[32854,T,32819],RGB9_E5:[35901,6407,gl.UNSIGNED_INT_5_9_9_9_REV],R8:[33330,T=36244,gl.UNSIGNED_BYTE,1<<31],RG8:[33336,33320,gl.UNSIGNED_BYTE,1<<31],RGB8:[36221,36248,gl.UNSIGNED_BYTE,1<<31],RGBA8:[36220,36249,gl.UNSIGNED_BYTE,1<<31],R16:[33332,T,5123,1<<31],RG16:[33338,33320,5123,1<<31],RGB16:[36215,36248,5123,1<<31],RGBA16:[36214,36249,5123,1<<31],R32:[33334,T,gl.UNSIGNED_INT,1<<31],RG32:[33340,33320,gl.UNSIGNED_INT,1<<31],RGB32:[36209,36248,gl.UNSIGNED_INT,1<<31],RGBA32:[36208,36249,gl.UNSIGNED_INT,1<<31],R16F:[33325,6403,5131],RG16F:[33327,33319,5131],RGB16F:[34843,6407,5131],RGBA16F:[34842,6408,5131],R16F_32F:[33325,6403,gl.FLOAT],RG16F_32F:[33327,33319,gl.FLOAT],RGB16F_32F:[34843,6407,gl.FLOAT],RGBA16F_32F:[34842,6408,gl.FLOAT],R32F:[33326,6403,gl.FLOAT],RG32F:[33328,33319,gl.FLOAT],RGB32F:[34837,6407,gl.FLOAT],RGBA32F:[34836,6408,gl.FLOAT]}
 const grow = new Function(ArrayBuffer.prototype.transfer?'arr=new Float32Array(arr.buffer.transfer(i*8)),iarr=new Int32Array(arr.buffer)':'const oa=arr;(arr=new Float32Array(i*2)).set(oa,0);iarr=new Int32Array(arr.buffer)')
-class can{
+class drw{
 	t;#a;#b;#c;#d;#e;#f;#m;#shader;s
 	get width(){return this.t.w}
 	get height(){return this.t.h}
-	get texture(){return this.t.img}
+	get texture(){ return this.t.img; }
 	set texture(i){
 		const t = this.t
-		if(!t.img||!i) return
+		if(!t.img||!(i instanceof img)) return
 		if(ca==t) i&&draw(), ca=null
-		t.img = i
+		t.img = i; t.w = i.t.w; t.h = i.t.h
 	}
-	get hasStencil(){return !this.t.img||!!this.t.stencilBuf}
+	get hasStencil(){return this.t==ca0 ? !!(flags&1) : !!this.t.stencilBuf}
 	set hasStencil(s){
 		let t = this.t, b = t.stencilBuf
-		if(!t.img) return
+		if(t == ca0) return
 		if(s){
 			if(b) return
 			if(ca==t) i&&draw(), ca=null
 			gl.bindRenderbuffer(gl.RENDERBUFFER, t.stencilBuf = b = gl.createRenderbuffer())
-			gl.renderbufferStorage(gl.RENDERBUFFER, 36168, t.w, t.h)
+			gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, t.w, t.h)
 		}else{
 			if(!b) return
 			if(ca==t) i&&draw(), ca=null
@@ -434,15 +408,17 @@ class can{
 			gl.deleteRenderbuffer(b)
 		}
 	}
-	get textureLayer(){return this.t.layer}
-	get textureMipmap(){return this.t.mip}
+	get textureLayer(){return this.t.lmip>>>8}
+	get textureMipmap(){return this.t.lmip&255}
 	set textureLayer(l=0){
+		const {t} = this
 		if(ca==t) i&&draw(), ca=null
-		this.t.layer = l
+		t.lmip = t.lmip&255|l<<8
 	}
 	set textureMipmap(m=0){
+		const {t} = this
 		if(ca==t) i&&draw(), ca=null
-		this.t.mip = m
+		t.lmip = t.lmip&-256|m&255
 	}
 	constructor(t,a=1,b=0,c=0,d=1,e=0,f=0,m=290787599,s=$.Shader.DEFAULT,sp=defaultShape){this.t=t;this.#a=a;this.#b=b;this.#c=c;this.#d=d;this.#e=e;this.#f=f;this.#m=m;this.#shader=s;this.s=sp}
 	translate(x=0,y=0){ this.#e+=x*this.#a+y*this.#c;this.#f+=x*this.#b+y*this.#d }
@@ -469,27 +445,27 @@ class can{
 		this.#c=ta*y+this.#c*x;this.#d=tb*y+this.#d*x
 	}
 	getTransform(){ return {a: this.#a, b: this.#b, c: this.#c, d: this.#d, e: this.#e, f: this.#f} }
-	new(a=1,b=0,c=0,d=1,e=0,f=0){return new can(this.t,a,b,c,d,e,f,this.#m,this.#shader,this.s)}
+	new(a=1,b=0,c=0,d=1,e=0,f=0){return new drw(this.t,a,b,c,d,e,f,this.#m,this.#shader,this.s)}
 	reset(a=1,b=0,c=0,d=1,e=0,f=0){this.#a=a;this.#b=b;this.#c=c;this.#d=d;this.#e=e;this.#f=f;this.#m=290787599;this.#shader=$.Shader.DEFAULT;this.s=defaultShape}
 	box(x=0,y=0,w=1,h=w){ this.#e+=x*this.#a+y*this.#c; this.#f+=x*this.#b+y*this.#d; this.#a*=w; this.#b*=w; this.#c*=h; this.#d*=h }
-	to(x=0, y=0){ if(typeof x=='object'){y=x.y;x=x.x} return new _vec2(this.#a*x+this.#c*y+this.#e,this.#b*x+this.#d*y+this.#f)}
+	to(x=0, y=0){ if(typeof x=='object'){y=x.y;x=x.x} return {x:this.#a*x+this.#c*y+this.#e,y:this.#b*x+this.#d*y+this.#f}}
 	from(x=0, y=0){
 		if(typeof x=='object'){y=x.y;x=x.x}
 		const a=this.#a,b=this.#b,c=this.#c,d=this.#d, det = a*d-b*c
-		return new _vec2(
-			(x*d - y*c + c*this.#f - d*this.#e)/det,
-			(y*a - x*b + b*this.#e - a*this.#f)/det
-		)
+		return {
+			x: (x*d - y*c + c*this.#f - d*this.#e)/det,
+			y: (y*a - x*b + b*this.#e - a*this.#f)/det
+		}
 	}
-	toDelta(dx=0, dy=0){ if(typeof dx=='object'){dy=dx.y;dx=dx.x} return new _vec2(this.#a*dx+this.#c*dy,this.#b*dx+this.#d*dy)}
+	toDelta(dx=0, dy=0){ if(typeof dx=='object'){dy=dx.y;dx=dx.x} return {x: this.#a*dx+this.#c*dy, y: this.#b*dx+this.#d*dy}}
 	fromDelta(dx=0, dy=0){
 		if(typeof dx=='object'){dy=dx.y;dx=dx.x}
 		const a=this.#a,b=this.#b,c=this.#c,d=this.#d, det = a*d-b*c
-		return new _vec2((dx*d-dy*c)/det, (dy*a-dx*b)/det)
+		return {x: (dx*d-dy*c)/det, y: (dy*a-dx*b)/det}
 	}
 	determinant(){return this.#a*this.#d-this.#b*this.#c}
 	pixelRatio(){return sqrt((this.#a*this.#d-this.#b*this.#c)*this.t.w*this.t.h)}
-	sub(){ return new can(this.t,this.#a,this.#b,this.#c,this.#d,this.#e,this.#f,this.#m,this.#shader,this.s) }
+	sub(){ return new drw(this.t,this.#a,this.#b,this.#c,this.#d,this.#e,this.#f,this.#m,this.#shader,this.s) }
 	resetTo(m){ this.#a=m.#a;this.#b=m.#b;this.#c=m.#c;this.#d=m.#d;this.#e=m.#e;this.#f=m.#f;this.#m=m.#m;this.#shader=m.#shader;this.s=m.s }
 	set shader(sh){ this.#shader=typeof sh=='function'?sh:$.Shader.DEFAULT }
 	get shader(){return this.#shader}
@@ -595,15 +571,24 @@ function setv(t,m){
 	let d = pmask^m
 	if(ca!=t){
 		i&&draw()
-		gl.FRAMEBUFFER
-		if(!t.img) gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER,null),gl.viewport(0,0,t.w,t.h)
+		if(t==ca0) gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null), gl.viewport(0,0,t.w,t.h)
 		else{
-			if(ca==ctx.t) gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER,fb)
-			if(t.tex!=fbTex||t.layer!=fbLayer||t.mip!=fbMip) gl.framebufferTextureLayer(gl.DRAW_FRAMEBUFFER,36064,fbTex=t.tex,fbMip=t.mip,fbLayer=t.layer)
-			if(t.stencilBuf!=fbSte) gl.bindRenderbuffer(gl.RENDERBUFFER,fbSte=t.stencilBuf),gl.framebufferRenderbuffer(gl.DRAW_FRAMEBUFFER,36128,gl.RENDERBUFFER,fbSte)
-			const t2 = t.img.t; gl.viewport(0,0,t2.w>>fbMip,t2.h>>fbMip)
-			if(t2.i>=0){
-				gl.activeTexture(33984 + t2.i); gl.bindTexture(gl.TEXTURE_2D_ARRAY, bound[t2.i] = null); t2.i = -1
+			if(fbAtch) gl.drawBuffers([gl.COLOR_ATTACHMENT0]), fbAtch = 0
+			if(ca==ca0) gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, fb)
+			if(t.tex != fbTex || t.lmip != fbLmip)
+				t.img ? gl.framebufferTextureLayer(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, fbTex=t.tex, (fbLmip=t.lmip)&255, fbLmip>>>8) : gl.framebufferRenderbuffer(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, fbTex = t.tex)
+			if(t.stencilBuf != fbSte){
+				gl.bindRenderbuffer(gl.RENDERBUFFER, fbSte = t.stencilBuf)
+				gl.framebufferRenderbuffer(gl.DRAW_FRAMEBUFFER, gl.STENCIL_ATTACHMENT, gl.RENDERBUFFER, fbSte)
+			}
+			gl.viewport(0, 0, t.w, t.h)
+			if(t.img){
+				const t2 = t.img.t
+				if(t2.i>=0){
+					gl.activeTexture(33984 + t2.i)
+					gl.bindTexture(gl.TEXTURE_2D_ARRAY, bound[t2.i] = null)
+					t2.i = -1
+				}
 			}
 			if(!ca||ca.stencil!=s) d|=240
 		}
@@ -638,13 +623,14 @@ function draw(b=shuniBind){
 		fencehead = fencehead ? fencehead.next = f : f
 	} pendingFences.length = 0 }
 }
-let sh=null,ca=null,fbTex=null,fbSte=null,fbLayer=0,fbMip=0,shfCount=0,shfMask=0
-const fb = gl.createFramebuffer()
+let sh=null,ca=null,fbTex=null,fbSte=null,fbLmip=0,shfCount=0,shfMask=0,fbAtch=0
+const fb = gl.createFramebuffer(), maxAtch = gl.getParameter(gl.MAX_COLOR_ATTACHMENTS) || 4, fbBound = []
+for(let i = maxAtch; i --> 0;) fbBound.push(null)
 gl.bindFramebuffer(gl.READ_FRAMEBUFFER, gl.createFramebuffer())
 const buf = gl.createBuffer()
 gl.bindBuffer(34962, buf)
 const maxTex = min(32, gl.getParameter(34930))
-const bound = []; for(let i=maxTex<<1;i>0;i--) bound.push(null)
+const bound = []; for(let i = maxTex<<1; i --> 0;) bound.push(null)
 T = $.Geometry = (type, points) => {
 	if(points.length&3) throw 'points.length is not a multiple of 4'
 	if(!(points instanceof Float32Array)){
@@ -812,12 +798,13 @@ T.NONE = T(`void main(){color=vec4(0,0,0,1);}`)
 gl.useProgram(sh.program)
 gl.bindVertexArray(sh.vao)
 $.flush = () => i&&draw()
-const ctx = $.ctx = new can(ca={tex:gl.canvas,img:null,layer:0,stencil:0,mip:0,stencilBuf:null,w:0,h:0})
+const ctx = $.ctx = new drw(ca={tex:gl.canvas,img:null,lmip:0,stencil:0,stencilBuf:null,w:0,h:0})
 $.setSize = (w = 0, h = 0) => {
-	ctx.t.w = gl.canvas.width = w
-	ctx.t.h = gl.canvas.height = h
-	if(ca==ctx.t) gl.viewport(0, 0, w, h)
+	ca0.w = gl.canvas.width = w
+	ca0.h = gl.canvas.height = h
+	if(ca==ca0) gl.viewport(0, 0, w, h)
 }
+const ca0 = ca
 let fencetail = null, fencehead = null
 const pendingFences = []
 $.wait = () => new Promise(r => {
@@ -854,16 +841,16 @@ $.loop = render => {
 		if(gl.isContextLost?.()) return $.glLost?.(), $.glLost = fencetail = fencehead = null
 		i&&draw()
 		gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null)
-		ca = ctx.t; gl.viewport(0, 0, ca.w, ca.h)
+		ca = ca0; gl.viewport(0, 0, ca.w, ca.h)
 		dt = max(.001, min(-($.t-($.t=performance.now()*.001)), .5))
 		$.frameDrawCalls = fdc; $.frameSprites = fs; $.frameData = fd*4+fdc*24; fdc = fs = fd = 0
 		ctx.reset(); try{ render() }catch(e){ Promise.reject(e) } i&&draw()
 		timeToFrame = performance.now()*.001 - $.t
 	})
-	return gl.canvas
+	return $
 }
 return $}
 Object.assign($.Gamma, {
 	bitmapOpts: imageBitmapOpts,
-	STENCIL: 1, ALPHA_CHANNEL: 2, PREMULTIPLIED_ALPHA: 4, PRESERVE_BUFFER: 8, MSAA: 16
+	STENCIL: 1, ALPHA_CHANNEL: 2, PREMULTIPLIED_ALPHA: 4, AUTO_CLEAR_BUFFER: 8, MSAA: 16
 })}
