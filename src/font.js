@@ -1,10 +1,5 @@
 Gamma.font = $ => {
-	const vec4one = $.vec4.one, vec2l = {x:0,y:1}, msdfShader = $.Shader.MSDF = $.Shader(`
-void main(){
-	vec3 c = arg0().rgb;
-	float sd = max(min(c.r, c.g), min(max(c.r, c.g), c.b))-.5+arg1.x;
-	color = arg2 * clamp(arg1.y*sd+.5,0.,1.); /* x2 is a good tradeoff for sharpness */
-}`, [$.COLOR, $.VEC2, $.VEC4], [undefined, {x:0,y:1}, vec4one, 0])
+	const vec4one = $.vec4.one, vec2l = {x:0,y:1}, msdfShader = $.Shader.MSDF = $.Shader("void main(){vec3 c=arg0().rgb;color=arg2*clamp(arg1.y*(max(min(c.r, c.g), min(max(c.r, c.g), c.b))-.5+arg1.x)+.5,0.,1.);}", [$.COLOR, $.VEC2, $.VEC4], [undefined, {x:0,y:1}, vec4one, 0])
 $.TEXT_AA=NaN
 /*$.Shader.font = (src, args=[], defaults=[], uni=[], uniDefaults = [], a) => {
 	let pr = 'float field(){ vec3 c = arg0().rgb; return ((uni0 < 0. ? c.r : max(min(c.r, c.g), min(max(c.r, c.g), c.b)))-.5)*abs(uni0); }\n'

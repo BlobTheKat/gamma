@@ -25,7 +25,8 @@ for(let i=0;i<lines.length;i++)
 const img = Img('examples/creo5.png')
 let zoom = 50
 let cam = globalThis.cam = {x: 0, y: 0, z: 50}
-render = (w, h) => {
+render = () => {
+	const w = ctx.width, h = ctx.height
 	zoom *= .999**rawWheel.y
 	const d = .002**dt
 	cam.x = (cursor.x-.5)*-64*(1-d)+cam.x*d; cam.y = (cursor.y-.5)*-36*(1-d)+cam.y*d

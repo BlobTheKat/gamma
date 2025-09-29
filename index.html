@@ -17,7 +17,7 @@
 	const $ = globalThis
 	let ow = 0, oh = 0
 	$.render = null
-	Gamma(undefined, $).loop(dt => {
+	Gamma(undefined, $).loop(() => {
 		const px = devicePixelRatio
 		const w = innerWidth, h = innerHeight
 		$.pixelRatio = px
@@ -25,7 +25,7 @@
 		$.canvas.style.transform = `scale(${1/px})`
 		$.canvas.style.imageRendering = $.pixelRatio>px ? 'auto' : 'pixelated'
 		$.cursorType = 'default'
-		$.render?.(w, h)
+		$.render?.()
 		$.rawMouse.x = $.rawMouse.y = 0
 		$.rawWheel.x = $.rawWheel.y = 0
 		$.scrollDelta.x = $.scrollDelta.y = 0
@@ -68,6 +68,6 @@
 	})
 	$.icon = null
 	$._ = undefined
-	import('./examples/msaa.js')
+	import('./examples/snake.js')
 }</script></body>
 </html>

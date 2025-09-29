@@ -1,11 +1,8 @@
 let ctx1 = null, ctx2 = null
-function drawSquare(c, w, h, msaa){
-	if(!c || c.width !== w || c.height !== h){
-		if(msaa>1) c = DrawableMSAA(w, h, Formats.RGBA)
-		else c.texture = 
-	}else c.clear()
-	const w = c.width/c.height * 10
-	c.reset(1/w, 0, 0, .1, .5, .5)
+function drawSquare(c){
+	c.clear()
+	const wid = c.width/c.height * 10
+	c.reset(1/wid, 0, 0, .1, .5, .5)
 	c.rotate(t*.25)
 	c.scale(sin(t)*.2+1)
 	c.drawRect(-2, -2, 4, 4, vec4(1))
@@ -13,8 +10,16 @@ function drawSquare(c, w, h, msaa){
 }
 
 render = () => {
-	if(t%2<1){
-		ctx2 = drawSquare(ctx2)
-		ctx.paste(ctx2)
-	}else drawSquare(ctx)
+	const w = ctx.width >> 4, h = ctx.height >> 4
+	if(!ctx2) ctx2 = Drawable(Texture(w, h, 1, Formats.RGBA))
+	else if(ctx2.width != w || ctx2.height != h){
+		ctx2.texture.delete()
+		ctx2.texture = Texture(w, h, 1, Formats.RGBA)
+	}
+	if(t%2 < 1){
+		if(!ctx1 || ctx1.width != w || ctx1.height != h) ctx1 = DrawableMSAA(w, h, Formats.RGBA)
+		drawSquare(ctx1)
+		ctx2.paste(ctx1)
+	}else drawSquare(ctx2)
+	ctx.draw(ctx2.texture)
 }

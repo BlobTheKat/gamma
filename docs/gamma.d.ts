@@ -704,64 +704,9 @@ namespace GammaInstance{
 	// Geometry types
 	const TRIANGLE_STRIP = 5, TRIANGLES = 4, TRIANGLE_FAN = 6, LINE_LOOP = 2, LINE_STRIP = 3, LINES = 1, POINTS = 0
 
-	interface vec2{
-		static readonly one: vec2, readonly zero: vec2
-		copy(): vec2
-		plus(v: number | vec2): vec2
-		minus(v: number | vec2): vec2
-		neg(): vec2
-		recip(): vec2
-		times(v: number | vec2): vec2
-		div(v: number | vec2): vec2
-		pow(v: number | vec2): vec2
-		set(v: number | vec2): void
-		map(fn: (x: number) => number): vec2
-		eq(v: number | vec2): boolean
-		length(): number
-		get yx(): vec2
-	}
-	interface vec3{
-		static readonly one: vec3, readonly zero: vec3
-		copy(): vec3
-		plus(v: number | vec3): vec3
-		minus(v: number | vec3): vec3
-		neg(): vec3
-		recip(): vec3
-		times(v: number | vec3): vec3
-		div(v: number | vec3): vec3
-		pow(v: number | vec3): vec3
-		set(v: number | vec3): void
-		map(fn: (x: number) => number): vec3
-		eq(v: number | vec3): boolean
-		length(): number
-		get xy(): vec2
-		get yz(): vec2
-		get zyx(): vec3
-	}
-	interface vec4{
-		static readonly one: vec4, readonly zero: vec4
-		copy(): vec4
-		plus(v: number | vec4): vec4
-		minus(v: number | vec4): vec4
-		neg(): vec4
-		recip(): vec4
-		times(v: number | vec4): vec4
-		div(v: number | vec4): vec4
-		pow(v: number | vec4): vec4
-		set(v: number | vec4): void
-		map(fn: (x: number) => number): vec4
-		eq(v: number | vec4): boolean
-		length(): number
-		get xy(): vec2
-		get yz(): vec2
-		get zw(): vec2
-		get xyz(): vec3
-		get yzw(): vec3
-		get wzyx(): vec4
-	}
-	function vec2(x?: number, y?: number): vec2
-	function vec3(x?: number, y?: number, z?: number): vec3
-	function vec4(x?: number, y?: number, z?: number, w?: number): vec4
+	function vec2(x?: number, y?: number): {x: number, y: number}
+	function vec3(x?: number, y?: number, z?: number): {x: number, y: number, z: number}
+	function vec4(x?: number, y?: number, z?: number, w?: number): {x: number, y: number, z: number, w: number}
 
 class can{
 	t;#a;#b;#c;#d;#e;#f;#m;#shader;s

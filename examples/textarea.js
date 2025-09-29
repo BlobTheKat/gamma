@@ -59,7 +59,8 @@ void main(){
 `, COLOR, vec4.one)
 
 let cx = 0, cxi = 0, zoom = NaN, zoomi = 0
-render = (w, h) => {
+render = () => {
+	const w = ctx.width, h = ctx.height
 	if(zoom != zoom) zoom = zoomi = w/42
 	ctx.reset(1/w, 0, 0, 1/h, .5, .5)
 	ctx.scale(zoomi)

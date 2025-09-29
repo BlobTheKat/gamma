@@ -241,18 +241,18 @@ class img{
 		boundUsed |= -2147483648>>>j
 		i = i ? maxTex+j-shfCount : j
 		const o = bound[i]; if(o) o.i = -1
-		gl.activeTexture(33984 + i)
+		gl.activeTexture(gl.TEXTURE0 + i)
 		gl.bindTexture(gl.TEXTURE_2D_ARRAY, (bound[i]=t).tex)
 		return t.i = i
 	}
 	static fakeBind(t){
 		if(t.i >= 0){
 			i&&draw()
-			gl.activeTexture(33984+t.i)
+			gl.activeTexture(gl.TEXTURE0+t.i)
 		}else{
 			const j = maxTex-1+(shfCount==maxTex&&maxTex)
 			if(bound[j]) bound[j].t.i = -1
-			gl.activeTexture(33984+j)
+			gl.activeTexture(gl.TEXTURE0+j)
 			gl.bindTexture(gl.TEXTURE_2D_ARRAY, t.tex)
 		}
 	}
@@ -303,7 +303,7 @@ $.Drawable = (img, layer = img.l, mip = 0, stencil = false)=>{
 	return new drw({ tex: t.tex, img, stencil: 0, lmip: mip&255|layer<<8, stencilBuf, w: t.w>>mip, h: t.h>>mip })
 }
 const maxSamples = gl.getParameter(gl.MAX_SAMPLES)
-$.DrawableMSAA = (w=0, h=0, f=Formats.RGBA, msaa=Infinity, stencil = false)=>{
+$.DrawableMSAA = (w=0, h=0, f=Formats.RGBA, msaa=65536, stencil = false)=>{
 	let stencilBuf = null
 	msaa = min(msaa, maxSamples)
 	if(stencil){
@@ -377,10 +377,16 @@ Object.assign($, {
 })
 $.vec2 = (x=0,y=x) => ({x,y})
 $.vec2.one = $.vec2(1); const v2z = $.vec2.zero = $.vec2(0)
+$.vec2.add = (a,b) => typeof b=='number'?{x:a.x+b,y:a.y+b}:{x:a.x+b.x,y:a.y+b.y}
+$.vec2.multiply = (a,b) => typeof b=='number'?{x:a.x*b,y:a.y*b}:{x:a.x*b.x,y:a.y*b.y}
 $.vec3 = (x=0,y=x,z=x) => ({x,y,z})
 $.vec3.one = $.vec3(1); const v3z = $.vec3.zero = $.vec3(0)
+$.vec3.add = (a,b) => typeof b=='number'?{x:a.x+b,y:a.y+b,z:a.z+b}:{x:a.x+b.x,y:a.y+b.y,z:a.z+b.z}
+$.vec3.multiply = (a,b) => typeof b=='number'?{x:a.x*b,y:a.y*b,z:a.z*b}:{x:a.x*b.x,y:a.y*b.y,z:a.z*b.z}
 $.vec4 = (x=0,y=x,z=x,w=x) => ({x,y,z,w})
 $.vec4.one = $.vec4(1); const v4z = $.vec4.zero = $.vec4(0)
+$.vec4.add = (a,b) => typeof b=='number'?{x:a.x+b,y:a.y+b,z:a.z+b,w:a.w+b}:{x:a.x+b.x,y:a.y+b.y,z:a.z+b.z,w:a.w+b.w}
+$.vec4.multiply = (a,b) => typeof b=='number'?{x:a.x*b,y:a.y*b,z:a.z*b,w:a.w*b}:{x:a.x*b.x,y:a.y*b.y,z:a.z*b.z,w:a.w*b.w}
 $.Formats={R:[33321,6403,gl.UNSIGNED_BYTE],RG:[33323,33319,gl.UNSIGNED_BYTE],RGB:[32849,6407,gl.UNSIGNED_BYTE],RGBA:[32856,T=6408,gl.UNSIGNED_BYTE],RGB565:[36194,6407,33635],R11F_G11F_B10F:[35898,6407,gl.UNSIGNED_INT_10F_11F_11F_REV],RGB5_A1:[32855,T,32820],RGB10_A2:[32857,T,gl.UNSIGNED_INT_2_10_10_10_REV],RGBA4:[32854,T,32819],RGB9_E5:[35901,6407,gl.UNSIGNED_INT_5_9_9_9_REV],R8:[33330,T=36244,gl.UNSIGNED_BYTE,1<<31],RG8:[33336,33320,gl.UNSIGNED_BYTE,1<<31],RGB8:[36221,36248,gl.UNSIGNED_BYTE,1<<31],RGBA8:[36220,36249,gl.UNSIGNED_BYTE,1<<31],R16:[33332,T,5123,1<<31],RG16:[33338,33320,5123,1<<31],RGB16:[36215,36248,5123,1<<31],RGBA16:[36214,36249,5123,1<<31],R32:[33334,T,gl.UNSIGNED_INT,1<<31],RG32:[33340,33320,gl.UNSIGNED_INT,1<<31],RGB32:[36209,36248,gl.UNSIGNED_INT,1<<31],RGBA32:[36208,36249,gl.UNSIGNED_INT,1<<31],R16F:[33325,6403,5131],RG16F:[33327,33319,5131],RGB16F:[34843,6407,5131],RGBA16F:[34842,6408,5131],R16F_32F:[33325,6403,gl.FLOAT],RG16F_32F:[33327,33319,gl.FLOAT],RGB16F_32F:[34843,6407,gl.FLOAT],RGBA16F_32F:[34842,6408,gl.FLOAT],R32F:[33326,6403,gl.FLOAT],RG32F:[33328,33319,gl.FLOAT],RGB32F:[34837,6407,gl.FLOAT],RGBA32F:[34836,6408,gl.FLOAT]}
 const grow = new Function(ArrayBuffer.prototype.transfer?'arr=new Float32Array(arr.buffer.transfer(i*8)),iarr=new Int32Array(arr.buffer)':'const oa=arr;(arr=new Float32Array(i*2)).set(oa,0);iarr=new Int32Array(arr.buffer)')
 class drw{
@@ -396,8 +402,9 @@ class drw{
 			gl.bindRenderbuffer(gl.RENDERBUFFER, t.stencilBuf = gl.createRenderbuffer())
 			gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, i.t.w, i.t.h)
 		}
-		if(ca==t) i&&draw(), ca=null
+		if(ca==t) i&&draw(), ca = null
 		t.img = i; t.w = i.t.w; t.h = i.t.h
+		t.tex = i.t.tex
 	}
 	get hasStencil(){return this.t==ca0 ? !!(flags&1) : !!this.t.stencilBuf}
 	set hasStencil(s){
@@ -614,8 +621,8 @@ function setv(t,m){
 			gl.viewport(0, 0, t.w, t.h)
 			if(t.img){
 				const t2 = t.img.t
-				if(t2.i>=0){
-					gl.activeTexture(33984 + t2.i)
+				if(t2.i >= 0){
+					gl.activeTexture(gl.TEXTURE0 + t2.i)
 					gl.bindTexture(gl.TEXTURE_2D_ARRAY, bound[t2.i] = null)
 					t2.i = -1
 				}
@@ -629,16 +636,16 @@ function setv(t,m){
 		if(d&15) gl.colorMask(m&1,m&2,m&4,m&8)
 		if(d&240){
 			if(m&240){
-				if(!(pmask&240)) gl.enable(2960) // STENCIL_TEST
+				if(!(pmask&240)) gl.enable(gl.STENCIL_TEST)
 				gl.stencilMask(1<<s)
 				gl.stencilFunc(m&32?m&16?gl.NEVER:gl.NOTEQUAL:m&16?gl.EQUAL:gl.ALWAYS,255,1<<s)
 				const op = m&128?m&64?gl.INVERT:gl.REPLACE:m&64?gl.ZERO:gl.KEEP
 				gl.stencilOp(op, op, op)
-			}else if(pmask&240) gl.disable(2960) // STENCIL_TEST
+			}else if(pmask&240) gl.disable(gl.STENCIL_TEST)
 		}
 		if(d&1996488704) gl.blendEquationSeparate((m>>24&7)+32773,(m>>28&7)+32773)
 		if(d&16776960) gl.blendFuncSeparate((m>>8&15)+766*!!(m&3584), (m>>16&15)+766*!!(m&917504), (m>>12&15)+766*!!(m&57344), (m>>20&15)+766*!!(m&14680064))
-		if(d&-2147483648) m&-2147483648 ? gl.enable(3024) : gl.disable(3024) // DITHER
+		if(d&-2147483648) m&-2147483648 ? gl.enable(gl.DITHER) : gl.disable(gl.DITHER)
 		pmask = m
 	}
 }

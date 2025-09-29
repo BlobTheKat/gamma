@@ -82,9 +82,9 @@ function checkFood(f, pos, radius){
 onKey(MOUSE.LEFT, () => pointerLock = true)
 
 let head = vec2()
-render = (w, h) => {
+render = () => {
+	const w = ctx.width, h = ctx.height
 	ctx.reset(1/w, 0, 0, 1/h, .5, .5)
-
 	// Let's implement cover fill
 	// We know:
 	// - Image is centered
@@ -96,9 +96,6 @@ render = (w, h) => {
 	// Max ensures we fill, min would be fit
 	const scale = max(w / bg.width, h / bg.height)
 	ctx.drawRect(-.5 * bg.width * scale, -.5 * bg.height * scale, bg.width * scale, bg.height * scale, bg, vec4(.35))
-
-
-
 	elasticWheel += rawWheel.y
 	if(abs(elasticWheel) > .01){
 		cam.z *= .995**(elasticWheel*dt)
@@ -133,7 +130,7 @@ render = (w, h) => {
 
 	ctx.shader = Shader.AA_CIRCLE
 
-	head = pointerLock ? keys.has(MOUSE.LEFT) ? head : head.plus(ctx.fromDelta(cursorDelta)) : ctx.from(cursor)
+	head = pointerLock ? keys.has(MOUSE.LEFT) ? head : vec2.add(head, ctx.fromDelta(cursorDelta)) : ctx.from(cursor)
 	let {x, y} = head
 	if(pointerLock){
 		const wq = w*.333*cam.z
