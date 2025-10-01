@@ -1411,6 +1411,5 @@ namespace GammaInstance{
 	 * Available after calling `loop()`
 	 */
 	let glLost: (() => any)? = null
-	return gl.canvas
 }
 }
