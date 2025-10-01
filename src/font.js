@@ -58,31 +58,31 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 
 	const defaultSet = [BreakToken(/\r\n?|\n/y, BreakToken.WRAP_AFTER | BreakToken.INVISIBLE, ''), BreakToken(/[$£"+]?[\w'-]+[,.!?:;"^%€*]?/yi, BreakToken.NORMAL, '-'), BreakToken(/[ \t]+/y, BreakToken.VANISH)]
 	const defaultToken = BreakToken(/[^]/y)
-	const M = new Map, V = {x: 0, y: 0}, O = {off:0,spr:NaN,0:null,1:V}, E1 = [0,0,0,O]
-	const ADV = 1, SH = 2, SC = 3, YO = 4, ST = 5, SK = 6, LSB = 7, ARC = 8, RONLY = -3, IONLY = -2
-	const getSw = (t, f, ar, lsb = 0) => {
-		t.sepL = f; t.sepA = ar; t.sepS = lsb
+	const EMPTY_MAP = new Map, V = {x: 0, y: 0}, O = {off:0,spr:NaN,0:null,1:V}, DEFAULT_PASSES = [0,0,0,O]
+	// Advance. Shader. Scale. Y offset. Stretch. Skew. Letter spacing. Curve
+	const ADV = 1, SH = 2, SC = 3, YO = 4, ST = 5, SK = 6, LSB = 7, ARC = 8
+	const getSepW = (t, f, arc, lsb = 0) => {
+		t.sepL = f; t.sepA = arc; t.sepS = lsb
 		if(!f) return t.sepW = 0
 		let last = -1, w = 0
-		const {map, kmap} = f, ar1 = 1/ar
+		const ar1 = 1/arc
 		for(const ch of t.sep){
 			const c = ch.codePointAt()
-			const g = map.get(c)
-			if(!g) continue
-			const cw = g.xadv + lsb + (kmap.get(c+last*1114112) ?? 0)
-			w += ar ? asin(cw*ar)*ar1||cw : cw
+			const g = f.get(~c) ?? f._default
+			const cw = g.xadv + lsb + (f.get(c+last*1114112) ?? 0)
+			w += arc ? asin(cw*arc)*ar1||cw : cw
 		}
 		f.then?.(() => t.sepL==f&&(t.sepL=null,t.sepW=0))
 		return t.sepW = w
 	}
 	class itxtstream extends Array{
 		#_f=null;#_sh=msdfShader;#_sc=1;#_yo=0;#_st=1;#_sk=0;#_lsb=0;#_arc=0
-		#_v=E1;#len=0;#w=NaN;#l=null;#_m=-1
+		#_v=DEFAULT_PASSES;#len=0;#w=NaN;#l=null;#_m=true
 		static public = class txtstream{
 			constructor(q){ this.#q = q }
 			sub(){const s=new txtstream(this.#q);s.#f=this.#f;s.#sh=this.#sh;s.#sc=this.#sc;s.#st=this.#st;s.#sk=this.#sk;s.#lsb=this.#lsb;s.#arc=this.#arc;s.#v=this.#v;return s}
 			reset(f=null){this.#f=typeof f=='object'?f:null;this.#sh=msdfShader;this.#sc=1;this.#st=0;this.#sk=0;this.#lsb=0;this.#v=null;this.#arc=0;this.#q.#l==this&&(this.#q.#l=null)}
-			#q; #f = null
+			#q; #f = null; #m = true
 			get font(){return this.#f}
 			set font(a){if(typeof a=='object')this.#f=a;this.#q.#l==this&&(this.#q.#l=null)}
 			#sh = msdfShader
@@ -98,11 +98,11 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 				while(idx < len){
 					const s = q[idx++]
 					if(typeof s == 'number'){
-						if(s<0) continue; idx++
 						if(s == SC || (s == YO && yo)){
 							if(!o) o = 1
-							q[idx-1] *= a
-						}else if(s == ADV && adv) q[idx-1] *= a
+							q[idx] *= a
+						}else if(s == ADV && adv) q[idx] *= a
+						idx++
 					}else if(typeof s == 'string' || typeof s == 'function') if(!o) o = 2
 				}
 				if(o != 1) q.unshift(SC, a)
@@ -119,11 +119,11 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 				while(idx < len){
 					const s = q[idx++]
 					if(typeof s == 'number'){
-						if(s<0) continue; idx++
 						if(s == YO){
 							if(!o) o = 1
-							q[idx-1] += a
+							q[idx] += a
 						}
+						idx++
 					}else if(typeof s == 'string' || typeof s == 'function') if(!o) o = 2
 				}
 				if(o != 1) q.unshift(YO, a)
@@ -139,11 +139,11 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 				while(idx < len){
 					const s = q[idx++]
 					if(typeof s == 'number'){
-						if(s<0) continue; idx++
 						if(s == ST || (s == SK && sk)){
 							if(!o) o = 1
-							q[idx-1] *= a
-						}else if(s == ADV && adv) q[idx-1] *= a
+							q[idx] *= a
+						}else if(s == ADV && adv) q[idx] *= a
+						idx++
 					}else if(typeof s == 'string' || typeof s == 'function') if(!o) o = 2
 				}
 				if(o != 1) sk ? q.unshift(SK, a, ST, a) : q.unshift(ST, a)
@@ -162,11 +162,11 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 				while(idx < len){
 					const s = q[idx++]
 					if(typeof s == 'number'){
-						if(s<0) continue; idx++
 						if(s == SK){
 							if(!o) o = 1
-							q[idx-1] += a
+							q[idx] += a
 						}
+						idx++
 					}else if(typeof s == 'string' || typeof s == 'function') if(!o) o = 2
 				}
 				if(o != 1) q.unshift(SK, a)
@@ -182,11 +182,11 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 				while(idx < len){
 					const s = q[idx++]
 					if(typeof s == 'number'){
-						if(s<0) continue; idx++
 						if(s == LSB){
 							if(!o) o = 1
-							q[idx-1] += a
+							q[idx] += a
 						}
+						idx++
 					}else if(typeof s == 'string' || typeof s == 'function') if(!o) o = 2
 				}
 				if(o != 1) q.unshift(LSB, a)
@@ -203,18 +203,18 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 				while(idx < len){
 					const s = q[idx++]
 					if(typeof s == 'number'){
-						if(s<0) continue; idx++
 						if(s == ARC){
 							if(!o) o = 1
-							q[idx-1] += a
+							q[idx] += a
 						}else if(s == ADV && !o) o = 2
+						idx++
 					}else if(typeof s == 'string' || typeof s == 'function') if(!o) o = 2
 				}
 				if(o != 1) q.unshift(ARC, a)
 				q.#_arc += a
 				q.#w=NaN; q.#l = null
 			}
-			#v = E1
+			#v = DEFAULT_PASSES
 			// Sets the shader's values at this point in the stream
 			addTextPass(ord, x, y, a, off=0, spr=NaN){
 				const o = {off, spr: 1/spr, 0: null, 1: V}
@@ -354,13 +354,12 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 					}
 				}
 			}
-			drawOnly(){this.#q.push(this.#q.#_m = RONLY)}
-			indexOnly(){this.#q.push(this.#q.#_m = IONLY)}
-			drawAndIndex(){this.#q.push(this.#q.#_m = RONLY|IONLY)}
+			get index(){ return this.#m }
+			set index(a){ this.#m = !!a; this.#q.#l==this&&(this.#q.#l=null) }
 			advance(gap = 0){
 				const q = this.#q
-				if(q.l!=this) this.#setv(q)
-				q.push(ADV, +gap); q.w=NaN
+				if(q.#l!=this) this.#setv(q)
+				q.push(ADV, +gap); q.#w=NaN
 			}
 			#setv(q){
 				if(this.#f!=q.#_f)q.push(q.#_f=this.#f)
@@ -372,6 +371,7 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 				if(this.#lsb!=q.#_lsb)q.push(LSB,q.#_lsb=this.#lsb)
 				if(this.#arc!=q.#_arc)q.push(ARC,q.#_arc=this.#arc)
 				if(this.#v!=q.#_v)q.push(this.#v),q.#_v=this.#v
+				if(this.#m!=q.#_m)q.push(this.#m),q.#_m=this.#m
 				q.#l=this
 			}
 			copy(){
@@ -401,7 +401,6 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 					while(idx < q.length){
 						const s = q[idx++]
 						if(typeof s=='number'){
-							if(s<0){ q2.#_m=s; continue }
 							const v = q[idx++]
 							switch(s){
 								case ADV: idx -= 2; break
@@ -415,9 +414,9 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 							}
 						}else if(typeof s == 'string' || typeof s == 'function') break
 						else if(!Array.isArray(s)) st.#f = s
+						else if(typeof s == 'boolean') st.#m = s
 						else st.#v = s
 					}
-					if(q2.#_m!=-1) q2.push(q2.#_m)
 					st.#setv(q2)
 					return st
 				}
@@ -426,7 +425,6 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 				while(i > 0 && idx < q.length){
 					const s = q[idx++]
 					if(typeof s=='number'){
-						if(s<0){ q2.#_m=s; continue }
 						const v = q[idx++]
 						switch(s){
 							case SH: st.#sh = v; break
@@ -438,7 +436,7 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 							case ARC: st.#arc = v; break
 						}
 					}else if(typeof s == 'string'){
-						if(!(q2.#_m&2)) continue
+						if(!q2.#_m) continue
 						i -= s.length
 						if(i<0){
 							str = s.slice(i,(j+=i)+s.length)
@@ -446,15 +444,14 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 						}
 					}else if(Array.isArray(s)) st.#v = s
 					else if(typeof s == 'object') st.#f = s
+					else if(typeof s == 'boolean') st.#m = s
 				}
 				st.#setv(q2)
-				if(q2.#_m!=-1) q2.push(q2.#_m)
 				if(str) q2.push(str), q2.#len += str.length
 				while(j > 0 && idx < q.length){
 					const s = q[idx++]
 					q2.push(s)
 					if(typeof s=='number'){
-						if(s<0){ q2.#_m=s; continue }
 						const v = q[idx++]
 						q2.push(v)
 						switch(s){
@@ -467,12 +464,13 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 							case ARC: st.#arc = v; break
 						}
 					}else if(typeof s == 'string'){
-						if(!(q2.#_m&2)) continue
+						if(!q2.#_m) continue
 						j -= s.length; q2.#len += s.length
 						if(j < 0) q2[q2.length-1] = s.slice(0, j), q2.#len += s.length+j
 						else q2.#len += s.length
 					}else if(Array.isArray(s)) st.#v = s
 					else if(typeof s == 'object') st.#f = s
+					else if(typeof s == 'boolean') st.#m = s
 				}
 				return st
 			}
@@ -482,12 +480,11 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 				if(i>q.#len) return
 				let idx = 0
 				q.#_f = null; q.#_sh = msdfShader; q.#_sc = 1; q.#_st = 1; q.#_yo = 0
-				q.#_sk = 0; q.#_lsb = 0; q.#_m = -1; q.#_arc = 0; q.#_v = E1
+				q.#_sk = 0; q.#_lsb = 0; q.#_m = true; q.#_arc = 0; q.#_v = DEFAULT_PASSES
 				if(!(q.#len = i < 0 ? 0 : i)){
 					while(idx < q.length){
 						const s = q[idx++]
 						if(typeof s=='number'){
-							if(s<0){ q.#_m=s; continue }
 							const v = q[idx++]
 							switch(s){
 								case ADV: idx -= 2; break
@@ -501,12 +498,12 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 							}
 						}else if(typeof s == 'string' || typeof s == 'function'){ idx--; break }
 						else if(Array.isArray(s)) q.#_v = s
+						else if(typeof s == 'boolean') q.#_m = s
 						else q.#_f = s
 					}
 				}else while(i > 0 && idx < q.length){
 					const s = q[idx++]
 					if(typeof s=='number'){
-						if(s<0){ q.#_m=s; continue }
 						const v = q[idx++]
 						switch(s){
 							case SH: q.#_sh = v; break
@@ -518,11 +515,12 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 							case ARC: q.#_arc = v; break
 						}
 					}else if(typeof s == 'string'){
-						if(!(q.#_m&2)) continue
+						if(!q.#_m) continue
 						i -= s.length
 						if(i<0){ q[idx-1] = s.slice(0, i); break }
 					}else if(Array.isArray(s)) q.#_v = s
 					else if(typeof s == 'object') q.#_f = s
+					else if(typeof s == 'boolean') q.#_m = s
 				}
 				this.#f = q.#_f
 				this.#sh = q.#_sh
@@ -541,14 +539,12 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 				q.#len += q2.#len
 				let idx = 0
 				this.#f = null; this.#sh = msdfShader; this.#sc = 1; this.#yo = 0; this.#st = 1
-				this.#sk = 0; this.#lsb = 0; this.#arc = 0; this.#v = E1
+				this.#sk = 0; this.#lsb = 0; this.#arc = 0; this.#v = DEFAULT_PASSES
 				// If concat to ourselves, don't loop infinitely
 				const q2l = q2.length
-				let mask = -1
 				w: while(idx < q2l){
 					const s = q2[idx++]
 					if(typeof s=='number'){
-						if(s<0){ mask=s; continue }
 						const v = q2[idx++]
 						switch(s){
 							case ADV: idx -= 2; break w
@@ -562,15 +558,14 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 						}
 					}else if(typeof s == 'string' || typeof s == 'function'){ idx--; break }
 					else if(Array.isArray(s)) this.#v = s
+					else if(typeof s == 'boolean') this.#m = s
 					else this.#f = s
 				}
 				this.#setv(q)
-				mask!=q.#_m&&q.push(q.#_m = mask)
 				while(idx < q2l){
 					const s = q2[idx++]
 					q.push(s)
 					if(typeof s=='number'){
-						if(s<0){ q.#_m=s; continue }
 						const v = q2[idx++]
 						q.push(v)
 						switch(s){
@@ -583,8 +578,9 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 							case ARC: this.#arc = v; break
 						}
 					}else if(typeof s == 'string'){
-						if(q.#_m&2) q.#len += s.length
+						if(q.#_m) q.#len += s.length
 					}else if(Array.isArray(s)) this.#v = s
+					else if(typeof s == 'boolean') this.#m = s
 					else if(typeof s == 'object') this.#f = s
 				}
 				q.#w=NaN
@@ -596,39 +592,39 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 				let w=q.#w
 				if(w==w) return w
 				w = 0
-				let cmap = M, kmap = M
+				let cmap = null
 				let idx = 0
-				let sc = 1, st = 1, lsb = 0, mask = -1, ar = 0, ar1 = 0
+				let sc = 1, st = 1, lsb = 0, ar = 0, ar1 = 0
 				let chw = 1
 				let last = -1, lastCw = 1
 				while(idx < q.length){
 					let s = q[idx++]
 					if(typeof s=='number'){
-						if(s<0){ mask=s; continue}
 						const v = q[idx++]
 						switch(s){
 							case ADV: w += chw*v; last = -1; break
-							case SC: chw = (sc = v) * st; break
-							case ST: chw = (st = v) * sc; break
+							case SC: chw = (sc = v) * st; last = -1; break
+							case ST: chw = (st = v) * sc; last = -1; break
+							case YO: case SK: last = -1; break // Suppress kerning across geometry change
 							case LSB: lsb = v; break
 							case ARC: ar1 = 1/v; ar = v; break
 						}
 					}else if(typeof s == 'string'){
-						if(mask&1) for(const ch of s){
+						if(cmap) for(const ch of s){
 							const c = ch.codePointAt()
-							const g = cmap.get(c)
+							const g = cmap.get(~c)
 							if(!g) continue
-							const ker = (kmap.get(c+last*1114112) ?? 0) * min(chw, lastCw)
+							const ker = (cmap.get(c+last*1114112) ?? 0) * min(chw, lastCw)
 							last = c; lastCw = chw
 							const cw = (g.xadv+lsb)*chw + ker
 							w += ar ? asin(cw*ar)*ar1||cw : cw
 							if(g.tex?.waiting) g.tex.load()
 						}
 					}else if(typeof s == 'object'){
-						if(!s){cmap=kmap=M;continue}
+						if(!s){ cmap = null; continue }
 						if(Array.isArray(s)) continue
-						cmap = s.map; kmap = s.kmap
-						s.then?.(() => q.#w=NaN)
+						cmap = s
+						s.then?.(() => q.#w = NaN)
 					}
 				}
 				return q.#w = w
@@ -636,7 +632,7 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 			add(str){
 				const q=this.#q
 				if(q.#l!=this) this.#setv(q)
-				if(q.#_m&2) q.#len += (str+='').length
+				if(q.#_m) q.#len += (str+='').length
 				q.push(str)
 				q.#w=NaN
 			}
@@ -648,60 +644,59 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 			}
 			indexAt(x = 0){
 				const q = this.#q
-				let cmap = M, kmap = M
+				let cmap = null
 				let idx = 0
-				let sc = 1, st = 1, lsb = 0, mask = -1, ar = 0, ar1 = 0
+				let sc = 1, st = 1, lsb = 0, mask = true, ar = 0, ar1 = 0
 				let chw = 1
 				let last = -1, lastCw = 1
 				let i = 0, li = 0
 				while(idx < q.length){
 					let s = q[idx++]
 					if(typeof s=='number'){
-						if(s<0){ mask=s; continue}
 						const v = q[idx++]
 						switch(s){
-							case ADV: x -= chw*v; last=-1; break
-							case SC: chw = (sc = v) * st; break
-							case ST: chw = (st = v) * sc; break
+							case ADV: x -= chw*v; last = -1; break
+							case SC: chw = (sc = v) * st; last = -1; break
+							case ST: chw = (st = v) * sc; last = -1; break
+							case YO: case SK: last = -1; break // Suppress kerning across geometry change
 							case LSB: lsb = v; break
 							case ARC: ar1 = 1/v; ar = v; break
 						}
 					}else if(typeof s == 'string'){
-						if(mask&1) for(const ch of s){
+						if(cmap) for(const ch of s){
 							const c = ch.codePointAt()
-							const g = cmap.get(c)
-							if(!g){ if(mask&2) li = i += ch.length; continue }
-							const ker = (kmap.get(c+last*1114112) ?? 0) * min(chw, lastCw)
+							const g = cmap.get(~c)
+							if(!g){ if(mask) li = i += ch.length; continue }
+							const ker = (cmap.get(c+last*1114112) ?? 0) * min(chw, lastCw)
 							last = c; lastCw = chw
 							const w = (g.xadv+lsb)*chw + ker
 							const fw = ar ? asin(w*ar)*ar1||w : w
 							x -= fw
-							if(!(mask&2)) continue
+							if(!mask) continue
 							if(x <= fw*-.5) return li
 							li = i += ch.length
-						}else if(mask&2) i += s.length
+						}else if(mask) i += s.length
 					}else if(typeof s == 'object'){
-						if(!s){cmap=kmap=M;continue}
+						if(!s){ cmap = null; continue }
 						if(Array.isArray(s)) continue
-						cmap = s.map; kmap = s.kmap
-					}
+						cmap = s
+					}else if(typeof s == 'boolean') mask = s
 				}
 				return li
 			}
 			draw(ctx){
 				const q = this.#q
-				let cmap = M, kmap = M
+				let cmap = null
 				let idx = 0
-				let sc = 1, sc1 = 1, st = 1, lsb = 0, sk = 0, yo = 0, xo = 0, ar = 0, mask = -1
+				let sc = 1, sc1 = 1, st = 1, lsb = 0, sk = 0, yo = 0, xo = 0, ar = 0
 				let sh = ctx.shader = msdfShader
-				let vs = E1, vlen = 3, font = null, dsc = 0
+				let vs = DEFAULT_PASSES, vlen = 3, font = null, dsc = 0
 				let last = -1, lastSt = 1
 				const pxr0 = ctx.pixelRatio()*2; let pxr = 1, rf = 1, rf1 = 1
 				let ea = 0
 				w: while(idx < q.length){
 					let s = q[idx++]
 					if(typeof s=='number'){
-						if(s<0){ mask=s; continue w}
 						const v = q[idx++]
 						switch(s){
 							case ADV:
@@ -719,21 +714,22 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 								const a = v*sc1; sc1 = 1/v; ctx.scale(a); yo *= sc *= sc1; xo *= sc;
 								lastSt *= a; ar *= a; sc = v
 								if(font) pxr = pxr0*sc*font.rangeFactor
+								last = -1
 								continue w
-							case YO: yo = v*sc1; xo = yo*sk; continue w
+							case YO: yo = v*sc1; xo = yo*sk; last = -1; continue w
 							case SH: ctx.shader = sh = s; break
-							case ST: st = v; continue w
-							case SK: ctx.skew(v-sk, 0); sk = v; xo = yo*v; continue w
+							case ST: st = v; last = -1; continue w
+							case SK: ctx.skew(v-sk, 0); sk = v; xo = yo*v; last = -1; continue w
 							case LSB: lsb = v*.5; continue w
 							case ARC: ar = v*sc; continue w
 							default: continue w
 						}
 					}else if(typeof s == 'string'){
-						if(mask&1) for(const ch of s){
+						if(cmap) for(const ch of s){
 							const c = ch.codePointAt()
-							const g = cmap.get(c)
+							const g = cmap.get(~c)
 							if(!g) continue
-							const ker = (kmap.get(c+last*1114112) ?? 0) * min(lastSt, st)
+							const ker = (cmap.get(c+last*1114112) ?? 0) * min(lastSt, st)
 							last = c; lastSt = st
 							const w = (g.xadv+lsb+lsb)*st + ker, xr = ker-xo
 							if(ar){
@@ -759,16 +755,15 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 						continue
 					}else if(typeof s == 'function'){
 						const c2 = ctx.sub()
-						if(sk) c2.skew(-sk,0)
-						if(ea) c2.rotate(ea)
+						if(ea) c2.skew(-sk, 0), c2.rotate(ea), c2.skew(sk, 0)
 						s(c2, font)
-					}else{
-						if(!s){cmap=kmap=M;continue}
+					}else if(typeof s == 'object'){
+						if(!s){ cmap = null; continue }
 						if(Array.isArray(s)){
 							vlen = (vs = s).length
 							continue
 						}
-						font = s; dsc = font.ascend-1; cmap = s.map; kmap = s.kmap
+						font = s; dsc = font.ascend-1; cmap = s
 						pxr = pxr0*sc*(rf=font.rangeFactor); rf1 = 1/rf
 					}
 				}
@@ -778,18 +773,19 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 			}
 			break(widths = Infinity, toks = defaultSet, offs = {scale: 1, letterSpacing: 0, curve: 0}){
 				const q = this.#q
-				let m = 1, str = '', i = 0
+				let m = true, str = '', i = 0
 				while(i < q.length){
 					const s = q[i++]
-					if(typeof s == 'number'){ if(s<0) m = s&1; else i++ }
-					if(typeof s == 'string' && m) str += s
+					if(typeof s == 'number'){ i++; continue }
+					if(typeof s == 'boolean') m = s
+					else if(typeof s == 'string' && m) str += s
 				}
 				const lines = []
 				let maxW = typeof widths=='number'?widths:typeof widths=='function'?widths(lines.length, offs):widths[min(lines.length,widths.length-1)]
 				let q2 = new itxtstream()
-				let s2 = q2.l = new txtstream(q2)
+				let s2 = q2.#l = new txtstream(q2)
 				let idx = 0, l = ''; i = 0
-				let cmap = M, kmap = M, chw = 1, lastCw = 1, last = -1, w = 0, tainted = false
+				let cmap = null, chw = 1, lastCw = 1, last = -1, w = 0, tainted = false
 				while(i < str.length){
 					let j = 0, t
 					let _i0 = q2.length, _w = w, _sh = s2.#sh, _sc = s2.#sc, _yo = s2.#yo, _st = s2.#st, _sk = s2.#sk, _lsb = s2.#lsb, _f = s2.#f, _arc = s2.#arc, _v = s2.#v, _m = q2.#_m, _len = q2.#len
@@ -814,23 +810,23 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 						s2 = s2.sub(); s2.#q = q2 = new itxtstream()
 						maxW = typeof widths=='number'?widths:typeof widths=='function'?widths(lines.length, offs):widths[min(lines.length,widths.length-1)]
 						_i0 = _w = w = _len = 0
-						if(_m != -1) q2.push(q2.#_m = _m)
+						if(!_m) q2.push(q2.#_m = false)
 						s2.#setv(q2)
 					}
-					const iOnly = (ty&32) && q2.#_m != IONLY
+					const iOnly = (ty&32) && !!q2.#_f
 					if(l){
 						let s = l
 						if(j<l.length) s = l.slice(0,j), l=l.slice(j),j=0
 						else j -= l.length, l = ''
-						iOnly&&q2.push(IONLY)
+						iOnly&&q2.push(null)
 						if(s) q2.push(s)
-						if(q2.#_m&2) q2.#len += s.length
-						iOnly&&q2.push(q2.#_m)
+						if(q2.#_m) q2.#len += s.length
+						iOnly&&q2.push(q2.#_f)
 					}
 					while(j > 0){
 						const s = q[idx++]
+						if(idx > q.length) debugger
 						if(typeof s == 'number'){
-							if(s < 0){ q2.#_m = s; q2.push(s); continue }
 							const v = q[idx++]
 							q2.push(s, v)
 							switch(s){
@@ -843,15 +839,16 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 								case ARC: s2.#arc = q2.#_arc = v; break
 							}
 						}else if(typeof s == 'string'){
-							if(!(q2.#_m&1)){ q2.push(s); q2.#len += s.length; continue }
+							if(!q2.#_f){ q2.push(s); q2.#_m&&(q2.#len += s.length); continue }
 							j -= s.length
 							let v = s
 							if(j<0) v = s.slice(0,j), l = s.slice(j)
 							else l = ''
-							iOnly&&q2.push(IONLY)
-							q2.push(v); (q2.#_m&2)&&(q2.#len += v.length)
-							iOnly&&q2.push(q2.#_m)
-						}else{
+							iOnly&&q2.push(null)
+							q2.push(v); q2.#_m&&(q2.#len += v.length)
+							iOnly&&q2.push(q2.#_f)
+						}else if(typeof s == 'boolean') q2.push(q2.#_m = s)
+						else{
 							q2.push(s)
 							if(Array.isArray(s)) q2.#_v = s2.#v = s
 							else if(typeof s != 'function') q2.#_f = s2.#f = s
@@ -859,7 +856,7 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 					}
 					while(1){
 						let i0 = _i0, i1 = 0, _i1 = 0, sh = _sh, sc = _sc, yo = _yo, st = _st, sk = _sk, lsb = _lsb, f = _f, v = _v, m = _m, len = _len, arc = _arc, ar1 = 1/arc, ptext = false
-						let sepw = t.sepL == f && t.sepA == arc && t.sepS == lsb ? t.sepW : getSw(t, f, arc, lsb)
+						let sepw = t.sepL == f && t.sepA == arc && t.sepS == lsb ? t.sepW : getSepW(t, f, arc, lsb)
 						const canBreak = !ty ? _w*2 < maxW : (36>>ty&1)!=0
 						const {scale = 1, letterSpacing = 0, curve = 0} = offs
 						tainted ||= scale != 1 || letterSpacing != 0 || curve != 0
@@ -868,13 +865,12 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 						while(i0 < q2.length){
 							const s = q2[i0++]
 							if(typeof s == 'number'){
-								if(s < 0){ m = s; continue }
 								const s1 = q2[i0++]
 								switch(s){
 									case ADV:
 										w += s1
 										last = -1
-										if(w > (maxW - (sepw - (kmap.get(t.sep.codePointAt() + last*1114112)??0))*chw) || !canBreak) break
+										if(w > (maxW - (sepw - (cmap?.get(t.sep.codePointAt() + last*1114112)??0))*chw) || !canBreak) break
 										_i0 = i0-2, _i1 = 0; ptext = true
 										_w = w, _sh = sh, _sc = sc, _yo = yo, _st = st, _sk = sk, _lsb = lsb, _f = f, _arc = arc, _v = v, _m = m, _len = len
 										break
@@ -888,25 +884,26 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 								}
 							}else if(typeof s == 'string'){
 								i1 = 0
-								if(m&1) for(const ch of s){
+								if(cmap) for(const ch of s){
 									const c = ch.codePointAt()
-									const g = cmap.get(c); i1 += ch.length
-									if(m&2) len += ch.length
+									const g = cmap.get(~c); i1 += ch.length
+									if(m) len += ch.length
 									if(!g) continue
-									const ker = (kmap.get(c + last*1114112) ?? 0) * min(chw, lastCw)
+									const ker = (cmap.get(c + last*1114112) ?? 0) * min(chw, lastCw)
 									lastCw = chw; last = c
 									const cw = (g.xadv+tlsb)*chw + ker
 									w += tarc ? asin(cw*tarc)*ar1||cw : cw
-									if(w <= (maxW - (sepw - (kmap.get(t.sep.codePointAt() + c*1114112)??0))*chw) && canBreak){
+									if(w <= (maxW - (sepw - (cmap.get(t.sep.codePointAt() + c*1114112)??0))*chw) && canBreak){
 										ptext = true
 										_i0 = i0-1, _i1 = i1
 										_w = w, _sh = sh, _sc = sc, _yo = yo, _st = st, _sk = sk, _lsb = lsb, _f = f, _arc = arc, _v = v, _m = m, _len = len
 									}
-								}else if(m&2) len += s.length
+								}else if(m) len += s.length
 							}else if(Array.isArray(s)) v = s
+							else if(typeof s == 'boolean') m = s
 							else if(typeof s == 'function') continue
-							else if(f = s) cmap = s.map, kmap = s.kmap, sepw = t.sepL == s && t.sepA == arc && t.sepS == lsb ? t.sepW : getSw(t, s, arc, lsb)
-							else cmap = kmap = M, sepw = 0
+							else if(f = s) cmap = s, sepw = t.sepL == s && t.sepA == arc && t.sepS == lsb ? t.sepW : getSepW(t, s, arc, lsb)
+							else cmap = null, sepw = 0
 						}
 						if(!_w || w <= maxW || !_i0 || ty == 3) break
 						// restore and split/break
@@ -917,9 +914,9 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 							q2.splice(i0, 0, ST, squish*st); i0 += 2
 							while(i0 < q2l){
 								const s = q2[i0++]
-								if(typeof s != 'number' || s < 0) continue
-								if(s == ST) q2[i0++] *= squish
-								else i0++
+								if(typeof s != 'number') continue
+								if(s == ST) q2[i0] *= squish
+								i0++
 							}
 							q2.push(ST, st)
 							break
@@ -928,7 +925,7 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 						const q3 = new itxtstream(), s3 = new txtstream(q3), q2l = q2.length
 						s3.#sh = sh; s3.#sc = sc; s3.#yo = yo; s3.#st = st
 						s3.#sk = sk; s3.#lsb = lsb; s3.#f = f; s3.#v = v
-						s3.#arc = arc; q3.#_m = m;// q2.#flags=1
+						s3.#arc = arc; s3.#m = m
 						let idx = i0 += !!i1
 						const appnd = ty != 4 && ty != 5
 						if(i1){
@@ -940,7 +937,6 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 							w: while(idx < q2l){
 								const s = q2[idx++]
 								if(typeof s=='number'){
-									if(s<0){ q3.#_m = s; continue }
 									const v = q2[idx++]
 									switch(s){
 										case ADV: if(appnd){ idx-=2; break w }else break
@@ -953,20 +949,20 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 										case ARC: s3.#arc = v; break
 									}
 								}else if(typeof s == 'string' || typeof s == 'function'){ idx--; break }
+								else if(typeof s == 'boolean') s3.#m = s
 								else if(!Array.isArray(s)) s3.#f = s
 								else s3.#v = s
 							}
 							s3.#setv(q3)
 						}
 						if(!appnd){
-							q3.push(IONLY)
+							if(q3.#_f) q3.push(q3.#_f = null)
 							while(idx < q2l){
 								const s = q2[idx++]
-								if(typeof s != 'number') q3.push(s)
-								else if(s>0) q3.push(s, q2[idx++])
+								if(typeof s == 'number') q3.push(s, q2[idx++])
+								else if(typeof s != 'object' || Array.isArray(s)) q3.push(s)
 							}
 						}else{
-							if(q3.#_m != -1) q3.push(q3.#_m)
 							while(idx < q2l) q3.push(q2[idx++])
 						}
 						q3.#len = q2.#len - len
@@ -976,10 +972,10 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 						s3.#sh = q3.#_sh = s2.#sh; s3.#sc = q3.#_sc = s2.#sc
 						s3.#yo = q3.#_yo = s2.#yo; s3.#st = q3.#_st = s2.#st
 						s3.#sk = q3.#_sk = s2.#sk; s3.#lsb = q3.#_lsb = s2.#lsb
-						s3.#arc = q3.#_arc = s2.#arc; q3.#_m = q2.#_m; s3.#v = q3.#_v = s2.#v
+						s3.#arc = q3.#_arc = s2.#arc; s3.#m = q3.#_m = s2.#m; s3.#v = q3.#_v = s2.#v
 						q2.length = i0
-						if(!appnd && q3.#_m != IONLY) q3.push(q3.#_m)
-						if(ptext) q2.#_m!=RONLY&&q2.push(q2.#_m=RONLY), q2.push(t.sep)
+						if(!appnd && q3.#_f) q3.push(q3.#_f)
+						if(ptext) q2.#_m&&q2.push(q2.#_m=false), q2.push(t.sep)
 						lines.push(s2); s2=s3; q2=q3
 						maxW = typeof widths=='number'?widths:typeof widths=='function'?widths(lines.length, offs):widths[min(lines.length,widths.length-1)]
 						_i0 = _i1 = _w = w = _len = 0 // other props are correct
@@ -988,10 +984,9 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 						lines.push(s2)
 						q2.#w = tainted ? NaN : w
 						tainted = false
-						const _m = q2.#_m; w = 0
+						w = 0
 						s2 = s2.sub(); s2.#q = q2 = new itxtstream()
 						maxW = typeof widths=='number'?widths:typeof widths=='function'?widths(lines.length, offs):widths[min(lines.length,widths.length-1)]
-						if(_m != -1) q2.push(q2.#_m = _m)
 						s2.#setv(q2)
 					}
 				}
@@ -999,7 +994,6 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 					const s = q[idx++]
 					q2.push(s)
 					if(typeof s == 'number'){
-						if(s < 0){ q2.#_m = s; continue }
 						const v = q[idx++]
 						q2.push(v)
 						switch(s){
@@ -1011,8 +1005,9 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 							case LSB: s2.#lsb = q2.#_lsb = v; break
 							case ARC: s2.#arc = q2.#_arc = v; break
 						}
-					}else if(Array.isArray(s)) q2.#_v = s2.#v = s
-					else if(typeof s == 'object') q2.#_f = s2.#f = s
+					}else if(Array.isArray(s)) s2.#v = q2.#_v = s
+					else if(typeof s == 'object') s2.#f = q2.#_f = s
+					else if(typeof s == 'boolean') s2.#m = q2.#_m = s
 				}
 				q2.#w = tainted ? NaN : w
 				lines.push(s2)
@@ -1024,8 +1019,9 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 				const q = this.#q, l = q.length
 				while(i < l){
 					const s = q[i++]
-					if(typeof s == 'number'){ if(s<0) m = !!(s&2); else i++ }
-					if(typeof s == 'string' && m) str += s
+					if(typeof s == 'number'){ i++; continue }
+					if(typeof s == 'boolean') m = s
+					else if(typeof s == 'string' && m) str += s
 				}
 				return str
 			}
@@ -1038,11 +1034,15 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 		}
 	}
 	$.RichText = itxtstream.public.ctor
-	
-	
-	class font{
+	const defaultChar = Texture(4, 4, 1, 0, Formats.RGBA4).pasteData(new Uint16Array(Uint8Array.fromHex(`\
+ffff\ ffff\ ffff\ ffff\
+ffff\ 0000\ 0000\ ffff\
+ffff\ 0000\ 0000\ ffff\
+ffff\ ffff\ ffff\ ffff\
+`).buffer))
+	class font extends Map{
 		rangeFactor = 0; #cb = []; map = new Map; ascend = 0
-		kmap = new Map
+		_default = {x:0,y:0,w:0,h:0,xadv:0,tex:null}
 		get then(){return this.#cb?this.#then:undefined}
 		#then(cb,rj){this.#cb?.push(cb,rj)}
 		done(){
@@ -1053,15 +1053,21 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 			const cb = this.#cb; this.#cb = null
 			if(cb) for(let i=1;i<cb.length;i+=2) cb[i]?.(e)
 		}
-		set(char, tex = null, adv = 0, x=0, y=0, w=0, h=0){
+		set(char = -1, tex = null, adv = 0, x=0, y=0, w=0, h=0){
 			if(typeof tex == 'number') adv = tex, tex = null
 			if(typeof char == 'string') char = char.codePointAt()
-			if(!tex && !adv) return this.map.delete(char)
-			else this.map.set(char, { x: +x, y: +y, w: +w, h: +h, xadv: +adv, tex })
+			if(char < 0){
+				const d = this._default
+				if(!tex && !adv) d.x = d.y = d.w = d.h = d.xadv = 0, d.tex = null
+				else d.x = +x, d.y = +y, d.w = +w, d.h = +h, d.xadv = +adv, d.tex = tex
+			}else{
+				if(!tex && !adv) return super.delete(~char)
+				else super.set(~char, { x: +x, y: +y, w: +w, h: +h, xadv: +adv, tex })
+			}
 		}
 		getWidth(char){
 			if(typeof char == 'string') char = char.codePointAt()
-			return this.map.get(char).xadv
+			return (this.get(~char) ?? this._default).xadv
 		}
 		setKerning(a, b, adv = 0){
 			let code = 0
@@ -1073,28 +1079,27 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 					code += a.codePointAt(1+(a0>65535))
 				}else code += b.codePointAt()
 			}else code = a*1114112+b
-			if(adv) this.kmap.set(code, adv)
-			else this.kmap.delete(code)
+			if(adv) super.set(code, adv)
+			else super.delete(code)
 		}
 		getKerning(a, b){
 			let code = 0
 			if(typeof a == 'string'){
 				const a0 = a.codePointAt()
 				code = a0*1114112
-				if(typeof b == 'number'){
-					adv = b
-					code += a.codePointAt(1+(a0>65535))
-				}else code += b.codePointAt()
-			}else code = a*1114112+b
-			return this.kmap.get(code)
+				if(typeof b == 'string') code += b.codePointAt()
+				else if(typeof b != 'undefined') code += b&0xffffff
+				else code += a.codePointAt(1+(a0>65535))
+			}else code = (a&0xffffff)*1114112+(b&0xffffff)
+			return this.get(code) ?? 0
 		}
 		chlumsky(src, atlas = 'atlas.png'){ if(src.endsWith('/')) src += 'index.json'; fetch(src).then(a => (src=a.url,a.json())).then(d => {
 			const {atlas:{type,distanceRange,size,width,height},metrics:{ascender,descender},glyphs,kerning} = d
 			this.rangeFactor = distanceRange/size
-			const img = $.Img(new URL(atlas, src).href,$.SMOOTH, type.toLowerCase().endsWith('msdf') ? $.Formats.RGB : $.Formats.RG)
+			const img = $.Img(new URL(atlas, src).href,$.SMOOTH, type.toLowerCase().endsWith('msdf') ? $.Formats.RGB : $.Formats.RGB4)
 			this.ascend = ascender/(ascender-descender)
-			for(const {unicode1,unicode2,advance} of kerning) this.kmap.set(unicode2+unicode1*1114112, advance)
-			for(const {unicode,advance,planeBounds:pb,atlasBounds:ab} of glyphs) this.map.set(unicode, pb ? {
+			for(const {unicode1,unicode2,advance} of kerning) super.set(unicode2+unicode1*1114112, advance)
+			for(const {unicode,advance,planeBounds:pb,atlasBounds:ab} of glyphs) super.set(~unicode, pb ? {
 				x: +pb.left, y: +pb.bottom,
 				w: (pb.right-pb.left), h: (pb.top-pb.bottom),
 				xadv: advance, tex: img.sub(ab.left/width,ab.bottom/height,(ab.right-ab.left)/width,(ab.top-ab.bottom)/height)
@@ -1106,9 +1111,9 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 			const s = 1/d.info.size
 			this.rangeFactor = df.distanceRange/sc
 			const b = this.ascend = base/sc
-			const p = pages.map(a => $.Img(new URL(a,src).href,$.SMOOTH, df.fieldType.toLowerCase().endsWith('msdf') ? $.Formats.RGB : $.Formats.RG))
-			for(const {first,second,amount} of kernings) this.kmap.set(second+first*1114112, amount/s)
-			for(const {id,x,y,width,height,xoffset,yoffset,xadvance,page} of chars) this.map.set(id, {
+			const p = pages.map(a => $.Img(new URL(a,src).href,$.SMOOTH, df.fieldType.toLowerCase().endsWith('msdf') ? $.Formats.RGB : $.Formats.RGB4))
+			for(const {first,second,amount} of kernings) super.set(second+first*1114112, amount/s)
+			for(const {id,x,y,width,height,xoffset,yoffset,xadvance,page} of chars) super.set(id, {
 				x: xoffset*s, y: b-(yoffset-baselineOffset+height)*s,
 				w: width*s, h: height*s,
 				xadv: xadvance*s,
@@ -1120,12 +1125,11 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 			if(this.#cb) return
 			lsb *= .5
 			spr = spr!==spr ? ctx.pixelRatio()*2*this.rangeFactor : this.rangeFactor/spr
-			const {map, kmap} = this
 			for(const ch of txt){
 				const c = ch.codePointAt()
-				const g = map.get(c)
+				const g = this.get(~c) ?? this._default
 				if(!g) continue
-				const ker = kmap.get(c+last*1114112) ?? 0; last = c
+				const ker = this.get(c+last*1114112) ?? 0; last = c
 				const w = g.xadv + lsb + lsb + ker
 				if(g.tex) V.x = off, V.y = spr, ctx.drawRect(g.x+lsb+ker,g.y,g.w,g.h,g.tex,V,...v)
 				ctx.translate(w, 0)
@@ -1135,12 +1139,11 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 		measure(txt, lsb = 0, last = -1){
 			if(this.#cb) return
 			let w = 0
-			const {map, kmap} = this
 			for(const ch of txt){
 				const c = ch.codePointAt()
-				const g = map.get(c)
+				const g = this.get(c) ?? this._default
 				if(!g) continue
-				const ker = kmap.get(c+last*1114112) ?? 0; last = c
+				const ker = this.get(c+last*1114112) ?? 0; last = c
 				w += g.xadv + lsb + ker
 			}
 			return w

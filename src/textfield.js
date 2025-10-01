@@ -46,12 +46,11 @@ Gamma.textfield = $ => {
 	}
 	const v4 = $.vec4
 	let curf = null, ltf = 0
-	const defaultSr = (p2, field) => p2.insertLinePass(-1, 0, 1, field.focus ? v4(0,.2,.4,.6) : v4(.2,.2,.2,.6))
+	const defaultSr = (p2, field) => p2.insertLinePass(-1, 0, 1, [field.focus ? v4(0,.2,.4,.6) : v4(.2,.2,.2,.6)])
 	const defaultCr = (ctx, font) => {
 		ctx.shader = null
 		if(($.t-ltf)%1<.5) ctx.drawRect(0, font.ascend-1, .05, 1, v4.one)
 	}
-	$.blinkTimer = () => $.t-ltf
 	class _txtfield{
 		_f=0; #s=0; #e=0
 		get allowTabs(){return(this._f&1)!=0}
@@ -80,14 +79,14 @@ Gamma.textfield = $ => {
 		set transformer(a){this.#tr!=(this.#tr=a)&&!(this._f&256)&&(this._f|=256,defer.then(this.recalc))}
 		simpleTransformer(font, placeholder='', ...v){
 			let w = v.slice()
-			w[0] = v[0]?.times(.4) ?? v4(.4)
+			w[0] = v[0] ? v4.multiply(v[0], .4) : v4(.4)
 			this.#tr = value => {
 				const p = $.RichText(font)
-				if(v.length) p.setValues(0, ...v)
+				if(v.length) p.setValues(0, v)
 				if(value) p.add(value)
 				else{
-					p.setValues(0, ...w)
-					p.drawOnly()
+					p.setValues(0, w)
+					p.index = false
 					p.add(placeholder)
 				}
 				return p
@@ -263,4 +262,5 @@ Gamma.textfield = $ => {
 		}))
 	}
 	$.TextField = (multiline=false) => new _txtfield(multiline<<11&2048)
+	$.TextField.cursorTimer = () => $.t-ltf
 }}

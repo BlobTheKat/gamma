@@ -17,8 +17,9 @@ const styles = new Map()
 input.transformer = txt => {
 	const r = RichText(font)
 	if(!txt){
-		r.setValues(0, vec4(.4))
-		r.drawOnly()
+		r.setValues(0, [vec4(.4)])
+		r.index = false
+		r.skew = .2
 		r.add(`Let's get writing!`)
 		return r
 	}
@@ -29,10 +30,10 @@ input.transformer = txt => {
 			if(!reg.test(txt)) continue
 			const len = reg.lastIndex - i
 			if(i > last){
-				r.setValues(0, vec4.one)
+				r.setValues(0, [vec4.one])
 				r.add(txt.slice(last, i))
 			}
-			r.setValues(0, col)
+			r.setValues(0, [col])
 			r.add(txt.slice(i, i += len))
 			last = i
 			continue w
@@ -40,7 +41,7 @@ input.transformer = txt => {
 		i++
 	}
 	if(i > last){
-		r.setValues(0, vec4.one)
+		r.setValues(0, [vec4.one])
 		r.add(txt.slice(last, i))
 	}
 	return r
@@ -49,7 +50,7 @@ input.maxWidth = 40
 input.focus = true
 input.allowTabs = true
 const scr = Scrollable(input, 40, -20)
-//input.enterCb = () => console.log(input.value)
+
 
 Shader.AA_CIRCLE ??= Shader(`
 void main(){
