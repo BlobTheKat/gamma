@@ -9,6 +9,37 @@ declare global{
 	 * The backing WebGL2 context for this canvas
 	 */
 	const gl: WebGL2RenderingContext
+
+	type vec2 = { x: number, y: number }
+	/**
+	 * Construct a 2-component vector, in the shape {x, y}
+	 * @performance This function is very fast and usually inlined, however consider using numbers individually rather than constructing many vectors if performance is absolutely critical
+	 */
+	function vec2(x?: number, y?: number): vec2
+	namespace vec2{
+		function add(a: vec2, b: vec2 | number): vec2
+		function multiply(a: vec2, b: vec2 | number): vec2
+	}
+	type vec3 = {x: number, y: number, z: number}
+	/**
+	 * Construct a 3-component vector, in the shape {x, y, z}
+	 * @performance This function is very fast and usually inlined, however consider using numbers individually rather than constructing many vectors if performance is absolutely critical
+	 */
+	function vec3(x?: number, y?: number, z?: number): vec3
+	namespace vec3{
+		function add(a: vec3, b: vec3 | number): vec3
+		function multiply(a: vec3, b: vec3 | number): vec3
+	}
+	type vec4 = {x: number, y: number, z: number, w: number}
+	/**
+	 * Construct a 4-component vector, in the shape {x, y, z, w}
+	 * @performance This function is very fast and usually inlined, however consider using numbers individually rather than constructing many vectors if performance is absolutely critical
+	 */
+	function vec4(x?: number, y?: number, z?: number, w?: number): vec4
+	namespace vec4{
+		function add(a: vec4, b: vec4 | number): vec4
+		function multiply(a: vec4, b: vec4 | number): vec4
+	}
 	
 	enum Formats{
 		/** Fixed-point 1-channel format, usually 8 bits, in the range [0,1] */ R,
@@ -60,7 +91,7 @@ declare global{
 		 * 
 		 * Values are specified using 32 bit integers, with red packed into the LOWEST bits (unlike other formats), green in the middle, blue higher, and the exponent highest.
 		 * 
-		 * Colors are decoded for any given channel as `(channnel_value / 512) * pow(2, exponent - 15)`. The exponent can then be used to mimic a **HDR**-like effect, efficiently encoding very bright or very dim colors without loss in precision
+		 * Colors are decoded for any given channel as `(channel_value / 512) * pow(2, exponent - 15)`. The exponent can then be used to mimic a **HDR**-like effect, efficiently encoding very bright or very dim colors without loss in precision
 		 * 
 		 * It is recommended to use Uint32Array/Int32Array to avoid having to detect or deal with host endianness
 		 */
@@ -284,11 +315,11 @@ declare global{
 		 * @param srcLayer First layer of area to copy data from in the source texture. Default: 0
 		 * @param srcWidth Width of area to copy in pixels. Defaults to the source's width
 		 * @param srcHeight Height of area to copy in pixels. Defaults to the source's height
-		 * @param srcLayers Nnumber of layers to copy. Defaults to the source's layer count
+		 * @param srcLayers Number of layers to copy. Defaults to the source's layer count
 		 * @param srcMip Which mipmap to read data from in the source texture. Default: 0
 		 * @param dstMip Which mipmap to write data to. Default: 0
 		 * 
-		 * @performance This method is performs an upload to the GPU, which is primarily bandwidth-bound for typical-size textures. If the texture was recently used then this will create a light draw boundary (See `Drawable.draw()` for more info)
+		 * @performance This method performs an upload to the GPU, which is primarily bandwidth-bound for typical-size textures. If the texture was recently used then this will create a light draw boundary (See `Drawable.draw()` for more info)
 		 */
 		paste(tex: Texture, x?: number, y?: number, layer?: number, dstMip?: number, srcX?: number, srcY?: number, srcLayer?: number, srcWidth?: number, srcHeight?: number, srcLayers?: number, srcMip?: number): this
 
@@ -300,7 +331,7 @@ declare global{
 		 * @param layer First layer of area to paste. Default: 0
 		 * @param dstMip Which mipmap to write data to. Default: 0
 		 * 
-		 * @performance This method is performs an upload to the GPU, which is primarily bandwidth-bound for typical-size textures. Extra preprocessing may be done for certain source types (e.g <img> elements), which may be CPU-bound. It is recommended to use ImageBitmap sources where possible (with the correct options provided by Gamma.bitmapOpts), as they are GPU-ready by design. It may also cause partial pipeline stalls if following draw operations depend on the texture data but have to wait for the upload to finish, however this is mostly mitigated with modern drivers. If the texture was recently used then this will create a light draw boundary (See `Drawable.draw()` for more info)
+		 * @performance This method performs an upload to the GPU, which is primarily bandwidth-bound for typical-size textures. Extra preprocessing may be done for certain source types (e.g <img> elements), which may be CPU-bound. It is recommended to use ImageBitmap sources where possible (with the correct options provided by Gamma.bitmapOpts), as they are GPU-ready by design. It may also cause partial pipeline stalls if following draw operations depend on the texture data but have to wait for the upload to finish, however this is mostly mitigated with modern drivers. If the texture was recently used then this will create a light draw boundary (See `Drawable.draw()` for more info)
 		 */
 		paste(img: ImageSource, x?: number, y?: number, layer?: number, dstMip?: number): Promise<this>
 
@@ -316,7 +347,7 @@ declare global{
 		 * @param srcHeight Height of area to copy in pixels. Defaults to the source's height
 		 * @param dstMip Which mipmap to write data to. Default: 0
 		 * 
-		 * @performance This method is performs an upload to the GPU, which is primarily bandwidth-bound for typical-size textures. It may also cause partial pipeline stalls if following draw operations depend on the texture data but have to wait for the upload to finish, however this is mostly mitigated with modern drivers. If the texture was recently used then this will create a light draw boundary (See `Drawable.draw()` for more info)
+		 * @performance This method performs an upload to the GPU, which is primarily bandwidth-bound for typical-size textures. It may also cause partial pipeline stalls if following draw operations depend on the texture data but have to wait for the upload to finish, however this is mostly mitigated with modern drivers. If the texture was recently used then this will create a light draw boundary (See `Drawable.draw()` for more info)
 		 */
 		paste(ctx: Drawable, x?: number, y?: number, layer?: number, dstMip?: number, srcX?: number, srcY?: number, srcWidth?: number, srcHeight?: number): this
 
@@ -328,10 +359,10 @@ declare global{
 		 * @param layer First layer of area to paste. Default: 0
 		 * @param width Width of area to paste in pixels. Defaults to this texture's width
 		 * @param height Height of area to paste in pixels. Defaults to this texture's height
-		 * @param layers Nnumber of layers to paste. Defaults to this texture's number of layers
+		 * @param layers Number of layers to paste. Defaults to this texture's number of layers
 		 * @param mip Which mipmap to write data to. Default: 0
 		 * 
-		 * @performance This method is performs an upload to the GPU, which is primarily bandwidth-bound for typical-size textures. It may also cause partial pipeline stalls if following draw operations depend on the texture data but have to wait for the upload to finish, however this is mostly mitigated with modern drivers. If the texture was recently used then this will create a light draw boundary (See `Drawable.draw()` for more info)
+		 * @performance This method performs an upload to the GPU, which is primarily bandwidth-bound for typical-size textures. It may also cause partial pipeline stalls if following draw operations depend on the texture data but have to wait for the upload to finish, however this is mostly mitigated with modern drivers. If the texture was recently used then this will create a light draw boundary (See `Drawable.draw()` for more info)
 		 * 
 		 * @returns
 		 * | For format                        | Pass                               | of length          |
@@ -433,127 +464,12 @@ declare global{
 	 * @param width Width of draw target, in logical pixels
 	 * @param height Height of draw target, in logical pixels
 	 * @param format Most hardware will only support RGBA8, RGB565, RGBA4 and RGB5_A1
-	 * @param msaa How many samples per logical pixel to allocate. This is a hint and the actual value may be rounded or clamped. Set to a high value like 64 to use as many as available.
+	 * @param msaa How many samples per logical pixel to allocate. This is a hint; the actual value may be rounded or clamped. Set to a high value (e.g, 256) to use as many samples as available.
 	 * @param stencil Whether to also allocate a stencil buffer for IF_SET/IF_UNSET/SET/UNSET functionality. When this parameter is false, the stencil buffer will not be allocated and will behave as if it is always 0. Default: false (for performance reasons. Set to true only when you actually need it)
 	 * 
 	 * @performance This method performs the allocation of the MSAA (and the stencil buffer if requested), which will use a lot of video memory. Drawing to a multisampled target will not perform more shader invocation but may slow down rendering due to slower rasterization (converting shapes to pixels) and greatly increased video memory access. See `Drawable`'s performance note for more info
 	 */
 	function DrawableMSAA(width: number, height: number, format: Formats, msaa: number, stencil?: boolean): Drawable
-
-	/** See `Drawable.mask` */ const R = 1
-	/** See `Drawable.mask` */ const G = 2
-	/** See `Drawable.mask` */ const B = 4
-	/** See `Drawable.mask` */ const A = 8
-	/** See `Drawable.mask` */ const RGB = 7
-	/** See `Drawable.mask` */ const RGBA = 15
-	/** See `Drawable.mask` */ const IF_SET = 16
-	/** See `Drawable.mask` */ const IF_UNSET = 32
-	/** See `Drawable.mask` */ const NEVER = 48
-	/** See `Drawable.mask` */ const UNSET = 64
-	/** See `Drawable.mask` */ const SET = 128
-	/** See `Drawable.mask` */ const FLIP = 192
-
-
-	/** See `Blend()` */ const ONE = 17
-	/** See `Blend()` */ const ZERO = 0
-	/** See `Blend()` */ const RGB_ONE = 1
-	/** See `Blend()` */ const A_ONE = 16
-	/** See `Blend()` */ const SRC = 34
-	/** See `Blend()` */ const RGB_SRC = 2
-	/** See `Blend()` */ const ONE_MINUS_SRC = 51
-	/** See `Blend()` */ const RGB_ONE_MINUS_SRC = 3
-	/** See `Blend()` */ const SRC_ALPHA = 68
-	/** See `Blend()` */ const RGB_SRC_ALPHA = 4
-	/** See `Blend()` */ const A_SRC = 64
-	/** See `Blend()` */ const ONE_MINUS_SRC_ALPHA = 85
-	/** See `Blend()` */ const RGB_ONE_MINUS_SRC_ALPHA = 5
-	/** See `Blend()` */ const A_ONE_MINUS_SRC = 80
-	/** See `Blend()` */ const DST = 136
-	/** See `Blend()` */ const RGB_DST = 8
-	/** See `Blend()` */ const ONE_MINUS_DST = 153
-	/** See `Blend()` */ const RGB_ONE_MINUS_DST = 9
-	/** See `Blend()` */ const DST_ALPHA = 102
-	/** See `Blend()` */ const RGB_DST_ALPHA = 6
-	/** See `Blend()` */ const A_DST = 96
-	/** See `Blend()` */ const ONE_MINUS_DST_ALPHA = 119
-	/** See `Blend()` */ const RGB_ONE_MINUS_DST_ALPHA = 7
-	/** See `Blend()` */ const A_ONE_MINUS_DST = 112
-	/** See `Blend()` */ const SRC_ALPHA_SATURATE = 170
-	/** See `Blend()` */ const RGB_SRC_ALPHA_SATURATE = 10
-	/** See `Blend()` */ const ADD = 17
-	/** See `Blend()` */ const RGB_ADD = 1
-	/** See `Blend()` */ const A_ADD = 16
-	/** See `Blend()` */ const SUB = 85
-	/** See `Blend()` */ const RGB_SUB = 5
-	/** See `Blend()` */ const A_SUB = 80
-	/** See `Blend()` */ const SUB_REV = 102
-	/** See `Blend()` */ const RGB_SUB_REV = 6
-	/** See `Blend()` */ const A_SUB_REV = 96
-	/** See `Blend()` */ const MIN = 34
-	/** See `Blend()` */ const RGB_MIN = 2
-	/** See `Blend()` */ const A_MIN = 32
-	/** See `Blend()` */ const MAX = 51
-	/** See `Blend()` */ const RGB_MAX = 3
-	/** See `Blend()` */ const A_MAX = 48
-
-	/** See `Shader()` */ const FLOAT = 0
-	/** See `Shader()` */ const VEC2 = 1
-	/** See `Shader()` */ const VEC3 = 2
-	/** See `Shader()` */ const VEC4 = 3
-	/** See `Shader()` */ const INT = 16
-	/** See `Shader()` */ const IVEC2 = 17
-	/** See `Shader()` */ const IVEC3 = 18
-	/** See `Shader()` */ const IVEC4 = 19
-	/** See `Shader()` */ const UINT = 32
-	/** See `Shader()` */ const UVEC2 = 33
-	/** See `Shader()` */ const UVEC3 = 34
-	/** See `Shader()` */ const UVEC4 = 35
-	/** See `Shader()` */ const TEXTURE = 20
-	/** See `Shader()` */ const UTEXTURE = 24
-	/** See `Shader()` */ const FTEXTURE = 28
-	/** See `Shader()` */ const COLOR = 4
-	/** See `Shader()` */ const UCOLOR = 8
-	/** See `Shader()` */ const FCOLOR = 12
-	/** See `Shader()` */ const FIXED = 4
-
-	/** See `Geometry()` */ const TRIANGLE_STRIP = 5
-	/** See `Geometry()` */ const TRIANGLES = 4
-	/** See `Geometry()` */ const TRIANGLE_FAN = 6
-	/** See `Geometry()` */ const LINE_LOOP = 2
-	/** See `Geometry()` */ const LINE_STRIP = 3
-	/** See `Geometry()` */ const LINES = 1
-	/** See `Geometry()` */ const POINTS = 0
-
-	type vec2 = { x: number, y: number }
-	/**
-	 * Construct a 2-component vector, in the shape {x, y}
-	 * @performance This function is very fast and usually inlined, however consider using numbers individually rather than constructing many vectors if performance is absolutely critical
-	 */
-	function vec2(x?: number, y?: number): vec2
-	namespace vec2{
-		function add(a: vec2, b: vec2 | number): vec2
-		function multiply(a: vec2, b: vec2 | number): vec2
-	}
-	type vec3 = {x: number, y: number, z: number}
-	/**
-	 * Construct a 3-component vector, in the shape {x, y, z}
-	 * @performance This function is very fast and usually inlined, however consider using numbers individually rather than constructing many vectors if performance is absolutely critical
-	 */
-	function vec3(x?: number, y?: number, z?: number): vec3
-	namespace vec3{
-		function add(a: vec3, b: vec3 | number): vec3
-		function multiply(a: vec3, b: vec3 | number): vec3
-	}
-	type vec4 = {x: number, y: number, z: number, w: number}
-	/**
-	 * Construct a 4-component vector, in the shape {x, y, z, w}
-	 * @performance This function is very fast and usually inlined, however consider using numbers individually rather than constructing many vectors if performance is absolutely critical
-	 */
-	function vec4(x?: number, y?: number, z?: number, w?: number): vec4
-	namespace vec4{
-		function add(a: vec4, b: vec4 | number): vec4
-		function multiply(a: vec4, b: vec4 | number): vec4
-	}
 
 	interface Drawable{
 		/** The backing target's whole width in pixels */
@@ -645,7 +561,7 @@ declare global{
 		 */
 		reset(a = 1, b = 0, c = 0, d = 1, e = 0, f = 0): void
 		/**
-		 * Simultaenous translates and scales such that the new origin is at `(x, y)` with basis vectors (w,0) and (0,h). A square drawn at `(0, 0)` with size `(1, 1)` after the transform would be drawn at `(x, y)` with size `(w, h)`
+		 * Simultaneous translates and scales such that the new origin is at `(x, y)` with basis vectors (w,0) and (0,h). A square drawn at `(0, 0)` with size `(1, 1)` after the transform would be drawn at `(x, y)` with size `(w, h)`
 		 * @performance This method is CPU-arithmetic, very fast and usually inlined
 		 */
 		box(x: number, y: number, w = 1, h = w): void
@@ -737,7 +653,7 @@ declare global{
 		 * Draw a sprite at (0,0) to (1,1)
 		 * @param values Values, as required by the shader currently in use (See `Drawable.shader`, `Shader()` and `Shader.DEFAULT`)
 		 * 
-		 * @performance The `draw*()` family of calls is possibly the hardest to grasp performance for. This is due to the fact that many other operations are actually deferred until the next `draw()` call for performance. In addition to this, many `draw()` calls are coalesced to improve performance. This is technique absolutely fundamental to performant rendering. Whenever some other operation or state change forces `draw()` calls to not be coalesced, we call this a _draw boundary_. Examples of operations that create draw boundaries include:
+		 * @performance The `draw*()` family of calls is possibly the hardest to grasp performance for. This is due to the fact that many other operations are actually deferred until the next `draw()` call for performance. In addition to this, many `draw()` calls are coalesced to improve performance. This technique is absolutely fundamental to performant rendering. Whenever some other operation or state change forces `draw()` calls to not be coalesced, we call this a _draw boundary_. Examples of operations that create draw boundaries include:
 		 * - Swapping shader
 		 * - Drawing to a different draw target
 		 * - Writing to a texture that was recently used
@@ -747,7 +663,7 @@ declare global{
 		 * 
 		 * The type of draw boundary can also affect performance. For example, a 'light' draw boundary caused by changing the blend mode might cost the equivalent of a couple of draw() calls, while one caused by changing draw target (a 'heavy' draw boundary) might cost several dozen or even hundred times more.
 		 * 
-		 * There is also CPU overhead to consider. Javascript can be well-optimized and the implementation for `draw()` is optimized to the brink of my insanity including code-generation (DO NOT LOOK IN THE SOURCE CODE IT IS ABSOLUTELY MINDF*CK GET ME OUT OF HERE PLEASE HELP) however only so much can be done, and a portion is left to you to not make silly decisions that undo any efforts the library may try to make. The function is optimized to receive its arguments passed statically, and of the correct type (e.g not passing a vec4 to a vec2 or a string to a number). In favorable conditions, `draw` will be inlined and reduced to a dynamic call to a private method of the shader, used to pack the passed values into an internal buffer.
+		 * There is also CPU overhead to consider. Javascript can be well-optimized and the implementation for `draw()` is optimized to the brink of my insanity including code-generation (DO NOT LOOK IN THE SOURCE CODE IT IS ABSOLUTELY MINDF*CK GET ME OUT OF HERE PLEASE HELP) however only so much can be done, and a portion is left to you to not make silly decisions that undo any efforts the library may try to make. The function is optimized to receive statically-typed arguments (e.g not passing a vec4 to a vec2, a string to a number, or passing too many arguments). In favorable conditions, `draw` will be inlined and reduced to a dynamic call to a private method of the shader, used to pack the passed values into an internal buffer.
 		 * 
 		 * Benchmarks and citations may be added later if I have not `git commit -m suicide` by then
 		 */
@@ -830,15 +746,28 @@ declare global{
 		/**
 		 * Clear the whole stencil buffer to 0
 		 * 
-		 * @performance Will create a light draw boundary (See `Drawable.draw()` for more info). Well-optimized, under the hood, all 8 bits of the stencil buffer are made use of. "Clearing" the stencil buffer will simply switch to another bit, until all 8 bits have been used up, at which point the buffer is actually cleared, this operation is often times cheaper than attempting to clear only a portion of the stencil buffer with a `draw*()` call, however, benchmark your specific case if you are unsure.
+		 * @performance Will create a light draw boundary (See `Drawable.draw()` for more info). Well-optimized, under the hood, all 8 bits of the stencil buffer are used. "Clearing" the stencil buffer will simply switch to another bit, until all 8 bits have been used up, at which point the buffer is actually cleared, this operation is often times cheaper than attempting to clear only a portion of the stencil buffer with a `draw*()` call, however, benchmark your specific case if you are unsure.
 		 */
 		clearStencil(): void
 	}
+	/** See `Drawable.mask` */ const R = 1
+	/** See `Drawable.mask` */ const G = 2
+	/** See `Drawable.mask` */ const B = 4
+	/** See `Drawable.mask` */ const A = 8
+	/** See `Drawable.mask` */ const RGB = 7
+	/** See `Drawable.mask` */ const RGBA = 15
+	/** See `Drawable.mask` */ const IF_SET = 16
+	/** See `Drawable.mask` */ const IF_UNSET = 32
+	/** See `Drawable.mask` */ const NEVER = 48
+	/** See `Drawable.mask` */ const UNSET = 64
+	/** See `Drawable.mask` */ const SET = 128
+	/** See `Drawable.mask` */ const FLIP = 192
+
 	type Blend = number
 	/**
 	 * Construct a blend mode OpenGL-style
 	 * 
-	 * All colors are expected to be premultiplied by convention
+	 * All colors are expected to be premultiplied by their alpha channel, by convention
 	 * @param sfac The source factor (`sfac`)
 	 * @param combine The combine operation
 	 * @param dfac The destination factor
@@ -866,33 +795,76 @@ declare global{
 	 * - `MIN` (min(s,d))
 	 * - `MAX` (max(s,d))
 	 * 
-	 * Any of these values can be mixed to apply different rules for rgb values as for alpha values, for example, `RGB_ADD | A_MAX` will apply `ADD` to rgb channels and `MAX` to the alpha channel, and `RGB_SRC_ALPHA | ZERO` will use `SRC_ALPHA` for rgb and `ZERO` for alpha. Note that there are no `RGB_ZERO` or `A_ZERO` as these are just `ZERO` (even that can be ommited altogether as it is `== 0`)
+	 * Any of these values can be mixed to apply different rules for rgb values as for alpha values, for example, `RGB_ADD | A_MAX` will apply `ADD` to rgb channels and `MAX` to the alpha channel, and `RGB_SRC_ALPHA | ZERO` will use `SRC_ALPHA` for rgb and `ZERO` for alpha. Note that there are no `RGB_ZERO` or `A_ZERO` as these are just `ZERO` (even that can be omitted altogether as it is `== 0`)
 	 * 
 	 * @param alphaToCoverage Use the alpha value in conjunction with MSAA draw targets to simulate higher fidelity blending. Only a portion of the per-pixel samples are written, depending on the source's alpha. Note that when using this you should not provide premultiplied source, nor multiply the destination by `ONE_MINUS_SRC_ALPHA`.
 	 * @performance This function is pure arithmetic and often even constant-folded
 	 */
 	function Blend(sfac: number, combine: number, dfac: number, alphaToCoverage = false): Blend
-	interface Blend{
+
+	/** See `Blend()` */ const ONE = 17
+	/** See `Blend()` */ const ZERO = 0
+	/** See `Blend()` */ const RGB_ONE = 1
+	/** See `Blend()` */ const A_ONE = 16
+	/** See `Blend()` */ const SRC = 34
+	/** See `Blend()` */ const RGB_SRC = 2
+	/** See `Blend()` */ const ONE_MINUS_SRC = 51
+	/** See `Blend()` */ const RGB_ONE_MINUS_SRC = 3
+	/** See `Blend()` */ const SRC_ALPHA = 68
+	/** See `Blend()` */ const RGB_SRC_ALPHA = 4
+	/** See `Blend()` */ const A_SRC = 64
+	/** See `Blend()` */ const ONE_MINUS_SRC_ALPHA = 85
+	/** See `Blend()` */ const RGB_ONE_MINUS_SRC_ALPHA = 5
+	/** See `Blend()` */ const A_ONE_MINUS_SRC = 80
+	/** See `Blend()` */ const DST = 136
+	/** See `Blend()` */ const RGB_DST = 8
+	/** See `Blend()` */ const ONE_MINUS_DST = 153
+	/** See `Blend()` */ const RGB_ONE_MINUS_DST = 9
+	/** See `Blend()` */ const DST_ALPHA = 102
+	/** See `Blend()` */ const RGB_DST_ALPHA = 6
+	/** See `Blend()` */ const A_DST = 96
+	/** See `Blend()` */ const ONE_MINUS_DST_ALPHA = 119
+	/** See `Blend()` */ const RGB_ONE_MINUS_DST_ALPHA = 7
+	/** See `Blend()` */ const A_ONE_MINUS_DST = 112
+	/** See `Blend()` */ const SRC_ALPHA_SATURATE = 170
+	/** See `Blend()` */ const RGB_SRC_ALPHA_SATURATE = 10
+	/** See `Blend()` */ const ADD = 17
+	/** See `Blend()` */ const RGB_ADD = 1
+	/** See `Blend()` */ const A_ADD = 16
+	/** See `Blend()` */ const SUB = 85
+	/** See `Blend()` */ const RGB_SUB = 5
+	/** See `Blend()` */ const A_SUB = 80
+	/** See `Blend()` */ const SUB_REV = 102
+	/** See `Blend()` */ const RGB_SUB_REV = 6
+	/** See `Blend()` */ const A_SUB_REV = 96
+	/** See `Blend()` */ const MIN = 34
+	/** See `Blend()` */ const RGB_MIN = 2
+	/** See `Blend()` */ const A_MIN = 32
+	/** See `Blend()` */ const MAX = 51
+	/** See `Blend()` */ const RGB_MAX = 3
+	/** See `Blend()` */ const A_MAX = 48
+
+	namespace Blend{
 		/** All new content completely replaces old content, including the alpha channel */
-		REPLACE: Blend
+		const REPLACE: Blend
 		/** The default blend mode which composites new on top of old using new's alpha channel */
-		DEFAULT: Blend
+		const DEFAULT: Blend
 		/** Similar to `Blend.DEFAULT` but old is composited on top of new, using old's blend mode. The new content appears to be "behind" the old content. Requires the target to have an alpha channel, unlike `Blend.DEFAULT` */
-		BEHIND: Blend
+		const BEHIND: Blend
 		/** Additive blending. This appears to make the content lighter, like additive mixing (e.g light). The source's alpha channel is ignored */
-		ADD: Blend
+		const ADD: Blend
 		/* Classic multiply blending, also known as tinting, which also multiplies alpha channel, producing a "intersection" effect, where only areas where both old and new are opaque remain opaque. If this is not what you want, see `Blend.MULTIPLY_MIX` */
-		MULTIPLY: Blend
-		/** "Intuitive" multiply blending, also known as tinting. Where the source alpha is zero, the destination remains unchanged, which may be preferrable to the more classic `Blend.MULTIPLY` */
-		MULTIPLY_MIX: Blend
+		const MULTIPLY: Blend
+		/** "Intuitive" multiply blending, also known as tinting. Where the source alpha is zero, the destination remains unchanged, which may be preferable to the more classic `Blend.MULTIPLY` */
+		const MULTIPLY_MIX: Blend
 		/** Subtract blending. This appears to make the content darker. The source's alpha channel is ignored */
-		SUBTRACT: Blend
+		const SUBTRACT: Blend
 		/** Subtract blending. Like `Blend.SUBTRACT` but with source and destination swapped. The destination's alpha channel is preserved */
-		REVERSE_SUBTRACT: Blend
+		const REVERSE_SUBTRACT: Blend
 		/* For each channel, the smallest value is kept (this includes the alpha channel). This can be used to make the content darker in only some places, to a set value */
-		MIN: Blend
+		const MIN: Blend
 		/* For each channel, the largest value is kept (this includes the alpha channel). This can be used to make the content lighter in only some places, to a set value */
-		MAX: Blend
+		const MAX: Blend
 		/**
 		 * Invert the destination's contents. For each channel, the destination becomes a mix between `dst` and `1-dst` based on `src`
 		 * | Source (src) | Destination (dst) |
@@ -905,15 +877,16 @@ declare global{
 		 * 
 		 * This includes the alpha channel. It may be wise to set the source alpha to `0` if you want it unchanged, or create your own blending mode.
 		 */
-		INVERT: Blend
+		const INVERT: Blend
 	}
+
 	/**
 	 * Construct a geometry.
 	 * 
 	 * By default (the default geometry), a sprite drawn in a box at `(x, y)` and size `(w, h)` will take the shape of a square (i.e from `(x, y)` to `(x+w, y)` to `(x, y+h)` to `(x+w, y+h)`), however, this can be changed with geometries.
 	 * 
 	 * Geometries are created in the same way as meshes using lower level graphics APIs. You provide a list of vertices (points), and a method of connecting them to draw triangles (or lines/points). Quads do not exist, but can be made of 2 triangles
-	 * @param type The primitive type, which determines how to connect vertices (points), which can be one of
+	 * @param type The primitive type, which determines how to connect vertices (points). Can be one of
 	 * - `POINTS` Do not connect the vertices, and instead draw them as 1-pixel points
 	 * - `LINES` Connect each standalone pair of vertices by a 1-pixel-wide line (i.e vertices are connected like 0-1 2-3 4-5 with gaps between pairs)
 	 * - `LINE_STRIP` Connect all adjacent vertices by a 1-pixel-wide line (i.e vertices are connected like 0-1-2-3-4-5 with no gaps between pairs)
@@ -933,7 +906,7 @@ declare global{
 		length: number
 		/**
 		 * Create a subgeometry, i.e a geometry containing only a subset of the points of this geometry, optionally with a different type
-		 * @performance This method is CPU-arithmetic. Very fast. Using many subgeometries of the same geometry is also faster than using many different geometries. For many related geometries, consider building one large geometry and taking subgeometries of it.
+		 * @performance This method is CPU-arithmetic, very fast. Using many subgeometries of the same geometry is also faster than using many different geometries. For many related geometries, consider building one large geometry and taking subgeometries of it.
 		 */
 		sub(start = 0, length?: number, type?: number): Geometry
 	}
@@ -941,8 +914,126 @@ declare global{
 		/** The default geometry, constructing a square from (0,0) to (1,1), with corresponding uv values */
 		const DEFAULT = Geometry(TRIANGLE_STRIP, [0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1])
 	}
-	/** TODO: KILL MYSELF */
-	function Shader(src, inputs, defaults, uniforms, uDefaults, output: number, frat=0.5): Shader
+	/** See `Geometry()` */ const TRIANGLE_STRIP = 5
+	/** See `Geometry()` */ const TRIANGLES = 4
+	/** See `Geometry()` */ const TRIANGLE_FAN = 6
+	/** See `Geometry()` */ const LINE_LOOP = 2
+	/** See `Geometry()` */ const LINE_STRIP = 3
+	/** See `Geometry()` */ const LINES = 1
+	/** See `Geometry()` */ const POINTS = 0
+
+	/**
+	 * Construct a shader using GLSL
+	 * 
+	 * Virtually anything you need to know about GLSL can be found online (or by asking an LLM). Here, we will just focus on things that are done differently or new
+	 * 
+	 * @param inputs Shader sprite inputs. These can be any of
+	 * - `FLOAT` A number interpreted and passed to the shader as a single-precision float
+	 * - `VEC2`/`VEC3`/`VEC4` An object in the shape of `{x, y}`/`{x, y, z}`/`{x, y, z, w}` interpreted and passed to the shader as single-precision floats
+	 * - `INT` A number interpreted and passed to the shader as a 32 bit signed integer
+	 * - `IVEC2`/`IVEC3`/`IVEC4` An object in the shape of `{x, y}`/`{x, y, z}`/`{x, y, z, w}` interpreted and passed to the shader as 32 bit signed integers
+	 * - `UINT` A number interpreted and passed to the shader as a 32 bit unsigned integer
+	 * - `UVEC2`/`UVEC3`/`UVEC4` An object in the shape of `{x, y}`/`{x, y, z}`/`{x, y, z, w}` interpreted and passed to the shader as 32 bit unsigned integers
+	 * - `TEXTURE` A texture object of a float format. Subtexture crop/layer ignored. Read below for how to use these.
+	 * - `FTEXTURE` A texture object of a high-precision floating point format (16F / 32F). Subtexture crop/layer ignored. Read below for how to use these.
+	 * - `UTEXTURE` A texture object of integer format. Subtexture crop/layer ignored. Read below for how to use these.
+	 * - `COLOR` A texture or flat color of a float format. Texture comes presampled in the shader (sample position is decided on the CPU side by subtexture crop/layer). Read below for how to use these.
+	 * - `FCOLOR` A texture or flat color of a high-precision floating point format. Texture comes presampled in the shader (sample position is decided on the CPU side by subtexture crop/layer). Read below for how to use these.
+	 * - `UCOLOR` A texture or flat color of an integer format. Texture comes presampled in the shader (sample position is decided on the CPU side by subtexture crop/layer). Read below for how to use these.
+	 * @param defaults The default values for the inputs. If not provided, a suitable `0`-like default is used (`TEXTURE`/`FTEXTURE`/`UTEXTURE` cannot have a default value)
+	 * @param uniforms Shader uniforms (config). These have the same possible values as `inputs`
+	 * @param uDefaults The default values for the uniforms. If not provided, a suitable `0`-like default is used (`TEXTURE`/`FTEXTURE`/`UTEXTURE` cannot have a default value)
+	 * @param output The type of output for this shader. Can be
+	 * - `UINT` to make this shader only for rendering to integer targets
+	 * - `FIXED` (normal value)
+	 * - `FLOAT` for high precision targets (16F / 32F). This exists because `FIXED` will try to use the lowest precision available (`lowp`, for performance reasons), which may be insufficient for some use cases
+	 * @param intFrac Optionally give a hint as to the bias towards integer or float textures. For example, if your shader uses one float and one int texture, but the int texture tends to stay the same while the float texture changes often, set this to `1` to indicate that you will use more float textures. Out of the 16 available texture slots, 15 will then be allocated for float textures, as opposed to 8 by default (when `intFrac == 0.5`), which will slightly increase performance.
+	 * 
+	 * Note that you cannot use more than 16 different texture parameters in a single shader (across both `inputs` and `uniforms`), and that the number of inputs is also individually limited (don't go crazy and if you do run out, consider combining multiple `FLOAT`s to a `VEC2`/`VEC3`/`VEC4`, etc...)
+	 * 
+	 * ## Additions to GLSL
+	 * 
+	 * The following functions have been added to GLSL to interface with the rest of Gamma
+	 * ```glsl
+	 * #version 300 es
+	 * precision mediump float;
+	 * precision highp int;
+	 * // tex2DArray can be a `TEXTURE` or `FTEXTURE`
+	 * // uTex2DArray is `UTEXTURE`
+	 * // Both are in fact `int`s
+	 * 
+	 * // Similar to texture(): Sampling based on the texture's options and GPU hardware
+	 * // The uv contains x/y coordinates between 0 and 1 and the layer as the third component
+	 * // Unlike GLSL ES's texture(), the texture provided can be dynamic since it is backed by an `int`
+	 * lowp vec4 getColor(tex2DArray texture, vec3 uv);
+	 * highp vec4 fGetColor(tex2DArray tex, vec3 uv);
+	 * uvec4 uGetColor(uTex2DArray tex, vec3 uv);
+	 * 
+	 * // Similar to texelFetch: takes integer coordinates and does no filtering/wrapping
+	 * // Unlike GLSL ES's texelFetch(), the texture provided can be dynamic since it is backed by an `int`
+	 * lowp vec4 getPixel(tex2DArray texture, ivec3 pos, int mip);
+	 * highp vec4 fGetPixel(tex2DArray texture, ivec3 pos, int mip);
+	 * uvec4 uGetPixel(uTex2DArray texture, ivec3 pos, int mip);
+	 * 
+	 * // Similar to textureSize
+	 * // Unlike GLSL ES's textureSize(), the texture provided can be dynamic since it is backed by an `int`
+	 * ivec3 getSize(tex2DArray texture, int mip);
+	 * ivec3 getSize(uTex2DArray texture, int mip);
+	 * 
+	 * // The arguments and uniforms specified at the shader's creation
+	 * in auto arg0, arg1, arg2, ...;
+	 * uniform auto uni0, uni1, uni2, ...;
+	 * 
+	 * // The color to output (can be lowp vec4, highp vec4 or uvec4, specified by the `output` parameter at the shader's creation)
+	 * out auto col;
+	 * 
+	 * // uv, usually in the range (0,0) to (1,1) but is specified by the current Geometry in use (see `Geometry()`)
+	 * in vec2 uv;
+	 * // Actual position of fragment relative to sprite, usually in the range (0,0) to (1,1) but is specified by the current Geometry in use (see `Geometry()`)
+	 * in vec2 xy;
+	 * 
+	 * // `COLOR`/`FCOLOR`/`UCOLOR`s are used by calling them, e.g
+	 * void main(){
+	 *     // Assuming arg0 is a `COLOR`
+	 *     col = arg0();
+	 * }
+	 * 
+	 * // All other types are used like normal
+	 * // E.g
+	 * void main(){
+	 *     if(arg0 > 1){
+	 *        col = getColor(uni0, vec3(uv, 0));
+	 *     }else{
+	 *        // something idk this is just an example
+	 *        col = vec4(arg1, 1.);
+	 *     }
+	 * }
+	 * ```
+	 * 
+	 * If you made it this far without your brain exploding, congratulations! Take a break :)
+	 */
+	function Shader(glsl: string, inputs: number | number[], defaults: number | number[], uniforms: number | number[], uDefaults: number | number[], output: number, intFrac = 0.5): Shader
+
+	/** See `Shader()` */ const FLOAT = 0
+	/** See `Shader()` */ const VEC2 = 1
+	/** See `Shader()` */ const VEC3 = 2
+	/** See `Shader()` */ const VEC4 = 3
+	/** See `Shader()` */ const INT = 16
+	/** See `Shader()` */ const IVEC2 = 17
+	/** See `Shader()` */ const IVEC3 = 18
+	/** See `Shader()` */ const IVEC4 = 19
+	/** See `Shader()` */ const UINT = 32
+	/** See `Shader()` */ const UVEC2 = 33
+	/** See `Shader()` */ const UVEC3 = 34
+	/** See `Shader()` */ const UVEC4 = 35
+	/** See `Shader()` */ const TEXTURE = 20
+	/** See `Shader()` */ const UTEXTURE = 24
+	/** See `Shader()` */ const FTEXTURE = 28
+	/** See `Shader()` */ const COLOR = 4
+	/** See `Shader()` */ const UCOLOR = 8
+	/** See `Shader()` */ const FCOLOR = 12
+	/** See `Shader()` */ const FIXED = 4
+
 	interface Shader{
 		/** Set the shader's uniforms, as specified by the shader itself. See `Shader()` */
 		uniforms(...values): void

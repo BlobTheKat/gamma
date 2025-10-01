@@ -285,6 +285,37 @@ namespace GammaInstance{
 	 * The backing WebGL2 context for this canvas
 	 */
 	const gl: WebGL2RenderingContext
+
+	type vec2 = { x: number, y: number }
+	/**
+	 * Construct a 2-component vector, in the shape {x, y}
+	 * @performance This function is very fast and usually inlined, however consider using numbers individually rather than constructing many vectors if performance is absolutely critical
+	 */
+	function vec2(x?: number, y?: number): vec2
+	namespace vec2{
+		function add(a: vec2, b: vec2 | number): vec2
+		function multiply(a: vec2, b: vec2 | number): vec2
+	}
+	type vec3 = {x: number, y: number, z: number}
+	/**
+	 * Construct a 3-component vector, in the shape {x, y, z}
+	 * @performance This function is very fast and usually inlined, however consider using numbers individually rather than constructing many vectors if performance is absolutely critical
+	 */
+	function vec3(x?: number, y?: number, z?: number): vec3
+	namespace vec3{
+		function add(a: vec3, b: vec3 | number): vec3
+		function multiply(a: vec3, b: vec3 | number): vec3
+	}
+	type vec4 = {x: number, y: number, z: number, w: number}
+	/**
+	 * Construct a 4-component vector, in the shape {x, y, z, w}
+	 * @performance This function is very fast and usually inlined, however consider using numbers individually rather than constructing many vectors if performance is absolutely critical
+	 */
+	function vec4(x?: number, y?: number, z?: number, w?: number): vec4
+	namespace vec4{
+		function add(a: vec4, b: vec4 | number): vec4
+		function multiply(a: vec4, b: vec4 | number): vec4
+	}
 	
 	enum Formats{
 		/** Fixed-point 1-channel format, usually 8 bits, in the range [0,1] */ R,
@@ -336,18 +367,40 @@ namespace GammaInstance{
 		 * 
 		 * Values are specified using 32 bit integers, with red packed into the LOWEST bits (unlike other formats), green in the middle, blue higher, and the exponent highest.
 		 * 
-		 * Colors are decoded for any given channel as `(channnel_value / 512) * pow(2, exponent - 15)`. The exponent can then be used to mimic a **HDR**-like effect, efficiently encoding very bright or very dim colors without loss in precision
+		 * Colors are decoded for any given channel as `(channel_value / 512) * pow(2, exponent - 15)`. The exponent can then be used to mimic a **HDR**-like effect, efficiently encoding very bright or very dim colors without loss in precision
 		 * 
 		 * It is recommended to use Uint32Array/Int32Array to avoid having to detect or deal with host endianness
 		 */
 		RGB9_E5,
-		/** Unsigned 1-channel 8-bit format */ R8, /** Unsigned 2-channel 8-bit-per-channel format */ RG8, /** Unsigned 3-channel 8-bit-per-channel format */ RGB8, /** Unsigned 4-channel 8-bit-per-channel format */ RGBA8,
-		/** Unsigned 1-channel 16-bit format */ R16, /** Unsigned 2-channel 16-bit-per-channel format */ RG16, /** Unsigned 3-channel 16-bit-per-channel format */ RGB16, /** Unsigned 4-channel 32-bit-per-channel format */ RGBA32,
-		/** Unsigned 1-channel 32-bit format */ R32, /** Unsigned 2-channel 32-bit-per-channel format */ RG32, /** Unsigned 3-channel 32-bit-per-channel format */ RGB32, /** Unsigned 4-channel 32-bit-per-channel format */ RGBA32,
-		/** Half-float 1-channel format */ R16F, /** Half-float 2-channel format */ RG16F,
-		/** Half-float 3-channel format */ RGB16F, /** Half-float 4-channel format */ RGBA16F,
-		/** Float 1-channel format */ R32F, /** Float 2-channel format */ RG32F,
-		/** Float 3-channel format */ RGB32F, /** Float 4-channel format */ RGBA32F,
+		/** Unsigned 1-channel 8-bit format */ R8,
+		/** Unsigned 2-channel 8-bit-per-channel format */ RG8,
+		/** Unsigned 3-channel 8-bit-per-channel format */ RGB8,
+		/** Unsigned 4-channel 8-bit-per-channel format */ RGBA8,
+
+		/** Unsigned 1-channel 16-bit format */ R16,
+		/** Unsigned 2-channel 16-bit-per-channel format */ RG16,
+		/** Unsigned 3-channel 16-bit-per-channel format */ RGB16,
+		/** Unsigned 4-channel 16-bit-per-channel format */ RGBA16,
+
+		/** Unsigned 1-channel 32-bit format */ R32,
+		/** Unsigned 2-channel 32-bit-per-channel format */ RG32,
+		/** Unsigned 3-channel 32-bit-per-channel format */ RGB32,
+		/** Unsigned 4-channel 32-bit-per-channel format */ RGBA32,
+
+		/** Half-float (16 bit) 1-channel format */ R16F,
+		/** Half-float (16 bit) 2-channel format */ RG16F,
+		/** Half-float (16 bit) 3-channel format */ RGB16F,
+		/** Half-float (16 bit) 4-channel format */ RGBA16F,
+
+		/** Float 1-channel format */ R32F,
+		/** Float 2-channel format */ RG32F,
+		/** Float 3-channel format */ RGB32F,
+		/** Float 4-channel format */ RGBA32F,
+
+		/** Half-float 1-channel format. All reads/writes are performed using normal (32 bit) floats */ R16F_32F,
+		/** Half-float 2-channel format. All reads/writes are performed using normal (32 bit) floats */ RG16F_32F,
+		/** Half-float 3-channel format. All reads/writes are performed using normal (32 bit) floats */ RGB16F_32F,
+		/** Half-float 4-channel format. All reads/writes are performed using normal (32 bit) floats */ RGBA16F_32F,
 	}
 
 	/**
@@ -491,6 +544,8 @@ namespace GammaInstance{
 		 * Coordinates are usually the range [0,1] however taking coordinates outside is completely valid and will use the texture's wrapping mode to fill the outside
 		 * 
 		 * @param l Layer. By default subtextures use the same layer as the texture they are made from, and the original texture object uses layer 0
+		 * 
+		 * @performance This method is CPU-arithmetic, very fast
 		 */
 		sub(x: number, y: number, w: number, h: number, l?: number): Texture
 
@@ -500,6 +555,8 @@ namespace GammaInstance{
 		 * Unlike .sub(), the subtexture returned is such that its subtexture defined by the provided values contains the whole of this texture. In other words, `tex.super(a, b, c, d).sub(a, b, c, d)` is the same as `tex`
 		 * 
 		 * @param l Layer. By default subtextures use the same layer as the texture they are made from, and the original texture object uses layer 0
+		 * 
+		 * @performance This method is CPU-arithmetic, very fast. Slightly slower than .sub() due to the use of division
 		 */
 		super(x: number, y: number, w: number, h: number, l?: number): Texture
 
@@ -509,6 +566,8 @@ namespace GammaInstance{
 		 * Unlike .sub(), the provided values are measured in pixels and usually in the range [0,w] / [0,h]
 		 * 
 		 * @param l Layer. By default subtextures use the same layer as the texture they are made from, and the original texture object uses layer 0
+		 * 
+		 * @performance This method is CPU-arithmetic, however for image-backed textures, it will trigger a load if the texture is not yet loaded (in order to obtain the texture's width/height)
 		 */
 		crop(x: number, y: number, w: number, h: number, l?: number): Texture
 
@@ -516,6 +575,8 @@ namespace GammaInstance{
 		 * Returns a subtexture. The underlying data pointed to by a subtexture is the same, so that modifications to a texture are seen through all its subtextures. A `Texture` object is then just a view into its backing data. This is analogous to `TypedArray`s, `DataView` or `Buffer` being views into an `ArrayBuffer`. Note that all textures and subtextures are of the same class and thus the same methods and properties are available on them
 		 * 
 		 * The subtexture is not cropped in any way: only the layer is changed
+		 * 
+		 * @performance This method is CPU-arithmetic, very fast
 		 */
 		layer(layer: number): Texture
 
@@ -530,9 +591,11 @@ namespace GammaInstance{
 		 * @param srcLayer First layer of area to copy data from in the source texture. Default: 0
 		 * @param srcWidth Width of area to copy in pixels. Defaults to the source's width
 		 * @param srcHeight Height of area to copy in pixels. Defaults to the source's height
-		 * @param srcLayers Nnumber of layers to copy. Defaults to the source's layer count
+		 * @param srcLayers Number of layers to copy. Defaults to the source's layer count
 		 * @param srcMip Which mipmap to read data from in the source texture. Default: 0
 		 * @param dstMip Which mipmap to write data to. Default: 0
+		 * 
+		 * @performance This method performs an upload to the GPU, which is primarily bandwidth-bound for typical-size textures. If the texture was recently used then this will create a light draw boundary (See `Drawable.draw()` for more info)
 		 */
 		paste(tex: Texture, x?: number, y?: number, layer?: number, dstMip?: number, srcX?: number, srcY?: number, srcLayer?: number, srcWidth?: number, srcHeight?: number, srcLayers?: number, srcMip?: number): this
 
@@ -543,6 +606,8 @@ namespace GammaInstance{
 		 * @param y Bottom edge of area to paste, in pixels. Default: 0
 		 * @param layer First layer of area to paste. Default: 0
 		 * @param dstMip Which mipmap to write data to. Default: 0
+		 * 
+		 * @performance This method performs an upload to the GPU, which is primarily bandwidth-bound for typical-size textures. Extra preprocessing may be done for certain source types (e.g <img> elements), which may be CPU-bound. It is recommended to use ImageBitmap sources where possible (with the correct options provided by Gamma.bitmapOpts), as they are GPU-ready by design. It may also cause partial pipeline stalls if following draw operations depend on the texture data but have to wait for the upload to finish, however this is mostly mitigated with modern drivers. If the texture was recently used then this will create a light draw boundary (See `Drawable.draw()` for more info)
 		 */
 		paste(img: ImageSource, x?: number, y?: number, layer?: number, dstMip?: number): Promise<this>
 
@@ -557,6 +622,8 @@ namespace GammaInstance{
 		 * @param srcWidth Width of area to copy in pixels. Defaults to the source's width
 		 * @param srcHeight Height of area to copy in pixels. Defaults to the source's height
 		 * @param dstMip Which mipmap to write data to. Default: 0
+		 * 
+		 * @performance This method performs an upload to the GPU, which is primarily bandwidth-bound for typical-size textures. It may also cause partial pipeline stalls if following draw operations depend on the texture data but have to wait for the upload to finish, however this is mostly mitigated with modern drivers. If the texture was recently used then this will create a light draw boundary (See `Drawable.draw()` for more info)
 		 */
 		paste(ctx: Drawable, x?: number, y?: number, layer?: number, dstMip?: number, srcX?: number, srcY?: number, srcWidth?: number, srcHeight?: number): this
 
@@ -568,10 +635,13 @@ namespace GammaInstance{
 		 * @param layer First layer of area to paste. Default: 0
 		 * @param width Width of area to paste in pixels. Defaults to this texture's width
 		 * @param height Height of area to paste in pixels. Defaults to this texture's height
-		 * @param layers Nnumber of layers to paste. Defaults to this texture's number of layers
+		 * @param layers Number of layers to paste. Defaults to this texture's number of layers
 		 * @param mip Which mipmap to write data to. Default: 0
 		 * 
-		 * | For format                        | Use                                | of length          |
+		 * @performance This method performs an upload to the GPU, which is primarily bandwidth-bound for typical-size textures. It may also cause partial pipeline stalls if following draw operations depend on the texture data but have to wait for the upload to finish, however this is mostly mitigated with modern drivers. If the texture was recently used then this will create a light draw boundary (See `Drawable.draw()` for more info)
+		 * 
+		 * @returns
+		 * | For format                        | Pass                               | of length          |
 		 * |-----------------------------------|------------------------------------|--------------------|
 		 * | R, RG, RGB, RGBA                  | `Uint8Array` / `Uint8ClampedArray` | `w*h*d * channels` |
 		 * | R8, RG8, RGB8, RGBA8              | `Uint8Array` / `Uint8ClampedArray` | `w*h*d * channels` |
@@ -585,7 +655,12 @@ namespace GammaInstance{
 		pasteData(data: Uint8Array | Uint8ClampedArray | Uint16Array | Uint32Array | Float16Array | Float32Array, x?: number, y?: number, layer?: number, width?: number, height?: number, layers?: number, mip?: number)
 
 		/**
-		 * Copy data from this texture to memory
+		 * Copy data from this texture to CPU memory, asynchronously.
+		 * 
+		 * This method is asynchronous due to how GPUs work: The CPU send commands to the GPU, but for performance reasons, the CPU does not wait for the GPU to finish executing those commands before moving on. This means that if we were to read data back immediately, we would have to wait for the GPU to finish all previous commands, which could be very slow. Instead, we issue a command to copy the texture data to a temporary buffer, then later, when that command has finished executing, we copy that temporary buffer to CPU memory and resolve the promise with that data. Despite this, the data is still guaranteed to be from the time readData() was called (i.e any draw operations issued after readData() will not be reflected in the data returned by the promise)
+		 * 
+		 * Note that reading from the main target (the canvas) is not possible. Instead, draw to a separate Drawable, paste it to the main target, and read from the drawable
+		 * 
 		 * @param x Left edge of area to copy from, in pixels. Default: 0
 		 * @param y Bottom edge of area to copy from, in pixels. Default: 0
 		 * @param layer First layer of area to copy from. Default: 0
@@ -593,9 +668,10 @@ namespace GammaInstance{
 		 * @param height Height of area to copy from in pixels. Defaults to this texture's height
 		 * @param layers Number of layers to copy. Defaults to this texture's number of layers
 		 * @param mip Which mipmap to read data from. Default: 0
-		 * @param data A `TypedArray` of the correct type and size (see table below). If none is passed, one is created and returned
 		 * 
-		 * | For format                        | Use                                | of length          |
+		 * @performance This method performs a download from the GPU, which is notoriously difficult to perform quickly due to the need to synchronize the CPU and GPU. The operation is primarily bandwidth-bound for typical-size textures, however there is a significant amount of overhead performed in additional copies, and the need to synchronize the CPU and GPU (e.g fences). It is recommended to avoid reading back from the GPU if it is not strictly needed, and if necessary, to read back large chunks of data infrequently (e.g once per frame) rather than small chunks frequently
+		 * 
+		 * | For format                        | A promise is returned resolving to | of length          |
 		 * |-----------------------------------|------------------------------------|--------------------|
 		 * | R, RG, RGB, RGBA                  | `Uint8Array` / `Uint8ClampedArray` | `w*h*d * channels` |
 		 * | R8, RG8, RGB8, RGBA8              | `Uint8Array` / `Uint8ClampedArray` | `w*h*d * channels` |
@@ -606,25 +682,30 @@ namespace GammaInstance{
 		 * | R16F, RG16F, RGB16F, RGBA16F      | `Uint16Array` / `Float16Array`     | `w*h*d * channels` |
 		 * | R32F, RG32F, RGB32F, RGBA32F      | `Float32Array`                     | `w*h*d * channels` |
 		 */
-		readData<T = ArrayBufferView>(x?: number, y?: number, l?: number, w?: number, h?: number, d?: number, data?: T, mip?: number): T
-		readData<T = ArrayBufferView>(x?: number, y?: number, l?: number, w?: number, h?: number, d?: number, mip: number, data?: T): T
+		readData(x?: number, y?: number, l?: number, w?: number, h?: number, d?: number, mip?: number): Promise<ArrayBufferView>
 		
 		/**
 		 * Set the range of mipmaps that can be used by this texture during drawing
 		 * @param min Lowest (highest-resolution) mipmap, inclusive, where the original texture is mipmap `0`
 		 * @param max Highest (lowest-resolution) mipmap, inclusive. Omit to set no upper bound
+		 * 
+		 * @performance This method is mostly CPU-only logic, and relatively fast. If the texture was recently used then this will create a light draw boundary (See `Drawable.draw()` for more info)
 		 */
 		setMipmapRange(min?: number, max?: number)
 		/**
 		 * Regenerate all mipmaps from the original texture (mipmap 0)
 		 * 
 		 * Note that this method has no effect on image-backed textures as their mipmaps (if present) are automatically generated on load, and the texture contents are immutable, so mipmaps never change
+		 * 
+		 * @performance This method is performed entirely on the GPU, and processes the entire texture, which is relatively slow, especially if only a small portion of the texture has changed. Consider calling this as late as possible, ideally only once you are absolutely sure you need the mipmaps and no further modifications will be done. If the texture was recently used then this will create a light draw boundary (See `Drawable.draw()` for more info)
 		 */
 		genMipmaps(): void
 
 		/**
 		 * Free the resources of this texture as soon as possible. It is invalid to use the texture object for anything beyond this point, the object should be "forgotten" and cannot be reinitialized.
 		 * Under the hood, the texture's data will be freed by the GPU once all draw operations using it have finished
+		 * 
+		 * @performance This method is relatively fast, however, consider reusing textures where possible rather than quickly creating and deleting them, as reconstruction may be expensive and older drivers might not be optimized for rapid texture freeing/allocation. If the texture was recently used then this will create a light draw boundary (See `Drawable.draw()` for more info)
 		 */
 		delete(): void
 	}
@@ -641,307 +722,695 @@ namespace GammaInstance{
 	/** See `Texture.options` */ const REPEAT_MIRRORED = 80
 
 	/**
-	 * Create a drawable context for a single layer of a texture
+	 * Create a drawable context for a single layer of a texture. Note that the subtexture layer/crop are ignored, the drawable always draws to the entire layer
+	 * 
+	 * Conceptually, a `Drawable` is an object describing where and how to draw, its methods being used to actually draw. The 'target' behind a `Drawable` can be the canvas, a texture's layer, or a multisampled buffer (see `DrawableMSAA`). Due to `Drawable`s being mainly state, the texture can be changed at any time (Exceptions: the main target, multisampled targets and stencil buffers). Multiple `Drawable`s can even point to the same texture layer
+	 * 
 	 * @param tex The texture that draw operations will write to
 	 * @param layer Which layer to draw stuff to
 	 * @param mip If the texture has mipmaps, they cannot all be modified simultaneously for performance reasons. To draw to all mipmaps, draw to mipmap 0 and then call tex.genMipmaps() once done to generate all other mipmaps from mipmap 0
 	 * @param stencil Whether to also allocate a stencil buffer for IF_SET/IF_UNSET/SET/UNSET functionality. When this parameter is false, the stencil buffer will not be allocated and will behave as if it is always 0. Default: false (for performance reasons. Set to true only when you actually need it)
+	 * 
+	 * @performance This method itself is mostly CPU-only logic (a bit more expensive if a stencil buffer is allocated). However, using many drawables, especially interlaced, will have severe performance implications. See `Drawable.draw()` for more info
 	 */
 	function Drawable(tex: Texture, layer?: number, mip?: number, stencil?: boolean): Drawable
 	/**
-	 * Create a multisampled drawable context
+	 * Create a multisampled drawable context. See `Drawable` for more info on what a drawable is
+	 * 
 	 * @param width Width of draw target, in logical pixels
 	 * @param height Height of draw target, in logical pixels
 	 * @param format Most hardware will only support RGBA8, RGB565, RGBA4 and RGB5_A1
-	 * @param msaa How many samples per logical pixel to allocate. This is a hint and the actual value may be rounded or clamped. Set to a high value like 64 to use as many as available.
+	 * @param msaa How many samples per logical pixel to allocate. This is a hint; the actual value may be rounded or clamped. Set to a high value (e.g, 256) to use as many samples as available.
 	 * @param stencil Whether to also allocate a stencil buffer for IF_SET/IF_UNSET/SET/UNSET functionality. When this parameter is false, the stencil buffer will not be allocated and will behave as if it is always 0. Default: false (for performance reasons. Set to true only when you actually need it)
+	 * 
+	 * @performance This method performs the allocation of the MSAA (and the stencil buffer if requested), which will use a lot of video memory. Drawing to a multisampled target will not perform more shader invocation but may slow down rendering due to slower rasterization (converting shapes to pixels) and greatly increased video memory access. See `Drawable`'s performance note for more info
 	 */
 	function DrawableMSAA(width: number, height: number, format: Formats, msaa: number, stencil?: boolean): Drawable
 
-	// .mask
-	const R = 1, G = 2, B = 4, A = 8, RGB = 7, RGBA = 15
-	const IF_SET = 16, IF_UNSET = 32, NO_DRAW = 48,
-	const UNSET = 64, SET = 128, FLIP = 192
+	interface Drawable{
+		/** The backing target's whole width in pixels */
+		readonly width: number
+		/** The backing target's whole height in pixels */
+		readonly height: number
+		/**
+		 * The backing target, if it is a texture, or null if it is the main canvas or an MSAA buffer. This value can be changed if and only if it is a texture. Note that if it is changed and the new texture has a different size then the stencil buffer will be resized which may result in some unusual artifacts.
+		 * @performance Changing this value may create a heavy draw boundary if it causes a draw target change (See `Drawable.draw()` for more info). Additionally, changing the dimensions of the target (by changing to a texture of a different size) may be relatively expensive as the stencil buffer (if present) will have to be reallocated and resampled
+		 */
+		texture: Texture | null
+		/**
+		 * Whether this drawable has a stencil buffer, allowing for IF_SET/IF_UNSET/SET/UNSET functionality. This value can be changed for all drawables except the main target
+		 * @performance Changing this value may create a heavy draw boundary if it causes a draw target change (See `Drawable.draw()` for more info). Allocating a stencil buffer may be slightly expensive for large targets, removing it is relatively fast
+		 */
+		hasStencil: boolean
+		/**
+		 * Which layer of the texture to draw to. This value can be changed if and only if it is a texture. Otherwise, it is always 0
+		 * @performance Changing this value may create a heavy draw boundary if it causes a draw target change (See `Drawable.draw()` for more info).
+		 */
+		textureLayer: number
+		/**
+		 * Which mipmap of the texture to draw to (typically 0). This value can be changed if and only if it is a texture. Otherwise, it is always 0
+		 * @performance Changing this value may create a heavy draw boundary if it causes a draw target change (See `Drawable.draw()` for more info).
+		 */
+		textureMipmap: number
 
+		/**
+		 * Translate (move) all following draw operations, x+ corresponds to right and y+ corresponds to up
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		translate(x: number, y: number): void
+		/**
+		 * Scale all following draw operations, x+ corresponds to right and y+ corresponds to up
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		scale(x: number, y = x): void
+		/**
+		 * Rotate all following draw operations, clockwise (or negative for anticlockwise)
+		 * @performance This method is CPU-arithmetic, fast and usually inlined, however it uses `sin()` and `cos()`
+		 */
+		rotate(by: number): void
+		/**
+		 * Apply a custom transformation matrix to all following draw operations. The matrix is specified by the values a,b,c,d,e,f corresponding to the 2D affine transformation matrix:
+		 * ```
+		 * | a c e |
+		 * | b d f |
+		 * | 0 0 1 |
+		 * ```
+		 * 
+		 * This matrix transforms points `(x, y)` to `(a*x + c*y + e, b*x + d*y + f)`
+		 * Note that this method premultiplies the current transformation matrix by the provided one. In other words, the provided transform is applied before the current transform. This is the same convention as OpenGL and Canvas2D, but opposite to CSS and SVG
+		 * 
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		transform(a: number, b: number, c: number, d: number, e: number, f: number): void
+		/**
+		 * Skew all following draw operations by the ratios x and y
+		 * 
+		 * A square drawn at `(0, 0)` with size `(1, 1)` after the transform would be a parallelogram with corners at `(0, 0)`, `(1, y)`, `(x, 1)` and `(x+1, y+1)`
+		 * 
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		skew(x: number, y: number): void
+		/**
+		 * Simultaneously scales uniformly and rotates. Faster than calling scale() and rotate() separately
+		 * Essentially moves the basis vector `(1, 0)` to `(x, y)` without squishing or translating, much like a mathematical complex multiplication, `(x + yi) * (r, i)`
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		multiply(r: number, i: number): void
+		/**
+		 * Get the current transformation matrix as an object with properties `a,b,c,d,e,f` corresponding to the 2D affine transformation matrix:
+		 * ```
+		 * | a c e |
+		 * | b d f |
+		 * | 0 0 1 |
+		 * ```
+		 * 
+		 * This matrix transforms points `(x, y)` to `(a*x + c*y + e, b*x + d*y + f)`
+		 * 
+		 * After-transform points `(0, 0)` and `(1,1)` represent the bottom-left and top-right corners of the drawable target respectively
+		 * 
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		getTransform(): {a: number, b: number, c: number, d: number, e: number, f: number}
+		/**
+		 * Reset the transformation matrix to the identity matrix, or to one defined by the transform values a,b,c,d,e,f respectively
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		reset(a = 1, b = 0, c = 0, d = 1, e = 0, f = 0): void
+		/**
+		 * Simultaneous translates and scales such that the new origin is at `(x, y)` with basis vectors (w,0) and (0,h). A square drawn at `(0, 0)` with size `(1, 1)` after the transform would be drawn at `(x, y)` with size `(w, h)`
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		box(x: number, y: number, w = 1, h = w): void
+		/**
+		 * Transform a point `(x, y)` by the current transformation matrix, returning the transformed point as an object `{x, y}`
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		to(x: number, y: number): vec2
+		to(xy: vec2): vec2
+		/**
+		 * Inverse-transform a point `(x, y)` by the current transformation matrix, returning the original point as an object `{x, y}`
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined, however it involves a division
+		 */
+		from(x: number, y: number): vec2
+		from(xy: vec2): vec2
+		/**
+		 * Transform a delta `(dx,dy)` by the current transformation matrix, returning the transformed delta as an object `{x, y}`. Unlike `to()`, this does not apply translation, only scale/rotation/skew
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		toDelta(dx: number, dy: number): vec2
+		toDelta(dxy: vec2): vec2
+		/**
+		 * Inverse-transform a delta `(dx,dy)` by the current transformation matrix, returning the original delta as an object `{x, y}`. Unlike `from()`, this does not apply translation, only scale/rotation/skew
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		fromDelta(dx: number, dy: number): vec2
+		fromDelta(dxy: vec2): vec2
+		/**
+		 * The determinant of the current transformation matrix. This is the signed area scaling factor of the transform
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		determinant(): number
+		/**
+		 * The pixel ratio of the current transformation matrix. This is the geometric mean of the absolute values of the eigenvalues, or, in other words, sqrt(determinant), multiplied by the drawable's width and height. It can be used to determine appropriate mipmap levels for textures, and represents how many pixels one unit in the current transform space corresponds to on average on the draw target
+		 * @performance This method is CPU-arithmetic, fast and usually inlined, however it uses a square root.
+		 */
+		pixelRatio(): number
+		/**
+		 * Create a subdrawable, which points to the same target, stencil buffer, etc... as this one, much like `Texture.sub()`, however it keeps its own state such as transform, blend, mask, shader, geometry, making it ideal for passing to other functions that may modify their drawable context arbitrarily without us needing to revert it afterwards
+		 * @performance This method is CPU-logic, fast and usually inlined.
+		 **/
+		sub(): Drawable
+		/**
+		 * Reset all subdrawable state (transform, shader, blend, mask, geometry) to match another drawable
+		 * @param ctx The drawable to copy state from
+		 * @performance This method is CPU-logic, very fast and usually inlined
+		 */
+		resetTo(ctx: Drawable): void
 
-	// Blend
-	const ONE = 17, ZERO = 0, RGB_ONE = 1, A_ONE = 16,
-	SRC = 34, RGB_SRC = 2,
-	ONE_MINUS_SRC = 51,
-	RGB_ONE_MINUS_SRC = 3,
-	SRC_ALPHA = 68,
-	RGB_SRC_ALPHA = 4,
-	A_SRC = 64,
-	ONE_MINUS_SRC_ALPHA = 85,
-	RGB_ONE_MINUS_SRC_ALPHA = 5,
-	A_ONE_MINUS_SRC = 80,
-	DST = 136, RGB_DST = 8,
-	ONE_MINUS_DST = 153,
-	RGB_ONE_MINUS_DST = 9,
-	DST_ALPHA = 102,
-	RGB_DST_ALPHA = 6,
-	A_DST = 96,
-	ONE_MINUS_DST_ALPHA = 119,
-	RGB_ONE_MINUS_DST_ALPHA = 7,
-	A_ONE_MINUS_DST = 112,
-	SRC_ALPHA_SATURATE = 170,
-	RGB_SRC_ALPHA_SATURATE = 10,
-	ADD = 17, RGB_ADD = 1, A_ADD = 16,
-	SUB = 85,
-	RGB_SUB = 5,
-	A_SUB = 80,
-	SUB_REV = 102,
-	RGB_SUB_REV = 6,
-	A_SUB_REV = 96,
-	MIN = 34, RGB_MIN = 2, A_MIN = 32,
-	MAX = 51, RGB_MAX = 3, A_MAX = 48
-	// Shader params
-	const FLOAT = 0, VEC2 = 1, VEC3 = 2, VEC4 = 3,
-	INT = 16, IVEC2 = 17, IVEC3 = 18, IVEC4 = 19,
-	UINT = 32, UVEC2 = 33, UVEC3 = 34, UVEC4 = 35,
-	TEXTURE = 20, UTEXTURE = 24, FTEXTURE = 28, COLOR = 4, UCOLOR = 8, FCOLOR = 12,
-	FIXED = 4
-	// Geometry types
-	const TRIANGLE_STRIP = 5, TRIANGLES = 4, TRIANGLE_FAN = 6, LINE_LOOP = 2, LINE_STRIP = 3, LINES = 1, POINTS = 0
+		/**
+		 * The shader to be used by all drawing operations. See `Shader()` for more info on custom shaders. Can be also set to `null` to use `Shader.DEFAULT`, however reading the property never returns null
+		 * @performance Changing this value will create a medium draw boundary (See `Drawable.draw()` for more info)
+		*/
+		shader: Shader
+		/**
+		 * Drawing masks. This is a bitmask with any the following:
+		 * - `R` (1): Enable writing to the red channel
+		 * - `G` (2): Enable writing to the green channel
+		 * - `B` (4): Enable writing to the blue channel
+		 * - `A` (8): Enable writing to the alpha channel
+		 * - `RGB` (7): Enable writing to all color channels except alpha
+		 * - `RGBA` (15): Enable writing to all color channels
+		 * - `IF_SET` (16): Only draw if the stencil value is one
+		 * - `IF_UNSET` (32): Only draw if the stencil value is zero
+		 * - `SET` (128): Set the stencil value to one where drawing would occur. The value is updated even if IF_SET/IF_UNSET prevent drawing. However, a `discard` in the shader will prevent the update
+		 * - `UNSET` (64): Set the stencil value to zero where drawing would occur. The value is updated even if IF_SET/IF_UNSET prevent drawing. However, a `discard` in the shader will prevent the update
+		 * - `FLIP` (192): Flip the stencil value (0 becomes 1, 1 becomes 0) where drawing would occur. The value is updated even if IF_SET/IF_UNSET prevent drawing. However, a `discard` in the shader will prevent the update
+		 * - `NEVER` (48): Never draw (equivalent to `IF_SET | IF_UNSET`). Useful for updating the stencil buffer without drawing anything
+		 * 
+		 * Note that the stencil operations (IF_SET/IF_UNSET/SET/UNSET/FLIP) only have an effect if the drawable has a stencil buffer (i.e was created with the `stencil` parameter set to true, or had its `hasStencil` property set to true). Otherwise, the stencil value is always treated as 0 and no operations are performed
+		 * 
+		 * By default, all color channels are enabled and no stencil operations are performed (`R | G | B | A`)
+		 * 
+		 * If you need continuous stencil values rather than just 0 and 1 (e.g nice antialiased borders), consider making use of the alpha channel with blend modes to achieve similar effects.
+		 * @performance Changing this value will create a light draw boundary (See `Drawable.draw()` for more info)
+		 */
+		mask: number
+		/**
+		 * The blending mode to be used by all drawing operations. See `Blend` for more info on blending modes. Can be also set to `0` to use `Blend.DEFAULT`, however reading the property never returns 0
+		 * @performance Changing this value will create a light draw boundary (See `Drawable.draw()` for more info)
+		 */
+		blend: Blend
+		/**
+		 * The geometry to be used by all drawing operations. See `Geometry()` for more info on custom sprite geometries. Can be also set to `null` to use `Geometry.DEFAULT`, however reading the property never returns null
+		 * @performance Changing this value will create a light-to-medium draw boundary (See `Drawable.draw()` for more info)
+		 */
+		geometry: Geometry
+		/**
+		 * Draw a sprite at (0,0) to (1,1)
+		 * @param values Values, as required by the shader currently in use (See `Drawable.shader`, `Shader()` and `Shader.DEFAULT`)
+		 * 
+		 * @performance The `draw*()` family of calls is possibly the hardest to grasp performance for. This is due to the fact that many other operations are actually deferred until the next `draw()` call for performance. In addition to this, many `draw()` calls are coalesced to improve performance. This technique is absolutely fundamental to performant rendering. Whenever some other operation or state change forces `draw()` calls to not be coalesced, we call this a _draw boundary_. Examples of operations that create draw boundaries include:
+		 * - Swapping shader
+		 * - Drawing to a different draw target
+		 * - Writing to a texture that was recently used
+		 * - Using a lot of distinct textures
+		 * - Etc...
+		 * Otherwise, coalesced draw calls will ultimately all be drawn with the same `glDrawArraysInstanced()` call (or similar).
+		 * 
+		 * The type of draw boundary can also affect performance. For example, a 'light' draw boundary caused by changing the blend mode might cost the equivalent of a couple of draw() calls, while one caused by changing draw target (a 'heavy' draw boundary) might cost several dozen or even hundred times more.
+		 * 
+		 * There is also CPU overhead to consider. Javascript can be well-optimized and the implementation for `draw()` is optimized to the brink of my insanity including code-generation (DO NOT LOOK IN THE SOURCE CODE IT IS ABSOLUTELY MINDF*CK GET ME OUT OF HERE PLEASE HELP) however only so much can be done, and a portion is left to you to not make silly decisions that undo any efforts the library may try to make. The function is optimized to receive statically-typed arguments (e.g not passing a vec4 to a vec2, a string to a number, or passing too many arguments). In favorable conditions, `draw` will be inlined and reduced to a dynamic call to a private method of the shader, used to pack the passed values into an internal buffer.
+		 * 
+		 * Benchmarks and citations may be added later if I have not `git commit -m suicide` by then
+		 */
+		draw(...values): void
+		/**
+		 * Draw a sprite at `(x, y)` with size `(w, h)`
+		 * @param values Values, as required by the shader currently in use (See `Drawable.shader`, `Shader()` and `Shader.DEFAULT`)
+		 * 
+		 * @performance See `Drawable.draw()` for more info
+		 */
+		drawRect(x: number, y: number, w: number, h: number, ...values): void
+		/**
+		 * Draw a sprite within a parallelogram defined by a matrix
+		 * 
+		 * Bottom at `(e, f)` with bottom edge defined by the vector `(a, b)` and left edge defined by `(c, d)`
+		 * @param values Values, as required by the shader currently in use (See `Drawable.shader`, `Shader()` and `Shader.DEFAULT`)
+		 * 
+		 * @performance See `Drawable.draw()` for more info
+		 */
+		drawMat(a: number, b: number, c: number, d: number, e: number, f: number, ...values): void
+		/**
+		 * Draw a sprite at (0,0) to (1,1)
+		 * @param values Values, as required by the shader currently in use (See `Drawable.shader`, `Shader()` and `Shader.DEFAULT`)
+		 * 
+		 * This version of draw() expects an array rather than spread parameters
+		 * @performance See `Drawable.draw()` for more info
+		 */
+		drawv(values): void
+		/**
+		 * Draw a sprite at `(x, y)` with size `(w, h)`
+		 * @param values Values, as required by the shader currently in use (See `Drawable.shader`, `Shader()` and `Shader.DEFAULT`)
+		 * 
+		 * This version of drawRect() expects an array rather than spread parameters
+		 * @performance See `Drawable.draw()` for more info
+		 */
+		drawRectv(x: number, y: number, w: number, h: number, values): void
+		/**
+		 * Draw a sprite within a parallelogram defined by a matrix
+		 * 
+		 * Bottom at `(e, f)` with bottom edge defined by the vector `(a, b)` and left edge defined by `(c, d)`
+		 * @param values Values, as required by the shader currently in use (See `Drawable.shader`, `Shader()` and `Shader.DEFAULT`)
+		 * 
+		 * This version of drawMat() expects an array rather than spread parameters
+		 * @performance See `Drawable.draw()` for more info
+		 */
+		drawMatv(a: number, b: number, c: number, d: number, e: number, f: number, values): void
+		/**
+		 * Draw a sprite at (0,0) to (1,1)
+		 * The shader values will be copied from the previous draw call, even if that call did not come from this `Drawable` object
+		 * 
+		 * This version of draw() is designed for performance in hot loops where the values don't / rarely change
+		 * @performance See `Drawable.draw()` for more info
+		 */
+		dup(): void
+		/**
+		 * Draw a sprite at `(x, y)` with size `(w, h)`
+		 * @param values Values, as required by the shader currently in use (See `Drawable.shader`, `Shader()` and `Shader.DEFAULT`)
+		 * 
+		 * This version of drawRect() is designed for performance in hot loops where the values don't / rarely change
+		 * @performance See `Drawable.draw()` for more info
+		 */
+		dupRect(x: number, y: number, w: number, h: number, i): void
+		/**
+		 * Draw a sprite within a parallelogram defined by a matrix
+		 * 
+		 * Bottom at `(e, f)` with bottom edge defined by the vector `(a, b)` and left edge defined by `(c, d)`
+		 * @param values Values, as required by the shader currently in use (See `Drawable.shader`, `Shader()` and `Shader.DEFAULT`)
+		 * 
+		 * This version of drawRect() is designed for performance in hot loops where the values don't / rarely change
+		 * @performance See `Drawable.draw()` for more info
+		 */
+		dupMat(a: number, b: number, c: number, d: number, e: number, f: number, i): void
+		/**
+		 * Clear the whole draw target to a solid color
+		 * 
+		 * @performance Will create a light draw boundary (See `Drawable.draw()` for more info)
+		 */
+		clear(r: number, g : number, b : number, a: number): void
+		clear(r: vec4): void
+		/**
+		 * Clear the whole stencil buffer to 0
+		 * 
+		 * @performance Will create a light draw boundary (See `Drawable.draw()` for more info). Well-optimized, under the hood, all 8 bits of the stencil buffer are used. "Clearing" the stencil buffer will simply switch to another bit, until all 8 bits have been used up, at which point the buffer is actually cleared, this operation is often times cheaper than attempting to clear only a portion of the stencil buffer with a `draw*()` call, however, benchmark your specific case if you are unsure.
+		 */
+		clearStencil(): void
+	}
+	/** See `Drawable.mask` */ const R = 1
+	/** See `Drawable.mask` */ const G = 2
+	/** See `Drawable.mask` */ const B = 4
+	/** See `Drawable.mask` */ const A = 8
+	/** See `Drawable.mask` */ const RGB = 7
+	/** See `Drawable.mask` */ const RGBA = 15
+	/** See `Drawable.mask` */ const IF_SET = 16
+	/** See `Drawable.mask` */ const IF_UNSET = 32
+	/** See `Drawable.mask` */ const NEVER = 48
+	/** See `Drawable.mask` */ const UNSET = 64
+	/** See `Drawable.mask` */ const SET = 128
+	/** See `Drawable.mask` */ const FLIP = 192
 
-	function vec2(x?: number, y?: number): {x: number, y: number}
-	function vec3(x?: number, y?: number, z?: number): {x: number, y: number, z: number}
-	function vec4(x?: number, y?: number, z?: number, w?: number): {x: number, y: number, z: number, w: number}
+	type Blend = number
+	/**
+	 * Construct a blend mode OpenGL-style
+	 * 
+	 * All colors are expected to be premultiplied by their alpha channel, by convention
+	 * @param sfac The source factor (`sfac`)
+	 * @param combine The combine operation
+	 * @param dfac The destination factor
+	 * 
+	 * When blending a drawn color (`src`) with the existing canvas content (`dst`) the following formula is used
+	 * 
+	 * `new_dst = src*sfac <combine> dst*dfac`
+	 * 
+	 * `sfac` and `dfac` can be
+	 * - `SRC` (`src`)
+	 * - `SRC_ALPHA` (`src.a`)
+	 * - `ONE_MINUS_SRC` (`(1-src)`)
+	 * - `ONE_MINUS_SRC_ALPHA` (`(1-src.a)`)
+	 * - `DST` (`dst`)
+	 * - `DST_ALPHA` (`dst.a`)
+	 * - `ONE_MINUS_DST` (`(1-dst)`)
+	 * - `ONE_MINUS_DST_ALPHA` (`(1-dst.a)`)
+	 * - `ONE` (`1`)
+	 * - `ZERO` (`0`)
+	 * 
+	 * `combine` can be
+	 * - `ADD` (s + d)
+	 * - `SUB` (s - d)
+	 * - `SUB_REV` (d - s, note the operands swapped)
+	 * - `MIN` (min(s,d))
+	 * - `MAX` (max(s,d))
+	 * 
+	 * Any of these values can be mixed to apply different rules for rgb values as for alpha values, for example, `RGB_ADD | A_MAX` will apply `ADD` to rgb channels and `MAX` to the alpha channel, and `RGB_SRC_ALPHA | ZERO` will use `SRC_ALPHA` for rgb and `ZERO` for alpha. Note that there are no `RGB_ZERO` or `A_ZERO` as these are just `ZERO` (even that can be omitted altogether as it is `== 0`)
+	 * 
+	 * @param alphaToCoverage Use the alpha value in conjunction with MSAA draw targets to simulate higher fidelity blending. Only a portion of the per-pixel samples are written, depending on the source's alpha. Note that when using this you should not provide premultiplied source, nor multiply the destination by `ONE_MINUS_SRC_ALPHA`.
+	 * @performance This function is pure arithmetic and often even constant-folded
+	 */
+	function Blend(sfac: number, combine: number, dfac: number, alphaToCoverage = false): Blend
 
-class can{
-	t;#a;#b;#c;#d;#e;#f;#m;#shader;s
-	get width(){return this.t.w}
-	get height(){return this.t.h}
-	get texture(){return this.t.img}
-	set texture(i){
-		const t = this.t
-		if(!t.img||!i) return
-		if(ca==t) i&&draw(), ca=null
-		t.img = i
+	/** See `Blend()` */ const ONE = 17
+	/** See `Blend()` */ const ZERO = 0
+	/** See `Blend()` */ const RGB_ONE = 1
+	/** See `Blend()` */ const A_ONE = 16
+	/** See `Blend()` */ const SRC = 34
+	/** See `Blend()` */ const RGB_SRC = 2
+	/** See `Blend()` */ const ONE_MINUS_SRC = 51
+	/** See `Blend()` */ const RGB_ONE_MINUS_SRC = 3
+	/** See `Blend()` */ const SRC_ALPHA = 68
+	/** See `Blend()` */ const RGB_SRC_ALPHA = 4
+	/** See `Blend()` */ const A_SRC = 64
+	/** See `Blend()` */ const ONE_MINUS_SRC_ALPHA = 85
+	/** See `Blend()` */ const RGB_ONE_MINUS_SRC_ALPHA = 5
+	/** See `Blend()` */ const A_ONE_MINUS_SRC = 80
+	/** See `Blend()` */ const DST = 136
+	/** See `Blend()` */ const RGB_DST = 8
+	/** See `Blend()` */ const ONE_MINUS_DST = 153
+	/** See `Blend()` */ const RGB_ONE_MINUS_DST = 9
+	/** See `Blend()` */ const DST_ALPHA = 102
+	/** See `Blend()` */ const RGB_DST_ALPHA = 6
+	/** See `Blend()` */ const A_DST = 96
+	/** See `Blend()` */ const ONE_MINUS_DST_ALPHA = 119
+	/** See `Blend()` */ const RGB_ONE_MINUS_DST_ALPHA = 7
+	/** See `Blend()` */ const A_ONE_MINUS_DST = 112
+	/** See `Blend()` */ const SRC_ALPHA_SATURATE = 170
+	/** See `Blend()` */ const RGB_SRC_ALPHA_SATURATE = 10
+	/** See `Blend()` */ const ADD = 17
+	/** See `Blend()` */ const RGB_ADD = 1
+	/** See `Blend()` */ const A_ADD = 16
+	/** See `Blend()` */ const SUB = 85
+	/** See `Blend()` */ const RGB_SUB = 5
+	/** See `Blend()` */ const A_SUB = 80
+	/** See `Blend()` */ const SUB_REV = 102
+	/** See `Blend()` */ const RGB_SUB_REV = 6
+	/** See `Blend()` */ const A_SUB_REV = 96
+	/** See `Blend()` */ const MIN = 34
+	/** See `Blend()` */ const RGB_MIN = 2
+	/** See `Blend()` */ const A_MIN = 32
+	/** See `Blend()` */ const MAX = 51
+	/** See `Blend()` */ const RGB_MAX = 3
+	/** See `Blend()` */ const A_MAX = 48
+
+	namespace Blend{
+		/** All new content completely replaces old content, including the alpha channel */
+		const REPLACE: Blend
+		/** The default blend mode which composites new on top of old using new's alpha channel */
+		const DEFAULT: Blend
+		/** Similar to `Blend.DEFAULT` but old is composited on top of new, using old's blend mode. The new content appears to be "behind" the old content. Requires the target to have an alpha channel, unlike `Blend.DEFAULT` */
+		const BEHIND: Blend
+		/** Additive blending. This appears to make the content lighter, like additive mixing (e.g light). The source's alpha channel is ignored */
+		const ADD: Blend
+		/* Classic multiply blending, also known as tinting, which also multiplies alpha channel, producing a "intersection" effect, where only areas where both old and new are opaque remain opaque. If this is not what you want, see `Blend.MULTIPLY_MIX` */
+		const MULTIPLY: Blend
+		/** "Intuitive" multiply blending, also known as tinting. Where the source alpha is zero, the destination remains unchanged, which may be preferable to the more classic `Blend.MULTIPLY` */
+		const MULTIPLY_MIX: Blend
+		/** Subtract blending. This appears to make the content darker. The source's alpha channel is ignored */
+		const SUBTRACT: Blend
+		/** Subtract blending. Like `Blend.SUBTRACT` but with source and destination swapped. The destination's alpha channel is preserved */
+		const REVERSE_SUBTRACT: Blend
+		/* For each channel, the smallest value is kept (this includes the alpha channel). This can be used to make the content darker in only some places, to a set value */
+		const MIN: Blend
+		/* For each channel, the largest value is kept (this includes the alpha channel). This can be used to make the content lighter in only some places, to a set value */
+		const MAX: Blend
+		/**
+		 * Invert the destination's contents. For each channel, the destination becomes a mix between `dst` and `1-dst` based on `src`
+		 * | Source (src) | Destination (dst) |
+		 * | ------------ | ----------------- |
+		 * | `0.00`       | `dst`             |
+		 * | `0.25`       | `0.25 + 0.5*dst`  |
+		 * | `0.50`       | `0.5`             |
+		 * | `0.75`       | `0.75 - 0.5*dst`  |
+		 * | `1.00`       | `1 - dst`         |
+		 * 
+		 * This includes the alpha channel. It may be wise to set the source alpha to `0` if you want it unchanged, or create your own blending mode.
+		 */
+		const INVERT: Blend
 	}
-	get hasStencil(){return !this.t.img||!!this.t.stencilBuf}
-	set hasStencil(s){
-		let t = this.t, b = t.stencilBuf
-		if(!t.img) return
-		if(s){
-			if(b) return
-			if(ca==t) i&&draw(), ca=null
-			gl.bindRenderbuffer(gl.RENDERBUFFER, t.stencilBuf = b = gl.createRenderbuffer())
-			gl.renderbufferStorage(gl.RENDERBUFFER, 36168, t.w, t.h)
-		}else{
-			if(!b) return
-			if(ca==t) i&&draw(), ca=null
-			t.stencilBuf = null
-			gl.deleteRenderbuffer(b)
-		}
+
+	/**
+	 * Construct a geometry.
+	 * 
+	 * By default (the default geometry), a sprite drawn in a box at `(x, y)` and size `(w, h)` will take the shape of a square (i.e from `(x, y)` to `(x+w, y)` to `(x, y+h)` to `(x+w, y+h)`), however, this can be changed with geometries.
+	 * 
+	 * Geometries are created in the same way as meshes using lower level graphics APIs. You provide a list of vertices (points), and a method of connecting them to draw triangles (or lines/points). Quads do not exist, but can be made of 2 triangles
+	 * @param type The primitive type, which determines how to connect vertices (points). Can be one of
+	 * - `POINTS` Do not connect the vertices, and instead draw them as 1-pixel points
+	 * - `LINES` Connect each standalone pair of vertices by a 1-pixel-wide line (i.e vertices are connected like 0-1 2-3 4-5 with gaps between pairs)
+	 * - `LINE_STRIP` Connect all adjacent vertices by a 1-pixel-wide line (i.e vertices are connected like 0-1-2-3-4-5 with no gaps between pairs)
+	 * * - `LINE_LOOP` Connect all adjacent vertices by a 1-pixel-wide line (i.e vertices are connected like 0-1-2-3-4-5 with no gaps between pairs), and also connect the last vertex to the first, to close the loop
+	 * - `TRIANGLES` Connect all triplets of vertices into a triangle (i.e vertices are connected like 0-1-2 3-4-5 6-7-8 with gaps between triplets)
+	 * - `TRIANGLE_STRIP` Connect all 3 adjacent vertices into a triangle (i.e triangles are made from 0-1-2, 1-2-3, 2-3-4, 3-4-5, ...). This means every new vertex after the second forms a new triangle along with the previous 2 vertices
+	 * - `TRIANGLE_FAN` Connect all 2 adjacent vertices with the first one in the list (i.e triangles are made from 0-1-2, 0-2-3, 0-3-4, 0-4-5, ...) This makes a 'fan'-like shape when the first point is placed in the center and all other points in a circle around it, hence the name
+	 * @param vertices An array of vertices (points), in the format `[x, y, uvx, uvy, x, y, uvx, uvy, ...]` (four elements define one point). uvx/uvy are passed to the shader and used to calculate where to sample from textures, or how to shade certain features (a simple geometry will use the same values for x/y as uvx/uvy). Default geometry uses both x/y and uvx/uvy values within (0,0) to (1,1), and so does the `draw*()` family of functions, therefore you should center your geometry around that range in order to make it intuitive to use
+	 */
+	function Geometry(type: number, vertices: Float32Array | number[]): Geometry
+	interface Geometry{
+		/** Primitive type, see `Geometry()` */
+		type: number
+		/** Start vertex index of subgeometry (see `Geometry.sub()`) */
+		start: number
+		/** Length in vertices of geometry/subgeometry */
+		length: number
+		/**
+		 * Create a subgeometry, i.e a geometry containing only a subset of the points of this geometry, optionally with a different type
+		 * @performance This method is CPU-arithmetic, very fast. Using many subgeometries of the same geometry is also faster than using many different geometries. For many related geometries, consider building one large geometry and taking subgeometries of it.
+		 */
+		sub(start = 0, length?: number, type?: number): Geometry
 	}
-	get textureLayer(){return this.t.layer}
-	get textureMipmap(){return this.t.mip}
-	set textureLayer(l=0){
-		if(ca==t) i&&draw(), ca=null
-		this.t.layer = l
+	namespace Geometry{
+		/** The default geometry, constructing a square from (0,0) to (1,1), with corresponding uv values */
+		const DEFAULT = Geometry(TRIANGLE_STRIP, [0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1])
 	}
-	set textureMipmap(m=0){
-		if(ca==t) i&&draw(), ca=null
-		this.t.mip = m
+	/** See `Geometry()` */ const TRIANGLE_STRIP = 5
+	/** See `Geometry()` */ const TRIANGLES = 4
+	/** See `Geometry()` */ const TRIANGLE_FAN = 6
+	/** See `Geometry()` */ const LINE_LOOP = 2
+	/** See `Geometry()` */ const LINE_STRIP = 3
+	/** See `Geometry()` */ const LINES = 1
+	/** See `Geometry()` */ const POINTS = 0
+
+	/**
+	 * Construct a shader using GLSL
+	 * 
+	 * Virtually anything you need to know about GLSL can be found online (or by asking an LLM). Here, we will just focus on things that are done differently or new
+	 * 
+	 * @param inputs Shader sprite inputs. These can be any of
+	 * - `FLOAT` A number interpreted and passed to the shader as a single-precision float
+	 * - `VEC2`/`VEC3`/`VEC4` An object in the shape of `{x, y}`/`{x, y, z}`/`{x, y, z, w}` interpreted and passed to the shader as single-precision floats
+	 * - `INT` A number interpreted and passed to the shader as a 32 bit signed integer
+	 * - `IVEC2`/`IVEC3`/`IVEC4` An object in the shape of `{x, y}`/`{x, y, z}`/`{x, y, z, w}` interpreted and passed to the shader as 32 bit signed integers
+	 * - `UINT` A number interpreted and passed to the shader as a 32 bit unsigned integer
+	 * - `UVEC2`/`UVEC3`/`UVEC4` An object in the shape of `{x, y}`/`{x, y, z}`/`{x, y, z, w}` interpreted and passed to the shader as 32 bit unsigned integers
+	 * - `TEXTURE` A texture object of a float format. Subtexture crop/layer ignored. Read below for how to use these.
+	 * - `FTEXTURE` A texture object of a high-precision floating point format (16F / 32F). Subtexture crop/layer ignored. Read below for how to use these.
+	 * - `UTEXTURE` A texture object of integer format. Subtexture crop/layer ignored. Read below for how to use these.
+	 * - `COLOR` A texture or flat color of a float format. Texture comes presampled in the shader (sample position is decided on the CPU side by subtexture crop/layer). Read below for how to use these.
+	 * - `FCOLOR` A texture or flat color of a high-precision floating point format. Texture comes presampled in the shader (sample position is decided on the CPU side by subtexture crop/layer). Read below for how to use these.
+	 * - `UCOLOR` A texture or flat color of an integer format. Texture comes presampled in the shader (sample position is decided on the CPU side by subtexture crop/layer). Read below for how to use these.
+	 * @param defaults The default values for the inputs. If not provided, a suitable `0`-like default is used (`TEXTURE`/`FTEXTURE`/`UTEXTURE` cannot have a default value)
+	 * @param uniforms Shader uniforms (config). These have the same possible values as `inputs`
+	 * @param uDefaults The default values for the uniforms. If not provided, a suitable `0`-like default is used (`TEXTURE`/`FTEXTURE`/`UTEXTURE` cannot have a default value)
+	 * @param output The type of output for this shader. Can be
+	 * - `UINT` to make this shader only for rendering to integer targets
+	 * - `FIXED` (normal value)
+	 * - `FLOAT` for high precision targets (16F / 32F). This exists because `FIXED` will try to use the lowest precision available (`lowp`, for performance reasons), which may be insufficient for some use cases
+	 * @param intFrac Optionally give a hint as to the bias towards integer or float textures. For example, if your shader uses one float and one int texture, but the int texture tends to stay the same while the float texture changes often, set this to `1` to indicate that you will use more float textures. Out of the 16 available texture slots, 15 will then be allocated for float textures, as opposed to 8 by default (when `intFrac == 0.5`), which will slightly increase performance.
+	 * 
+	 * Note that you cannot use more than 16 different texture parameters in a single shader (across both `inputs` and `uniforms`), and that the number of inputs is also individually limited (don't go crazy and if you do run out, consider combining multiple `FLOAT`s to a `VEC2`/`VEC3`/`VEC4`, etc...)
+	 * 
+	 * ## Additions to GLSL
+	 * 
+	 * The following functions have been added to GLSL to interface with the rest of Gamma
+	 * ```glsl
+	 * #version 300 es
+	 * precision mediump float;
+	 * precision highp int;
+	 * // tex2DArray can be a `TEXTURE` or `FTEXTURE`
+	 * // uTex2DArray is `UTEXTURE`
+	 * // Both are in fact `int`s
+	 * 
+	 * // Similar to texture(): Sampling based on the texture's options and GPU hardware
+	 * // The uv contains x/y coordinates between 0 and 1 and the layer as the third component
+	 * // Unlike GLSL ES's texture(), the texture provided can be dynamic since it is backed by an `int`
+	 * lowp vec4 getColor(tex2DArray texture, vec3 uv);
+	 * highp vec4 fGetColor(tex2DArray tex, vec3 uv);
+	 * uvec4 uGetColor(uTex2DArray tex, vec3 uv);
+	 * 
+	 * // Similar to texelFetch: takes integer coordinates and does no filtering/wrapping
+	 * // Unlike GLSL ES's texelFetch(), the texture provided can be dynamic since it is backed by an `int`
+	 * lowp vec4 getPixel(tex2DArray texture, ivec3 pos, int mip);
+	 * highp vec4 fGetPixel(tex2DArray texture, ivec3 pos, int mip);
+	 * uvec4 uGetPixel(uTex2DArray texture, ivec3 pos, int mip);
+	 * 
+	 * // Similar to textureSize
+	 * // Unlike GLSL ES's textureSize(), the texture provided can be dynamic since it is backed by an `int`
+	 * ivec3 getSize(tex2DArray texture, int mip);
+	 * ivec3 getSize(uTex2DArray texture, int mip);
+	 * 
+	 * // The arguments and uniforms specified at the shader's creation
+	 * in auto arg0, arg1, arg2, ...;
+	 * uniform auto uni0, uni1, uni2, ...;
+	 * 
+	 * // The color to output (can be lowp vec4, highp vec4 or uvec4, specified by the `output` parameter at the shader's creation)
+	 * out auto col;
+	 * 
+	 * // uv, usually in the range (0,0) to (1,1) but is specified by the current Geometry in use (see `Geometry()`)
+	 * in vec2 uv;
+	 * // Actual position of fragment relative to sprite, usually in the range (0,0) to (1,1) but is specified by the current Geometry in use (see `Geometry()`)
+	 * in vec2 xy;
+	 * 
+	 * // `COLOR`/`FCOLOR`/`UCOLOR`s are used by calling them, e.g
+	 * void main(){
+	 *     // Assuming arg0 is a `COLOR`
+	 *     col = arg0();
+	 * }
+	 * 
+	 * // All other types are used like normal
+	 * // E.g
+	 * void main(){
+	 *     if(arg0 > 1){
+	 *        col = getColor(uni0, vec3(uv, 0));
+	 *     }else{
+	 *        // something idk this is just an example
+	 *        col = vec4(arg1, 1.);
+	 *     }
+	 * }
+	 * ```
+	 * 
+	 * If you made it this far without your brain exploding, congratulations! Take a break :)
+	 */
+	function Shader(glsl: string, inputs: number | number[], defaults: number | number[], uniforms: number | number[], uDefaults: number | number[], output: number, intFrac = 0.5): Shader
+
+	/** See `Shader()` */ const FLOAT = 0
+	/** See `Shader()` */ const VEC2 = 1
+	/** See `Shader()` */ const VEC3 = 2
+	/** See `Shader()` */ const VEC4 = 3
+	/** See `Shader()` */ const INT = 16
+	/** See `Shader()` */ const IVEC2 = 17
+	/** See `Shader()` */ const IVEC3 = 18
+	/** See `Shader()` */ const IVEC4 = 19
+	/** See `Shader()` */ const UINT = 32
+	/** See `Shader()` */ const UVEC2 = 33
+	/** See `Shader()` */ const UVEC3 = 34
+	/** See `Shader()` */ const UVEC4 = 35
+	/** See `Shader()` */ const TEXTURE = 20
+	/** See `Shader()` */ const UTEXTURE = 24
+	/** See `Shader()` */ const FTEXTURE = 28
+	/** See `Shader()` */ const COLOR = 4
+	/** See `Shader()` */ const UCOLOR = 8
+	/** See `Shader()` */ const FCOLOR = 12
+	/** See `Shader()` */ const FIXED = 4
+
+	interface Shader{
+		/** Set the shader's uniforms, as specified by the shader itself. See `Shader()` */
+		uniforms(...values): void
+
+		/**
+		 * The default shader, to draw a texture or solid color, optionally with a tint
+		 * 
+		 * Values: `(thing: Texture | vec4, tint: vec4 = vec4(1))` (i.e `[COLOR, VEC4]`)
+		 * 
+		 * Uniforms: none
+		 */
+		static DEFAULT: Shader
+		/**
+		 * Shader for drawing to integer-texture targets
+		 * 
+		 * Values: `(thing: Texture | vec4)` (i.e `[UCOLOR]`)
+		 * 
+		 * Uniforms: none
+		 * 
+		 * Writes to integer targets
+		 */
+		static UINT: Shader
+		/**
+		 * Always draws opaque black
+		 * 
+		 * Values: None
+		 * 
+		 * Uniforms: none
+		 */
+		static BLACK: Shader
 	}
-	constructor(t,a=1,b=0,c=0,d=1,e=0,f=0,m=290787599,s=$.Shader.DEFAULT,sp=defaultShape){this.t=t;this.#a=a;this.#b=b;this.#c=c;this.#d=d;this.#e=e;this.#f=f;this.#m=m;this.#shader=s;this.s=sp}
-	translate(x=0,y=0){ this.#e+=x*this.#a+y*this.#c;this.#f+=x*this.#b+y*this.#d }
-	scale(x=1,y=x){ this.#a*=x; this.#b*=x; this.#c*=y; this.#d*=y }
-	rotate(r=0){
-		const cs = cos(r), sn = sin(r), a=this.#a,b=this.#b,c=this.#c,d=this.#d
-		this.#a=a*cs-c*sn; this.#b=b*cs-d*sn
-		this.#c=a*sn+c*cs; this.#d=b*sn+d*cs
-	}
-	transform(a,b,c,d,e,f){
-		const A=this.#a,B=this.#b,C=this.#c,D=this.#d,E=this.#e,F=this.#f
-		this.#a = A*a+C*b; this.#b = B*a+D*b
-		this.#c = A*c+C*d; this.#d = B*c+D*d
-		this.#e = A*e+C*f+E; this.#f = B*e+D*f+F
-	}
-	skew(x=0, y=0){
-		const ta=this.#a,tb=this.#b
-		this.#a+=this.#c*y; this.#b+=this.#d*y
-		this.#c+=ta*x; this.#d+=tb*x
-	}
-	multiply(x=1, y=0){
-		const ta=this.#a,tb=this.#b
-		this.#a=ta*x-this.#c*y;this.#b=tb*x-this.#d*y
-		this.#c=ta*y+this.#c*x;this.#d=tb*y+this.#d*x
-	}
-	getTransform(){ return {a: this.#a, b: this.#b, c: this.#c, d: this.#d, e: this.#e, f: this.#f} }
-	new(a=1,b=0,c=0,d=1,e=0,f=0){return new can(this.t,a,b,c,d,e,f,this.#m,this.#shader,this.s)}
-	reset(a=1,b=0,c=0,d=1,e=0,f=0){this.#a=a;this.#b=b;this.#c=c;this.#d=d;this.#e=e;this.#f=f;this.#m=290787599;this.#shader=$.Shader.DEFAULT;this.s=defaultShape}
-	box(x=0,y=0,w=1,h=w){ this.#e+=x*this.#a+y*this.#c; this.#f+=x*this.#b+y*this.#d; this.#a*=w; this.#b*=w; this.#c*=h; this.#d*=h }
-	to(x=0, y=0){ if(typeof x=='object'){y=x.y;x=x.x} return new _vec2(this.#a*x+this.#c*y+this.#e,this.#b*x+this.#d*y+this.#f)}
-	from(x=0, y=0){
-		if(typeof x=='object'){y=x.y;x=x.x}
-		const a=this.#a,b=this.#b,c=this.#c,d=this.#d, det = a*d-b*c
-		return new _vec2(
-			(x*d - y*c + c*this.#f - d*this.#e)/det,
-			(y*a - x*b + b*this.#e - a*this.#f)/det
-		)
-	}
-	toDelta(dx=0, dy=0){ if(typeof dx=='object'){dy=dx.y;dx=dx.x} return new _vec2(this.#a*dx+this.#c*dy,this.#b*dx+this.#d*dy)}
-	fromDelta(dx=0, dy=0){
-		if(typeof dx=='object'){dy=dx.y;dx=dx.x}
-		const a=this.#a,b=this.#b,c=this.#c,d=this.#d, det = a*d-b*c
-		return new _vec2((dx*d-dy*c)/det, (dy*a-dx*b)/det)
-	}
-	determinant(){return this.#a*this.#d-this.#b*this.#c}
-	pixelRatio(){return sqrt((this.#a*this.#d-this.#b*this.#c)*this.t.w*this.t.h)}
-	sub(){ return new can(this.t,this.#a,this.#b,this.#c,this.#d,this.#e,this.#f,this.#m,this.#shader,this.s) }
-	resetTo(m){ this.#a=m.#a;this.#b=m.#b;this.#c=m.#c;this.#d=m.#d;this.#e=m.#e;this.#f=m.#f;this.#m=m.#m;this.#shader=m.#shader;this.s=m.s }
-	set shader(sh){ this.#shader=typeof sh=='function'?sh:$.Shader.DEFAULT }
-	get shader(){return this.#shader}
-	set mask(m){this.#m=this.#m&-256|m&255}
-	get mask(){return this.#m&255}
-	set blend(b){this.#m=this.#m&255|(b||1135889)<<8}
-	get blend(){return this.#m>>8}
-	get geometry(){return this.s}
-	set geometry(a){this.s=a||defaultShape}
-	draw(...values){
-		setv(this.t,this.#m); const i = this.#shader(values)
-		arr[i  ] = this.#a; arr[i+1] = this.#c; arr[i+2] = this.#e
-		arr[i+3] = this.#b; arr[i+4] = this.#d; arr[i+5] = this.#f
-	}
-	drawRect(x=0, y=0, w=1, h=1, ...values){
-		setv(this.t,this.#m); const i = this.#shader(values)
-		arr[i  ] = this.#a*w; arr[i+1] = this.#c*h; arr[i+2] = this.#e+x*this.#a+y*this.#c
-		arr[i+3] = this.#b*w; arr[i+4] = this.#d*h; arr[i+5] = this.#f+x*this.#b+y*this.#d
-	}
-	drawMat(a=1, b=0, c=0, d=1, e=0, f=0, ...values){
-		setv(this.t,this.#m); const i = this.#shader(values)
-		const ta=this.#a,tb=this.#b,tc=this.#c,td=this.#d,te=this.#e,tf=this.#f
-		arr[i  ] = ta*a+tc*b; arr[i+1] = ta*c+tc*d; arr[i+2] = ta*e+tc*f+te
-		arr[i+3] = tb*a+td*b; arr[i+4] = tb*c+td*d; arr[i+5] = tb*e+td*f+tf
-	}
-	drawv(values){
-		setv(this.t,this.#m); const i = this.#shader(values)
-		arr[i  ] = this.#a; arr[i+1] = this.#c; arr[i+2] = this.#e
-		arr[i+3] = this.#b; arr[i+4] = this.#d; arr[i+5] = this.#f
-	}
-	drawRectv(x=0, y=0, w=1, h=1, values){
-		setv(this.t,this.#m); const i = this.#shader(values)
-		arr[i  ] = this.#a*w; arr[i+1] = this.#c*h; arr[i+2] = this.#e+x*this.#a+y*this.#c
-		arr[i+3] = this.#b*w; arr[i+4] = this.#d*h; arr[i+5] = this.#f+x*this.#b+y*this.#d
-	}
-	drawMatv(a=1, b=0, c=0, d=1, e=0, f=0, values){
-		setv(this.t,this.#m); const i = this.#shader(values)
-		const ta=this.#a,tb=this.#b,tc=this.#c,td=this.#d,te=this.#e,tf=this.#f
-		arr[i  ] = ta*a+tc*b; arr[i+1] = ta*c+tc*d; arr[i+2] = ta*e+tc*f+te
-		arr[i+3] = tb*a+td*b; arr[i+4] = tb*c+td*d; arr[i+5] = tb*e+td*f+tf
-	}
-	dup(){
-		if(!i) return
-		const s = sh.count
-		if(i+s>arr.length) grow()
-		for(let j=i-s;j<i;j++)iarr[j+s]=iarr[j]
-		arr[i  ] = this.#a; arr[i+1] = this.#c; arr[i+2] = this.#e
-		arr[i+3] = this.#b; arr[i+4] = this.#d; arr[i+5] = this.#f
-		i += s
-	}
-	dupRect(x=0, y=0, w=1, h=1, i){
-		if(!i) return
-		const s = sh.count
-		if(i+s>arr.length) grow()
-		for(let j=i-s;j<i;j++)iarr[j+s]=iarr[j]
-		arr[i  ] = this.#a*w; arr[i+1] = this.#c*h; arr[i+2] = this.#e+x*this.#a+y*this.#c
-		arr[i+3] = this.#b*w; arr[i+4] = this.#d*h; arr[i+5] = this.#f+x*this.#b+y*this.#d
-		i += s
-	}
-	dupMat(a=1, b=0, c=0, d=1, e=0, f=0, i){
-		if(!i) return
-		const s = sh.count
-		if(i+s>arr.length) grow()
-		for(let j=i-s;j<i;j++)iarr[j+s]=iarr[j]
-		const ta=this.#a,tb=this.#b,tc=this.#c,td=this.#d,te=this.#e,tf=this.#f
-		arr[i  ] = ta*a+tc*b; arr[i+1] = ta*c+tc*d; arr[i+2] = ta*e+tc*f+te
-		arr[i+3] = tb*a+td*b; arr[i+4] = tb*c+td*d; arr[i+5] = tb*e+td*f+tf
-		i += s
-	}
-	clear(r = 0, g = r, b = r, a = g){
-		if(typeof r=='object')a=r.w??0,b=r.z??0,g=r.y,r=r.x
-		i&&draw()
-		setv(this.t, this.#m)
-		gl.clearColor(r, g, b, a)
-		const q = this.t.stencil=this.t.stencil+1&7
-		gl.clear(q?16384:(gl.stencilMask(255), 17408))
-		gl.disable(2960); pmask &= -241
-	}
-	clearStencil(){
-		i&&draw()
-		setv(this.t, this.#m)
-		const q = this.t.stencil=this.t.stencil+1&7
-		if(!q) gl.stencilMask(255), gl.clear(1024)
-		gl.disable(2960); pmask &= -241
-	}
-}
-$.Blend = T = (src = 17, combine = 17, dst = 0, dither=false) => src|dst<<8|combine<<16|dither<<23
-Object.assign(T, {
-	REPLACE: 1114129,
-	DEFAULT: 1135889,
-	ADD: 1118481,
-	MULTIPLY: 1122816,
-	SUBTRACT: 5574929,
-	REVERSE_SUBTRACT: 6689041,
-	MIN: 2232593, MAX: 3346705,
-	BEHIND: 1118583,
-	INVERT: 1127321
-})
-T = $.Geometry = (type, points) => {
-	if(points.length&3) throw 'points.length is not a multiple of 4'
-	if(!(points instanceof Float32Array)){
-		T = new Float32Array(points.length)
-		T.set(points, 0); points = T
-	}
-	const b = gl.createBuffer()
-	gl.bindBuffer(34962, b)
-	gl.bufferData(34962, points, 35044)
-	b.type = type
-	gl.bindBuffer(34962, buf)
-	return {type, b, start: 0, length: points.length>>2, sub}
-}
-T.DEFAULT = T($.TRIANGLE_STRIP, [0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1])
-T = $.Shader = (src, inputs, defaults, uniforms, uDefaults, output=4, frat=0.5) => {
-	inputs = typeof inputs=='number' ? [inputs] : inputs || []
-	uniforms = typeof uniforms=='number' ? [uniforms] : uniforms || []
-	defaults = defaults != null ? Array.isArray(defaults) ? defaults : [defaults] : []
-	uDefaults = uDefaults != null ? Array.isArray(uDefaults) ? uDefaults : [uDefaults] : []
-	s.uniforms
-	return s
-}
-T.DEFAULT = sh = T(`void main(){color=arg0()*arg1;}`, [$.COLOR, $.VEC4], [void 0, $.vec4.one])
-T.UINT = T(`void main(){color=arg0();}`, $.UCOLOR, void 0, void 0, void 0, $.UINT)
-T.NONE = T(`void main(){color=vec4(0,0,0,1);}`)
-$.flush = () => i&&draw()
-const ctx = $.ctx = new can(ca={tex:gl.canvas,img:null,layer:0,stencil:0,mip:0,stencilBuf:null,w:0,h:0})
-$.setSize = (w = 0, h = 0) => {
-	ctx.t.w = gl.canvas.width = w
-	ctx.t.h = gl.canvas.height = h
-	if(ca==ctx.t) gl.viewport(0, 0, w, h)
-}
-$.wait = () => new Promise()
-$.loop = render => {
-	if('t' in $) return $
-	$.frameDrawCalls = 0
-	$.frameSprites = 0
-	$.frameData = 0
-	$.t = performance.now()*.001; $.dt = 0
-	$.timeToFrame = 0
-	$.glLost ??= null
-	requestAnimationFrame(function f(){
-		requestAnimationFrame(f)
-		if(gl.isContextLost?.()) return $.glLost?.(), $.glLost = fencetail = fencehead = null
-		i&&draw()
-		gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, null)
-		ca = ctx.t; gl.viewport(0, 0, ca.w, ca.h)
-		dt = max(.001, min(-($.t-($.t=performance.now()*.001)), .5))
-		$.frameDrawCalls = fdc; $.frameSprites = fs; $.frameData = fd*4+fdc*24; fdc = fs = fd = 0
-		ctx.reset(); try{ render() }catch(e){ Promise.reject(e) } i&&draw()
-		timeToFrame = performance.now()*.001 - $.t
-	})
+
+	/**
+	 * Flush all draw commands to the GPU. Must be called after you are done if your are not using `loop()`
+	 * @performance Performs a few post-frame cleanups. No need to call mid-frame as there is literally no benefit and only opportunity to hurt performance. Might be useful to work around library bugs (hopefully there are none!)
+	 */
+	function flush(): void
+
+	/** The main Drawable, representing the <canvas> element. This drawable is limited: it cannot be read from, or have its configuration modified in any way. To do that, draw to a separate drawable and then `paste()` to `ctx` */
+	const ctx: Drawable
+
+	/**
+	 * Resize the <canvas> element. Will clear any existing content
+	 * @performance Often quite slow. Do not use mid-frame. If your goal is to clear the canvas, use `Drawable.clear()`
+	 */
+	function setSize(width: number, height: number): void
+
+	/**
+	 * Create a GPU fence. The promise will resolve once all operations that had been issued at the time of the `wait()` call are done. Useful to make use of the canvas content elsewhere while avoiding blocking
+	 */
+	function wait(): Promise<void>
+	/**
+	 * Construct a render loop
+	 * @param cb Rendering callback that is called every frame. Draw stuff to the canvas in here
+	 */
+	function loop(cb: () => any): typeof canvas
+
+	/**
+	 * How many `glDraw*()` calls were performed during the last frame
+	 * 
+	 * Available after calling `loop()`, calculated and reset automatically
+	 */
+	let frameDrawCalls = 0
+	/**
+	 * How many sprites (`Drawable.draw*()` calls) were performed during the last frame
+	 * 
+	 * Available after calling `loop()`, calculated and reset automatically
+	 */
+	let frameSprites = 0
+	/**
+	 * An estimate for much data was uploaded from the CPU to the GPU during the last frame, in bytes
+	 * 
+	 * Available after calling `loop()`, calculated and reset automatically
+	 */
+	let frameData = 0
+	/**
+	 * The number of seconds since the page was loaded. Use it as a timer for animations and such
+	 * 
+	 * Available after calling `loop()`, calculated automatically
+	 */
+	let t = 0
+	/**
+	 * The time passed since the last frame, in seconds. Use it for animations and such
+	 * 
+	 * E.g at 60fps, `dt` will typically be close to 1/60, or 0.016
+	 * 
+	 * Available after calling `loop()`, calculated automatically
+	 */
+	let dt = 0
+	/**
+	 * How long the last frame took to render on the CPU side, in seconds
+	 * 
+	 * Available after calling `loop()`, calculated automatically
+	 */
+	let timeToFrame = 0
+	/**
+	 * Callback for when the underlying `webgl2` context is lost (possibly GPU crash)
+	 * 
+	 * Available after calling `loop()`
+	 */
+	let glLost: (() => any)? = null
 	return gl.canvas
-}
 }
 }
