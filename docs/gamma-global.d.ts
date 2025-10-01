@@ -1,5 +1,6 @@
 /// <reference path="./gamma.d.ts" />
 export {}
+
 declare global{
 	/**
 	 * The canvas element passed to Gamma(), or a new canvas element if none was provided
@@ -148,26 +149,27 @@ declare global{
 	 */
 	function Img(src: ImageSource | ImageSource[], options?: number, format?: Formats, mipmaps?: number): Texture
 
-	interface Texture{
+	namespace Texture{
 		/** Not all implementations support linear filtering (SMOOTH) for xxx32F textures. This boolean indicates if this kind of filtering is supported. If it is not, nearest-neighbor (pixelated) will be used instead for those texture types */
-		static readonly FILTER_32F: boolean
+		const FILTER_32F: boolean
 
 		/**
 		 * The maximum texture width supported by the underlying hardware
 		 * According to OpenGL ES Specs, this value is required to be at least 2048, however virtually all environments will support at least 4096. Support for > 4096 is not very common.
 		 */
-		static readonly MAX_WIDTH: number
+		const MAX_WIDTH: number
 		/**
 		 * The maximum texture height supported by the underlying hardware
 		 * According to OpenGL ES Specs, this value is required to be at least 2048, however virtually all environments will support at least 4096. Support for > 4096 is not very common.
 		 */
-		static readonly MAX_HEIGHT: number
+		const MAX_HEIGHT: number
 		/**
 		 * The maximum number of layers per texture supported by the underlying hardware
 		 * According to OpenGL ES Specs, this value is required to be at least 256, and this is what most environments support. For more layers, you should instead use atlases (combining textures vertically/horizontally/both), or use multiple textures.
 		 */
-		static readonly MAX_LAYERS: number
-
+		const MAX_LAYERS: number
+	}
+	interface Texture{
 		/**
 		 * Whether this texture's format is an integer-type format
 		 * 
@@ -376,7 +378,7 @@ declare global{
 		 * | R16F, RG16F, RGB16F, RGBA16F      | `Uint16Array` / `Float16Array`     | `w*h*d * channels` |
 		 * | R32F, RG32F, RGB32F, RGBA32F      | `Float32Array`                     | `w*h*d * channels` |
 		 */
-		pasteData(data: Uint8Array | Uint8ClampedArray | Uint16Array | Uint32Array | Float16Array | Float32Array, x?: number, y?: number, layer?: number, width?: number, height?: number, layers?: number, mip?: number)
+		pasteData(data: Uint8Array | Uint8ClampedArray | Uint16Array | Uint32Array | Float16Array | Float32Array, x?: number, y?: number, layer?: number, width?: number, height?: number, layers?: number, mip?: number): void
 
 		/**
 		 * Copy data from this texture to CPU memory, asynchronously.
@@ -415,7 +417,7 @@ declare global{
 		 * 
 		 * @performance This method is mostly CPU-only logic, and relatively fast. If the texture was recently used then this will create a light draw boundary (See `Drawable.draw()` for more info)
 		 */
-		setMipmapRange(min?: number, max?: number)
+		setMipmapRange(min?: number, max?: number): void
 		/**
 		 * Regenerate all mipmaps from the original texture (mipmap 0)
 		 * 
@@ -506,7 +508,7 @@ declare global{
 		 * Scale all following draw operations, x+ corresponds to right and y+ corresponds to up
 		 * @performance This method is CPU-arithmetic, very fast and usually inlined
 		 */
-		scale(x: number, y = x): void
+		scale(x: number, y: number): void
 		/**
 		 * Rotate all following draw operations, clockwise (or negative for anticlockwise)
 		 * @performance This method is CPU-arithmetic, fast and usually inlined, however it uses `sin()` and `cos()`
@@ -559,12 +561,12 @@ declare global{
 		 * Reset the transformation matrix to the identity matrix, or to one defined by the transform values a,b,c,d,e,f respectively
 		 * @performance This method is CPU-arithmetic, very fast and usually inlined
 		 */
-		reset(a = 1, b = 0, c = 0, d = 1, e = 0, f = 0): void
+		reset(a: number, b: number, c: number, d: number, e: number, f: number): void
 		/**
 		 * Simultaneous translates and scales such that the new origin is at `(x, y)` with basis vectors (w,0) and (0,h). A square drawn at `(0, 0)` with size `(1, 1)` after the transform would be drawn at `(x, y)` with size `(w, h)`
 		 * @performance This method is CPU-arithmetic, very fast and usually inlined
 		 */
-		box(x: number, y: number, w = 1, h = w): void
+		box(x: number, y: number, w: number, h: number): void
 		/**
 		 * Transform a point `(x, y)` by the current transformation matrix, returning the transformed point as an object `{x, y}`
 		 * @performance This method is CPU-arithmetic, very fast and usually inlined
@@ -667,14 +669,14 @@ declare global{
 		 * 
 		 * Benchmarks and citations may be added later if I have not `git commit -m suicide` by then
 		 */
-		draw(...values): void
+		draw(...values: any[]): void
 		/**
 		 * Draw a sprite at `(x, y)` with size `(w, h)`
 		 * @param values Values, as required by the shader currently in use (See `Drawable.shader`, `Shader()` and `Shader.DEFAULT`)
 		 * 
 		 * @performance See `Drawable.draw()` for more info
 		 */
-		drawRect(x: number, y: number, w: number, h: number, ...values): void
+		drawRect(x: number, y: number, w: number, h: number, ...values: any[]): void
 		/**
 		 * Draw a sprite within a parallelogram defined by a matrix
 		 * 
@@ -683,7 +685,7 @@ declare global{
 		 * 
 		 * @performance See `Drawable.draw()` for more info
 		 */
-		drawMat(a: number, b: number, c: number, d: number, e: number, f: number, ...values): void
+		drawMat(a: number, b: number, c: number, d: number, e: number, f: number, ...values: any[]): void
 		/**
 		 * Draw a sprite at (0,0) to (1,1)
 		 * @param values Values, as required by the shader currently in use (See `Drawable.shader`, `Shader()` and `Shader.DEFAULT`)
@@ -691,7 +693,7 @@ declare global{
 		 * This version of draw() expects an array rather than spread parameters
 		 * @performance See `Drawable.draw()` for more info
 		 */
-		drawv(values): void
+		drawv(values: any[]): void
 		/**
 		 * Draw a sprite at `(x, y)` with size `(w, h)`
 		 * @param values Values, as required by the shader currently in use (See `Drawable.shader`, `Shader()` and `Shader.DEFAULT`)
@@ -699,7 +701,7 @@ declare global{
 		 * This version of drawRect() expects an array rather than spread parameters
 		 * @performance See `Drawable.draw()` for more info
 		 */
-		drawRectv(x: number, y: number, w: number, h: number, values): void
+		drawRectv(x: number, y: number, w: number, h: number, values: any[]): void
 		/**
 		 * Draw a sprite within a parallelogram defined by a matrix
 		 * 
@@ -709,7 +711,7 @@ declare global{
 		 * This version of drawMat() expects an array rather than spread parameters
 		 * @performance See `Drawable.draw()` for more info
 		 */
-		drawMatv(a: number, b: number, c: number, d: number, e: number, f: number, values): void
+		drawMatv(a: number, b: number, c: number, d: number, e: number, f: number, values: any[]): void
 		/**
 		 * Draw a sprite at (0,0) to (1,1)
 		 * The shader values will be copied from the previous draw call, even if that call did not come from this `Drawable` object
@@ -725,7 +727,7 @@ declare global{
 		 * This version of drawRect() is designed for performance in hot loops where the values don't / rarely change
 		 * @performance See `Drawable.draw()` for more info
 		 */
-		dupRect(x: number, y: number, w: number, h: number, i): void
+		dupRect(x: number, y: number, w: number, h: number): void
 		/**
 		 * Draw a sprite within a parallelogram defined by a matrix
 		 * 
@@ -735,7 +737,7 @@ declare global{
 		 * This version of drawRect() is designed for performance in hot loops where the values don't / rarely change
 		 * @performance See `Drawable.draw()` for more info
 		 */
-		dupMat(a: number, b: number, c: number, d: number, e: number, f: number, i): void
+		dupMat(a: number, b: number, c: number, d: number, e: number, f: number): void
 		/**
 		 * Clear the whole draw target to a solid color
 		 * 
@@ -800,7 +802,7 @@ declare global{
 	 * @param alphaToCoverage Use the alpha value in conjunction with MSAA draw targets to simulate higher fidelity blending. Only a portion of the per-pixel samples are written, depending on the source's alpha. Note that when using this you should not provide premultiplied source, nor multiply the destination by `ONE_MINUS_SRC_ALPHA`.
 	 * @performance This function is pure arithmetic and often even constant-folded
 	 */
-	function Blend(sfac: number, combine: number, dfac: number, alphaToCoverage = false): Blend
+	function Blend(sfac: number, combine: number, dfac: number, alphaToCoverage: boolean): Blend
 
 	/** See `Blend()` */ const ONE = 17
 	/** See `Blend()` */ const ZERO = 0
@@ -908,11 +910,11 @@ declare global{
 		 * Create a subgeometry, i.e a geometry containing only a subset of the points of this geometry, optionally with a different type
 		 * @performance This method is CPU-arithmetic, very fast. Using many subgeometries of the same geometry is also faster than using many different geometries. For many related geometries, consider building one large geometry and taking subgeometries of it.
 		 */
-		sub(start = 0, length?: number, type?: number): Geometry
+		sub(start: number, length?: number, type?: number): Geometry
 	}
 	namespace Geometry{
 		/** The default geometry, constructing a square from (0,0) to (1,1), with corresponding uv values */
-		const DEFAULT = Geometry(TRIANGLE_STRIP, [0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1])
+		const DEFAULT: Geometry
 	}
 	/** See `Geometry()` */ const TRIANGLE_STRIP = 5
 	/** See `Geometry()` */ const TRIANGLES = 4
@@ -1012,7 +1014,7 @@ declare global{
 	 * 
 	 * If you made it this far without your brain exploding, congratulations! Take a break :)
 	 */
-	function Shader(glsl: string, inputs: number | number[], defaults: number | number[], uniforms: number | number[], uDefaults: number | number[], output: number, intFrac = 0.5): Shader
+	function Shader(glsl: string, inputs: number | number[], defaults: number | number[], uniforms: number | number[], uDefaults: number | number[], output: number, intFrac: number): Shader
 
 	/** See `Shader()` */ const FLOAT = 0
 	/** See `Shader()` */ const VEC2 = 1
@@ -1036,8 +1038,9 @@ declare global{
 
 	interface Shader{
 		/** Set the shader's uniforms, as specified by the shader itself. See `Shader()` */
-		uniforms(...values): void
-
+		uniforms(...values: any[]): void
+	}
+	namespace Shader{
 		/**
 		 * The default shader, to draw a texture or solid color, optionally with a tint
 		 * 
@@ -1045,7 +1048,7 @@ declare global{
 		 * 
 		 * Uniforms: none
 		 */
-		static DEFAULT: Shader
+		const DEFAULT: Shader
 		/**
 		 * Shader for drawing to integer-texture targets
 		 * 
@@ -1055,7 +1058,7 @@ declare global{
 		 * 
 		 * Writes to integer targets
 		 */
-		static UINT: Shader
+		const UINT: Shader
 		/**
 		 * Always draws opaque black
 		 * 
@@ -1063,7 +1066,7 @@ declare global{
 		 * 
 		 * Uniforms: none
 		 */
-		static BLACK: Shader
+		const BLACK: Shader
 	}
 
 	/**
@@ -1096,25 +1099,25 @@ declare global{
 	 * 
 	 * Available after calling `loop()`, calculated and reset automatically
 	 */
-	let frameDrawCalls = 0
+	let frameDrawCalls: number
 	/**
 	 * How many sprites (`Drawable.draw*()` calls) were performed during the last frame
 	 * 
 	 * Available after calling `loop()`, calculated and reset automatically
 	 */
-	let frameSprites = 0
+	let frameSprites: number
 	/**
 	 * An estimate for much data was uploaded from the CPU to the GPU during the last frame, in bytes
 	 * 
 	 * Available after calling `loop()`, calculated and reset automatically
 	 */
-	let frameData = 0
+	let frameData: number
 	/**
 	 * The number of seconds since the page was loaded. Use it as a timer for animations and such
 	 * 
 	 * Available after calling `loop()`, calculated automatically
 	 */
-	let t = 0
+	let t: number
 	/**
 	 * The time passed since the last frame, in seconds. Use it for animations and such
 	 * 
@@ -1122,17 +1125,17 @@ declare global{
 	 * 
 	 * Available after calling `loop()`, calculated automatically
 	 */
-	let dt = 0
+	let dt: number
 	/**
 	 * How long the last frame took to render on the CPU side, in seconds
 	 * 
 	 * Available after calling `loop()`, calculated automatically
 	 */
-	let timeToFrame = 0
+	let timeToFrame: number
 	/**
 	 * Callback for when the underlying `webgl2` context is lost (possibly GPU crash)
 	 * 
 	 * Available after calling `loop()`
 	 */
-	let glLost: (() => any)? = null
+	let glLost: (() => any) | null
 }

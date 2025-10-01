@@ -614,7 +614,7 @@ class drw{
 		arr[i+3] = this.#b; arr[i+4] = this.#d; arr[i+5] = this.#f
 		i += s
 	}
-	dupRect(x=0, y=0, w=1, h=1, i){
+	dupRect(x=0, y=0, w=1, h=1){
 		if(!i) return
 		const s = sh.count
 		if(i+s>arr.length) grow()
@@ -623,7 +623,7 @@ class drw{
 		arr[i+3] = this.#b*w; arr[i+4] = this.#d*h; arr[i+5] = this.#f+x*this.#b+y*this.#d
 		i += s
 	}
-	dupMat(a=1, b=0, c=0, d=1, e=0, f=0, i){
+	dupMat(a=1, b=0, c=0, d=1, e=0, f=0){
 		if(!i) return
 		const s = sh.count
 		if(i+s>arr.length) grow()
