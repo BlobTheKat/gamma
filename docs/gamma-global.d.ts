@@ -1,6 +1,5 @@
 /// <reference path="./gamma.d.ts" />
 export {}
-
 declare global{
 	/**
 	 * The canvas element passed to Gamma(), or a new canvas element if none was provided
