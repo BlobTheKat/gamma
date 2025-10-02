@@ -140,7 +140,7 @@ class img{
 	}
 	paste(tex, x=0, y=0, l=0, dstMip=0, srcX=0, srcY=0, srcL=0, srcW=0, srcH=0, srcD=0, srcMip=0){
 		const {t} = this
-		if(t.src) return this
+		if(t.src) return null
 		if(tex instanceof drw){
 			const {t:t2} = tex
 			srcH = srcW || t2.h; srcW = srcL || t2.w
@@ -200,6 +200,7 @@ class img{
 		gl.texSubImage3D(gl.TEXTURE_2D_ARRAY, mip, x, y, l, w, h, d, t.f[1], t.f[2], 0)
 		fd += data.byteLength*.25
 		if(t.i<0) gl.bindTexture(gl.TEXTURE_2D_ARRAY, null)
+		return this
 	}
 	readData(x=0, y=0, l=0, w=0, h=0, d=0, mip=0){
 		const {t} = this
@@ -223,7 +224,7 @@ class img{
 		}
 		if(pack != lastPbo) gl.bindBuffer(gl.PIXEL_PACK_BUFFER, lastPbo)
 		return new Promise(r0 => {
-			r = () => {
+			const r = () => {
 				const arr = a==1 ? new Uint8Array(sz*d)
 				: a==4 ? t.f[2] == gl.FLOAT ? new Float32Array(sz*d) : new Uint32Array(sz*d) : new Uint16Array(sz*d)
 				if(pack != lastPbo) gl.bindBuffer(gl.PIXEL_PACK_BUFFER, pack)
@@ -861,7 +862,6 @@ T = $.Shader = (src, inputs, defaults, uniforms, uDefaults, output=4, frat=0.5) 
 	s.outInt = (output==16||output==32)<<31
 	const v=gl.createShader(35633), f=gl.createShader(35632)
 	shaderBody.push('}')
-	console.log(shaderHead.join('')+shaderBody.join(''))
 	gl.shaderSource(v, shaderHead.join('')+shaderBody.join(''))
 	gl.compileShader(v)
 	gl.shaderSource(f, shaderHead2.join('')+'\n'+src)

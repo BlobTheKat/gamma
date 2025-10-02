@@ -1,7 +1,6 @@
 /// <reference path="../docs/monolith-global.d.ts" />
 
 const font = await Font.chlumsky('fonts/ankacoder/')
-
 // One tab = 3 spaces. Cry about it
 font.set(0x09, font.getWidth(0x20) * 3)
 const input = TextField(true)
@@ -15,6 +14,7 @@ const styles = new Map()
 	.set(/`(?:[^\\`]|\\[^])*(?:`|$)|(["'])([^"'\\\n]|\\[^]|(?!\1).)*(\1|(?=\n))/y, vec4(.05, .3, .95))
 	.set(/(?<![\)\]\w]\s*)\/([^\\\/]|\\.)+\/[gimsuyvdGIMSUYVD]*/y, vec4(.7, .05, .7))
 input.transformer = txt => {
+	console.log(input.selDir)
 	const r = RichText(font)
 	if(!txt){
 		r.setValues(0, [vec4(.4)])

@@ -1,7 +1,7 @@
 {const defer = Promise.resolve()
 Gamma.textfield = $ => {
 	const rem = ({target:t}) => (t._field._f&256||(t._field._f|=256,defer.then(t._field.recalc)), t.remove(), curf = null)
-	const kd = e => {
+	const keydown = e => {
 		const i = e.target, tf = i._field
 		if(e.keyCode == 38 || e.keyCode == 40){
 			if((tf._f>>1&1)^e.shiftKey) e.keyCode == 38 ? tf.upArrowCb?.() : tf.downArrowCb?.()
@@ -33,12 +33,12 @@ Gamma.textfield = $ => {
 		}else return
 		e.preventDefault()
 	}
-	const cri = (typ, o) => {
-		const i = document.createElement(typ)
-		// Chrome requires 1px size in order for some features such as copy-paste to work
-		i.style = `width:1px;height:1px;border:0;padding:0;opacity:0;position:absolute;inset:-100px;font-size:1px;font-family:monospace;white-space:nowrap`
+	const crInput = (type, o) => {
+		const i = document.createElement(type)
+		// Chrome requires 1px size in order for some features such as copying to work
+		i.style = `width:1px;height:1px;border:0;padding:0;opacity:0;position:absolute;inset:-9px;font-size:1px;font-family:monospace;white-space:nowrap`
 		i.onblur = rem
-		i.onkeydown = kd
+		i.onkeydown = keydown
 		i.tabIndex = -1
 		i._field = o
 		document.documentElement.append(i)
@@ -67,13 +67,15 @@ Gamma.textfield = $ => {
 		tabCb = null
 		scrollable = null
 		#i
-		constructor(t){this.#i=cri(t?'textarea':'input', this);this._f=t}
+		constructor(t){this.#i=crInput(t?'textarea':'input', this);this._f=t}
 		get value(){return this.#i.value}
 		set value(a){this.#i.value=a;this._f&256||(this._f|=256,defer.then(this.recalc))}
 		get sel0(){return this.#s}
 		set sel0(a){this.#i.selectionStart=this.#s=a;this._f&256||(this._f|=256,defer.then(this.recalc))}
 		get sel1(){return this.#e}
 		set sel1(a){this.#i.selectionEnd=this.#e=a;this._f&256||(this._f|=256,defer.then(this.recalc))}
+		get isSelecting(){ return (this._f&1536)!=0 }
+		get selDir(){ return ((this._f>>9&3)||2)-2}
 		#tr=null
 		get transformer(){return this.#tr}
 		set transformer(a){this.#tr!=(this.#tr=a)&&!(this._f&256)&&(this._f|=256,defer.then(this.recalc))}
@@ -107,12 +109,12 @@ Gamma.textfield = $ => {
 				if(this._f&2048) return
 				this.#p = null
 				this._f|=2304
-				this.#i = cri('textarea', this)
+				this.#i = crInput('textarea', this)
 			}else{
 				if(!(this._f&2048)) return
 				this.#pa = null
 				this._f=this._f&-2049|256
-				this.#i = cri('input', this)
+				this.#i = crInput('input', this)
 			}
 			if(f) this.focus = true
 			else i.remove(), curf == i && (curf = null), this._f&256||(this._f|=256,defer.then(this.recalc))
@@ -190,17 +192,16 @@ Gamma.textfield = $ => {
 				ltf = $.t
 			}else if(curf == this.#i) curf.remove(), curf = null
 		}
-		get isSelecting(){return (this._f>>9&3)!=0}
 		lineHeight = 1.3
 		lineAscend = .9
-		#lc=0
+		#lc = 0
 		get height(){return this.lineHeight*(this.#pa?this.#pa.length:1)}
 		consumeInputs(ctx, {x, y} = ctx.from($.cursor), k = $.keys.has(0)){
 			y = this.lineAscend-y; cursorType = 'text'
 			if(!k) return void(this._f = this._f&-1537)
 			if(!this.focus){
 				this.focus = true
-				if(this.#s!=this.#e) return void(this._f |= 1536)
+				if(this.#s!=this.#e) return void(this._f = this._f&-1537|1024)
 			}
 			const sel = this._f>>9&3
 			let j = 0
@@ -212,10 +213,10 @@ Gamma.textfield = $ => {
 				while(i) j += this.#pa[--i].length
 			}
 			if(sel == 1){
-				if(j > this.sel1) this.sel0 = this.sel1, this.sel1 = j, this._f = this._f&-1537|1024
+				if(j > this.sel1) this.sel0 = this.sel1, this.sel1 = j, this._f |= 1024
 				else if(j != this.#s) this.#s = this.#i.selectionStart = j, this._f&256||(this._f|=256,defer.then(this.recalc))
-			}else if(sel == 2){
-				if(j <= this.sel0) this.sel1 = this.sel0, this.sel0 = j, this._f = this._f&-1537|512
+			}else if(sel == 3){
+				if(j <= this.sel0) this.sel1 = this.sel0, this.sel0 = j, this._f &= -1025
 				else if(j != this.#e) this.#e = this.#i.selectionEnd = j, this._f&256||(this._f|=256,defer.then(this.recalc))
 			}else if(!sel){
 				let seekType = 0, s = j, e = j
@@ -225,9 +226,10 @@ Gamma.textfield = $ => {
 				}else if(this.#lc>0){
 					if(this.#lc-(this.#lc=t) > -.3) seekType = 1, this.#lc=-t
 				}else this.#lc = t
-				this._f = this._f&-1537|512
+				console.log(seekType)
+				this._f = this._f&-1537|1024
 				if(seekType){
-					this._f |= 1024
+					this._f |= 512
 					const v = this.#i.value
 					const min = 33-seekType
 					while(v.codePointAt(e++)>min);

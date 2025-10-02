@@ -10,8 +10,8 @@ printf "export {}\ndeclare global{\n\tnamespace GammaExtensions{ type $dst = typ
 fi
 tail -n +4 $src >> "$dst.d.ts"
 printf "\n}" >> "$dst.d.ts"
-echo "export * from './$dst.d.ts'" >> monolith.d.ts
-echo "export * from './$dst-global.d.ts'" >> monolith-global.d.ts
+echo "export type * from './$dst.d.ts'" >> monolith.d.ts
+echo "export type * from './$dst-global.d.ts'" >> monolith-global.d.ts
 done
 cd ../src
 rm ../min/*
