@@ -595,10 +595,11 @@ namespace GammaInstance{
 		 * @param srcLayers Number of layers to copy. Defaults to the source's layer count
 		 * @param srcMip Which mipmap to read data from in the source texture. Default: 0
 		 * @param dstMip Which mipmap to write data to. Default: 0
+		 * @returns `this`, or `null` if this is an image-backed texture that is not loaded yet
 		 * 
 		 * @performance This method performs an upload to the GPU, which is primarily bandwidth-bound for typical-size textures. If the texture was recently used then this will create a light draw boundary (See `Drawable.draw()` for more info)
 		 */
-		paste(tex: Texture, x?: number, y?: number, layer?: number, dstMip?: number, srcX?: number, srcY?: number, srcLayer?: number, srcWidth?: number, srcHeight?: number, srcLayers?: number, srcMip?: number): this
+		paste(tex: Texture, x?: number, y?: number, layer?: number, dstMip?: number, srcX?: number, srcY?: number, srcLayer?: number, srcWidth?: number, srcHeight?: number, srcLayers?: number, srcMip?: number): this?;
 
 		/**
 		 * Copy data from an image-like (img) object to another (this)
@@ -607,10 +608,11 @@ namespace GammaInstance{
 		 * @param y Bottom edge of area to paste, in pixels. Default: 0
 		 * @param layer First layer of area to paste. Default: 0
 		 * @param dstMip Which mipmap to write data to. Default: 0
+		 * @returns `this`, or `null` if this is an image-backed texture that is not loaded yet
 		 * 
 		 * @performance This method performs an upload to the GPU, which is primarily bandwidth-bound for typical-size textures. Extra preprocessing may be done for certain source types (e.g <img> elements), which may be CPU-bound. It is recommended to use ImageBitmap sources where possible (with the correct options provided by Gamma.bitmapOpts), as they are GPU-ready by design. It may also cause partial pipeline stalls if following draw operations depend on the texture data but have to wait for the upload to finish, however this is mostly mitigated with modern drivers. If the texture was recently used then this will create a light draw boundary (See `Drawable.draw()` for more info)
 		 */
-		paste(img: ImageSource, x?: number, y?: number, layer?: number, dstMip?: number): Promise<this>
+		paste(img: ImageSource, x?: number, y?: number, layer?: number, dstMip?: number): Promise<this>?;
 
 		/**
 		 * Copy data from a drawable object (other than the main canvas target) to this
@@ -623,10 +625,11 @@ namespace GammaInstance{
 		 * @param srcWidth Width of area to copy in pixels. Defaults to the source's width
 		 * @param srcHeight Height of area to copy in pixels. Defaults to the source's height
 		 * @param dstMip Which mipmap to write data to. Default: 0
+		 * @returns `this`, or `null` if this is an image-backed texture that is not loaded yet
 		 * 
 		 * @performance This method performs an upload to the GPU, which is primarily bandwidth-bound for typical-size textures. It may also cause partial pipeline stalls if following draw operations depend on the texture data but have to wait for the upload to finish, however this is mostly mitigated with modern drivers. If the texture was recently used then this will create a light draw boundary (See `Drawable.draw()` for more info)
 		 */
-		paste(ctx: Drawable, x?: number, y?: number, layer?: number, dstMip?: number, srcX?: number, srcY?: number, srcWidth?: number, srcHeight?: number): this
+		paste(ctx: Drawable, x?: number, y?: number, layer?: number, dstMip?: number, srcX?: number, srcY?: number, srcWidth?: number, srcHeight?: number): this?;
 
 		/**
 		 * Copy data from memory to this texture
@@ -638,10 +641,10 @@ namespace GammaInstance{
 		 * @param height Height of area to paste in pixels. Defaults to this texture's height
 		 * @param layers Number of layers to paste. Defaults to this texture's number of layers
 		 * @param mip Which mipmap to write data to. Default: 0
+		 * @returns `this`, or `null` if this is an image-backed texture that is not loaded yet
 		 * 
 		 * @performance This method performs an upload to the GPU, which is primarily bandwidth-bound for typical-size textures. It may also cause partial pipeline stalls if following draw operations depend on the texture data but have to wait for the upload to finish, however this is mostly mitigated with modern drivers. If the texture was recently used then this will create a light draw boundary (See `Drawable.draw()` for more info)
 		 * 
-		 * @returns
 		 * | For format                        | Pass                               | of length          |
 		 * |-----------------------------------|------------------------------------|--------------------|
 		 * | R, RG, RGB, RGBA                  | `Uint8Array` / `Uint8ClampedArray` | `w*h*d * channels` |
@@ -653,7 +656,7 @@ namespace GammaInstance{
 		 * | R16F, RG16F, RGB16F, RGBA16F      | `Uint16Array` / `Float16Array`     | `w*h*d * channels` |
 		 * | R32F, RG32F, RGB32F, RGBA32F      | `Float32Array`                     | `w*h*d * channels` |
 		 */
-		pasteData(data: Uint8Array | Uint8ClampedArray | Uint16Array | Uint32Array | Float16Array | Float32Array, x?: number, y?: number, layer?: number, width?: number, height?: number, layers?: number, mip?: number): void
+		pasteData(data: Uint8Array | Uint8ClampedArray | Uint16Array | Uint32Array | Float16Array | Float32Array, x?: number, y?: number, layer?: number, width?: number, height?: number, layers?: number, mip?: number): this?;
 
 		/**
 		 * Copy data from this texture to CPU memory, asynchronously.
@@ -672,6 +675,7 @@ namespace GammaInstance{
 		 * 
 		 * @performance This method performs a download from the GPU, which is notoriously difficult to perform quickly due to the need to synchronize the CPU and GPU. The operation is primarily bandwidth-bound for typical-size textures, however there is a significant amount of overhead performed in additional copies, and the need to synchronize the CPU and GPU (e.g fences). It is recommended to avoid reading back from the GPU if it is not strictly needed, and if necessary, to read back large chunks of data infrequently (e.g once per frame) rather than small chunks frequently
 		 * 
+		 * @returns
 		 * | For format                        | A promise is returned resolving to | of length          |
 		 * |-----------------------------------|------------------------------------|--------------------|
 		 * | R, RG, RGB, RGBA                  | `Uint8Array` / `Uint8ClampedArray` | `w*h*d * channels` |
@@ -1271,19 +1275,19 @@ namespace GammaInstance{
 	 * 
 	 * // `COLOR`/`FCOLOR`/`UCOLOR`s are used by calling them, e.g
 	 * void main(){
-	 *     // Assuming arg0 is a `COLOR`
-	 *     col = arg0();
+	 * ‍   // Assuming arg0 is a `COLOR`
+	 * ‍   col = arg0();
 	 * }
 	 * 
 	 * // All other types are used like normal
 	 * // E.g
 	 * void main(){
-	 *     if(arg0 > 1){
-	 *        col = getColor(uni0, vec3(uv, 0));
-	 *     }else{
-	 *        // something idk this is just an example
-	 *        col = vec4(arg1, 1.);
-	 *     }
+	 * ‍   if(arg0 > 1){
+	 * ‍      col = getColor(uni0, vec3(uv, 0));
+	 * ‍   }else{
+	 * ‍      // something idk this is just an example
+	 * ‍      col = vec4(arg1, 1.);
+	 * ‍   }
 	 * }
 	 * ```
 	 * 

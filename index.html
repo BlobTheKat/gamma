@@ -11,7 +11,7 @@
 <script src="src/gamma.js"></script>
 <script src="src/input.js"></script>
 <script src="src/font.js"></script>
-<script src="src/textfield.js"></script>
+<script src="src/gui.js"></script>
 <script src="src/utils.js"></script>
 <script>;{
 	const $ = globalThis
@@ -56,7 +56,7 @@
 	Gamma.input($)
 	Gamma.font($)
 	Gamma.utils($)
-	Gamma.textfield($)
+	Gamma.gui($)
 	let t = '', i = icon, ic = null
 	Object.defineProperties($, {
 		title: {get:()=>t,set:a=>document.title=(t=a+'')||'\ud80c\udffc'},

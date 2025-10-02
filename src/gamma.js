@@ -5,7 +5,7 @@ const { clz32, cos, sin, min, round } = Math
 if(!('setImmediate' in $)){
 	let base = 0, cur = 0, queue = [], m = new MessageChannel();
 	m.port1.onmessage = () => {
-		const fn = c[cur]
+		const fn = queue[cur]
 		queue[cur++] = null
 		if(cur > 3 && cur > (queue.length>>1)){
 			queue.splice(0,cur)
@@ -17,7 +17,7 @@ if(!('setImmediate' in $)){
 	m = m.port2
 	$.setImmediate = (fn, ...args) => {
 		m.postMessage(0)
-		queue.push(args.length ? f.bind(undefined,...a) : f)
+		queue.push(args.length ? fn.bind(undefined,...args) : fn)
 		return queue.length-1+base
 	}
 	$.clearImmediate = i => {

@@ -14,7 +14,6 @@ const styles = new Map()
 	.set(/`(?:[^\\`]|\\[^])*(?:`|$)|(["'])([^"'\\\n]|\\[^]|(?!\1).)*(\1|(?=\n))/y, vec4(.05, .3, .95))
 	.set(/(?<![\)\]\w]\s*)\/([^\\\/]|\\.)+\/[gimsuyvdGIMSUYVD]*/y, vec4(.7, .05, .7))
 input.transformer = txt => {
-	console.log(input.selDir)
 	const r = RichText(font)
 	if(!txt){
 		r.setValues(0, [vec4(.4)])
@@ -52,7 +51,7 @@ input.allowTabs = true
 const scr = Scrollable(input, 40, -20)
 
 
-Shader.AA_CIRCLE ??= Shader(`
+Shader.AA_CIRCLE = Shader(`
 void main(){
 	float dist = 0.5 - length(uv - 0.5), alpha = clamp(dist/fwidth(dist) + 0.5, 0.0, 1.0);
 	color = arg0() * alpha;

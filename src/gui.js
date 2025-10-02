@@ -1,11 +1,11 @@
-{const defer = Promise.resolve()
-Gamma.textfield = $ => {
-	const rem = ({target:t}) => (t._field._f&256||(t._field._f|=256,defer.then(t._field.recalc)), t.remove(), curf = null)
+{Gamma.gui = $ => {
+	if(!$.RichText) throw 'Initialize Gamma.font before Gamma.gui'
+	const rem = ({target:t}) => (t._field._f&256||(t._field._f|=256,setImmediate(t._field.recalc)), t.remove(), curf = null)
 	const keydown = e => {
 		const i = e.target, tf = i._field
 		if(e.keyCode == 38 || e.keyCode == 40){
 			if((tf._f>>1&1)^e.shiftKey) e.keyCode == 38 ? tf.upArrowCb?.() : tf.downArrowCb?.()
-			else if(tf._f&2048){
+			else if(tf._f&2048){ // multiline
 				if(tf.sel0 == tf.sel1){
 					let i = tf.sel0, i0 = i, idx = tf.sel0pos, j = idx
 					while(j) i -= tf.lines[--j].length
@@ -16,7 +16,7 @@ Gamma.textfield = $ => {
 					}else if(e.keyCode == 40 && idx < tf.lines.length-1){
 						tf.sel0 = tf.sel1 = i0 - i + tf.lines[idx].length + tf.lines[idx+1].indexAt(x)
 					}
-				}else if(e.keyCode == 38) tf.sel0=tf.sel1
+				}else if(e.keyCode == 38) tf.sel0 = tf.sel1
 				else tf.sel1=tf.sel0
 			}
 		}else if(e.keyCode == 13){
@@ -24,12 +24,7 @@ Gamma.textfield = $ => {
 			else return
 		}else if(e.keyCode == 9){
 			if((tf._f>>3&1)^e.shiftKey) tf.tabCb?.()
-			else if(tf._f&1){
-				const s = i.selectionStart
-				i.value = i.value.slice(0,s) + '\t' + i.value.slice(i.selectionEnd)
-				i.selectionStart = i.selectionEnd = s + 1
-				tf._f&256||(tf._f |= 256,defer.then(tf.recalc))
-			}
+			else if(tf._f&1) tf.insert('\t')
 		}else return
 		e.preventDefault()
 	}
@@ -69,16 +64,66 @@ Gamma.textfield = $ => {
 		#i
 		constructor(t){this.#i=crInput(t?'textarea':'input', this);this._f=t}
 		get value(){return this.#i.value}
-		set value(a){this.#i.value=a;this._f&256||(this._f|=256,defer.then(this.recalc))}
+		set value(a){this.#i.value=a;this._f&256||(this._f|=256,setImmediate(this.recalc))}
 		get sel0(){return this.#s}
-		set sel0(a){this.#i.selectionStart=this.#s=a;this._f&256||(this._f|=256,defer.then(this.recalc))}
+		set sel0(a){
+			a >>>= 0
+			if(this.#e >= this.#s){
+				if(a <= this.#e) this.#i.selectionStart = a
+				else{
+					this.#i.selectionStart = this.#e
+					this.#i.selectionEnd = a
+					this.#i.selectionDirection = 'backward'
+				}
+			}else{
+				if(a > this.#e) this.#i.selectionEnd = a
+				else{
+					this.#i.selectionStart = a
+					this.#i.selectionEnd = this.#e
+					this.#i.selectionDirection = 'forward'
+				}
+			}
+			this.#s = a
+		}
 		get sel1(){return this.#e}
-		set sel1(a){this.#i.selectionEnd=this.#e=a;this._f&256||(this._f|=256,defer.then(this.recalc))}
-		get isSelecting(){ return (this._f&1536)!=0 }
-		get selDir(){ return ((this._f>>9&3)||2)-2}
+		set sel1(a){
+			a >>>= 0
+			if(this.#e >= this.#s){
+				if(a >= this.#s) this.#i.selectionEnd = a
+				else{
+					this.#i.selectionStart = a
+					this.#i.selectionEnd = this.#s
+					this.#i.selectionDirection = 'backward'
+				}
+			}else{
+				if(a < this.#s) this.#i.selectionStart = a
+				else{
+					this.#i.selectionStart = this.#s
+					this.#i.selectionEnd = a
+					this.#i.selectionDirection = 'forward'
+				}
+			}
+			this.#e = a
+		}
+		select(s, e = s){
+			if((s >>>= 0) <= (e >>>= 0)){
+				this.#i.selectionStart = s
+				this.#i.selectionEnd = e
+				if(this.#s > this.#e) this.#i.selectionDirection = 'forward'
+			}else{
+				this.#i.selectionStart = e
+				this.#i.selectionEnd = s
+				if(this.#s <= this.#e) this.#i.selectionDirection = 'backward'
+			}
+			this.#s = s; this.#e = e
+			this._f&256||(this._f|=256,setImmediate(this.recalc))
+		}
+		get selStart(){ return min(this.#s, this.#e) }
+		get selEnd(){ return max(this.#s, this.#e) }
+		get isSelecting(){ return (this._f&512)!=0 }
 		#tr=null
 		get transformer(){return this.#tr}
-		set transformer(a){this.#tr!=(this.#tr=a)&&!(this._f&256)&&(this._f|=256,defer.then(this.recalc))}
+		set transformer(a){this.#tr!=(this.#tr=a)&&!(this._f&256)&&(this._f|=256,setImmediate(this.recalc))}
 		simpleTransformer(font, placeholder='', ...v){
 			let w = v.slice()
 			w[0] = v[0] ? v4.multiply(v[0], .4) : v4(.4)
@@ -93,7 +138,7 @@ Gamma.textfield = $ => {
 				}
 				return p
 			}
-			this._f&256||(this._f|=256,defer.then(this.recalc))
+			this._f&256||(this._f|=256,setImmediate(this.recalc))
 		}
 		#cr = defaultCr
 		#sr = defaultSr
@@ -117,24 +162,25 @@ Gamma.textfield = $ => {
 				this.#i = crInput('input', this)
 			}
 			if(f) this.focus = true
-			else i.remove(), curf == i && (curf = null), this._f&256||(this._f|=256,defer.then(this.recalc))
+			else i.remove(), curf == i && (curf = null), this._f&256||(this._f|=256,setImmediate(this.recalc))
 			this.#i.value = v
 			this.#i.selectionStart = this.#s
 			this.#i.selectionEnd = this.#e
+			this.#i.selectionDirection = this.#s > this.#e ? 'backward' : 'forward'
 		}
 		get width(){return this.#w}
 		get line(){return this.#p}
 		get lines(){return this.#pa}
 		get cursor(){return this.#cr}
-		set cursor(a){this.#cr!=(this.#cr=a)&&!(this._f&256)&&(this._f|=256,defer.then(this.recalc))}
+		set cursor(a){this.#cr!=(this.#cr=a)&&!(this._f&256)&&(this._f|=256,setImmediate(this.recalc))}
 		get selector(){return this.#sr}
-		set selector(a){this.#sr!=(this.#sr=a)&&!(this._f&256)&&(this._f|=256,defer.then(this.recalc))}
+		set selector(a){this.#sr!=(this.#sr=a)&&!(this._f&256)&&(this._f|=256,setImmediate(this.recalc))}
 		get maxWidth(){return this.#mw}
-		set maxWidth(a){this.#mw=a,this._f&256||(this._f|=256,defer.then(this.recalc))}
+		set maxWidth(a){this.#mw=a,this._f&256||(this._f|=256,setImmediate(this.recalc))}
 		recalc = () => {
 			const f = this._f
 			if(!(f&256)) return
-			const i = this.#i, s = this.#s, e = this.#e
+			const i = this.#i, s = min(this.#s, this.#e), e = max(this.#s, this.#e)
 			this._f = f&-257; ltf = $.t
 			const v = i.value
 			const p = this.#tr?.(v, this) ?? $.RichText()
@@ -177,10 +223,9 @@ Gamma.textfield = $ => {
 			}else this.#p = p, this.#w = p.width
 		}
 		insert(t='', off = t.length){
-			const i = this.#i, v = i.value, s = i.selectionStart, e = i.selectionEnd
-			i.value = v.slice(0,s) + t + v.slice(e)
-			i.selectionStart = i.selectionEnd = s + off
-			this._f&256||(this._f|=256,defer.then(this.recalc))
+			const i = this.#i, s = i.selectionStart
+			i.setRangeText(t, s, i.selectionEnd, 'start')
+			i.selectionStart = i.selectionEnd = this.#s = this.#e = s + off
 		}
 		get focus(){ return document.activeElement==this.#i }
 		set focus(f = true){
@@ -198,12 +243,10 @@ Gamma.textfield = $ => {
 		get height(){return this.lineHeight*(this.#pa?this.#pa.length:1)}
 		consumeInputs(ctx, {x, y} = ctx.from($.cursor), k = $.keys.has(0)){
 			y = this.lineAscend-y; cursorType = 'text'
-			if(!k) return void(this._f = this._f&-1537)
-			if(!this.focus){
+			if(!k) return void(this._f &= -513)
+			if(document.activeElement != this.#i)
 				this.focus = true
-				if(this.#s!=this.#e) return void(this._f = this._f&-1537|1024)
-			}
-			const sel = this._f>>9&3
+			const sel = this._f>>9&1
 			let j = 0
 			if(this.#p) j = this.#p.indexAt(x)
 			else if(this.#pa){
@@ -212,13 +255,8 @@ Gamma.textfield = $ => {
 				j = this.#pa[i].indexAt(x)
 				while(i) j += this.#pa[--i].length
 			}
-			if(sel == 1){
-				if(j > this.sel1) this.sel0 = this.sel1, this.sel1 = j, this._f |= 1024
-				else if(j != this.#s) this.#s = this.#i.selectionStart = j, this._f&256||(this._f|=256,defer.then(this.recalc))
-			}else if(sel == 3){
-				if(j <= this.sel0) this.sel1 = this.sel0, this.sel0 = j, this._f &= -1025
-				else if(j != this.#e) this.#e = this.#i.selectionEnd = j, this._f&256||(this._f|=256,defer.then(this.recalc))
-			}else if(!sel){
+			if(sel) this.sel1 = j
+			else{
 				let seekType = 0, s = j, e = j
 				if(this.#lc<0){
 					if(this.#lc-(this.#lc=-t) < .3) seekType = 2
@@ -226,21 +264,16 @@ Gamma.textfield = $ => {
 				}else if(this.#lc>0){
 					if(this.#lc-(this.#lc=t) > -.3) seekType = 1, this.#lc=-t
 				}else this.#lc = t
-				console.log(seekType)
-				this._f = this._f&-1537|1024
+				this._f |= 512
 				if(seekType){
-					this._f |= 512
 					const v = this.#i.value
 					const min = 33-seekType
-					while(v.codePointAt(e++)>min);
-					while(v.codePointAt(--s)>min);
+					// Will correctly skip unicode chars too, since we are only scanning for chars <= U+20
+					while(v.charCodeAt(e++)>min);
+					while(v.charCodeAt(--s)>min);
 					s++; e--
 				}
-				if(s != this.#s || e != this.#e){
-					this.#i.selectionStart = this.#s = s
-					this.#i.selectionEnd = this.#e = e
-					this._f&256||(this._f|=256,defer.then(this.recalc))
-				}
+				if(s != this.#s || e != this.#e) this.select(s, e)
 			}
 		}
 		get height(){return this.#pa?this.#pa.length*this.lineHeight:this.lineHeight}
@@ -254,13 +287,21 @@ Gamma.textfield = $ => {
 				}
 			}else this.#p?.draw(ctx)
 		}
-		static #_ = (document.addEventListener('input', e => {
-			const f = e.target._field
-			if(f) f.#s=e.target.selectionStart, f.#e=e.target.selectionEnd, f._f&256||(f._f|=256,defer.then(f.recalc))
+		static #_ = (document.addEventListener('input', ({target}) => {
+			const f = target._field
+			if(!f) return
+			const { selectionStart: s, selectionEnd: e, selectionDirection: d } = target
+			if(d == 'backward') f.#s = e, f.#e = s
+			else f.#s = s, f.#e = e
+			f._f&256||(f._f|=256,setImmediate(f.recalc))
 		}),
-		document.addEventListener('selectionchange', e => {
-			const f = e.target._field
-			if(f) f.#s=e.target.selectionStart, f.#e=e.target.selectionEnd, f._f&256||(f._f|=256,defer.then(f.recalc))
+		document.addEventListener('selectionchange', ({target}) => {
+			const f = target._field
+			if(!f) return
+			const { selectionStart: s, selectionEnd: e, selectionDirection: d } = target
+			if(d == 'backward') f.#s = e, f.#e = s
+			else f.#s = s, f.#e = e
+			f._f&256||(f._f|=256,setImmediate(f.recalc))
 		}))
 	}
 	$.TextField = (multiline=false) => new _txtfield(multiline<<11&2048)
