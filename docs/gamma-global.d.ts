@@ -1,3 +1,4 @@
+// © 2025 Matthew Reiner. https://github.com/BlobTheKat/gamma
 /// <reference path="./gamma.d.ts" />
 export {}
 declare global{
@@ -932,7 +933,7 @@ declare global{
 	 * 
 	 * Virtually anything you need to know about GLSL can be found online (or by asking an LLM). Here, we will just focus on things that are done differently or new
 	 * 
-	 * @param inputs Shader sprite inputs. These can be any of
+	 * @param inputs Shader sprite inputs. These can be any of the following, passed as an array, or a single value, representing an array with one element
 	 * - `FLOAT` A number interpreted and passed to the shader as a single-precision float
 	 * - `VEC2`/`VEC3`/`VEC4` An object in the shape of `{x, y}`/`{x, y, z}`/`{x, y, z, w}` interpreted and passed to the shader as single-precision floats
 	 * - `INT` A number interpreted and passed to the shader as a 32 bit signed integer

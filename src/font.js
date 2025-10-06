@@ -1,24 +1,26 @@
 Gamma.font = $ => {
-	const vec4one = $.vec4.one, vec2l = {x:0,y:1}, msdfShader = $.Shader.MSDF = $.Shader("void main(){vec3 c=arg0().rgb;color=arg2*clamp(arg1.y*(max(min(c.r, c.g), min(max(c.r, c.g), c.b))-.5+arg1.x)+.5,0.,1.);}", [$.COLOR, $.VEC2, $.VEC4], [undefined, {x:0,y:1}, vec4one, 0])
+	const vec4one = $.vec4.one, vec2l = {x:0,y:1}, msdfShader = $.Shader.MSDF = $.Shader("void main(){vec3 c=arg0().rgb;color=arg2*clamp(arg1.y*(max(min(c.r, c.g), min(max(c.r, c.g), c.b))-.5+arg1.x)+.5,0.,1.);}", [$.COLOR, $.VEC2, $.VEC4], [undefined, {x:0,y:1}, vec4one])
 $.TEXT_AA=NaN
-/*$.Shader.font = (src, args=[], defaults=[], uni=[], uniDefaults = [], a) => {
-	let pr = 'float field(){ vec3 c = arg0().rgb; return ((uni0 < 0. ? c.r : max(min(c.r, c.g), min(max(c.r, c.g), c.b)))-.5)*abs(uni0); }\n'
+$.Shader.font = (src, args, defaults, uni=[], uniDefaults = [], a) => {
+	let pr = 'float field(){vec3 c=arg0().rgb;return max(min(c.r, c.g), min(max(c.r, c.g), c.b)); }\n#define scale arg1\n'
 	for(let i = 0; i < args.length; i++)
 		pr += `#define value${i} arg${i+2}\n`
-	args.unshift($.COLOR, $.FLOAT); defaults.unshift(undefined, {x:0,y:1})
+	if(!Array.isArray(args)) args = typeof args == 'number' ? [args] : []
+	if(!Array.isArray(defaults)) defaults = defaults === undefined ? [] : Array.isArray(defaults) ? defaults : [defaults]
+	args.unshift($.COLOR, $.VEC2); defaults.unshift(undefined, {x:0,y:1})
 	return $.Shader(pr+src, args, defaults, uni, uniDefaults, a)
 }
-$.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 	const BreakToken = $.BreakToken = (regex, type = 0, sep = '', next = undefined) => {
 		if(regex instanceof RegExp){
 			let f = regex.flags, g = f.indexOf('g')
 			if(g>-1) f=f.slice(0,g)+f.slice(g+1)
 			if(!f.includes('y')) f += 'y'
-			regex = new RegExp(regex.source, f)
+			if(f != regex.flags) regex = new RegExp(regex.source, f)
 		}else{
 			let src = '['
 			for(const ch of regex+''){
 				const c = ch.codePointAt()
+				// Escape -, ^, ], \
 				src += (c>=92&&c<=94)||c==45?'\\'+ch:ch
 			}
 			regex = new RegExp(src+']','y')
@@ -215,7 +217,6 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 				q.#w=NaN; q.#l = null
 			}
 			#v = DEFAULT_PASSES
-			// Sets the shader's values at this point in the stream
 			addTextPass(ord, x, y, a, off=0, spr=NaN){
 				const o = {off, spr: 1/spr, 0: null, 1: V}
 				if(a) for(let i=0;i<a.length;i++) o[i+2] = a[i]
@@ -717,7 +718,7 @@ $.Shader.font(`void main(){color = (field() + farg1) * fpixelRatio}`)*/
 								last = -1
 								continue w
 							case YO: yo = v*sc1; xo = yo*sk; last = -1; continue w
-							case SH: ctx.shader = sh = s; break
+							case SH: ctx.shader = sh = v; break
 							case ST: st = v; last = -1; continue w
 							case SK: ctx.skew(v-sk, 0); sk = v; xo = yo*v; last = -1; continue w
 							case LSB: lsb = v*.5; continue w
@@ -1131,6 +1132,7 @@ ffff\ ffff\ ffff\ ffff\
 		draw(ctx, txt, v=[], off=0, spr=NaN, lsb = 0, last = -1){
 			if(this.#cb) return
 			lsb *= .5
+			off /= this.rangeFactor
 			spr = spr!==spr ? ctx.pixelRatio()*2*this.rangeFactor : this.rangeFactor/spr
 			for(const ch of txt){
 				const c = ch.codePointAt()

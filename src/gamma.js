@@ -1,3 +1,4 @@
+// © 2025 Matthew Reiner. https://github.com/BlobTheKat/gamma
 {
 const $ = globalThis
 Math.PI2 ??= Math.PI*2
@@ -354,7 +355,11 @@ $.Img = (src, o = 0, fmt = Formats.RGBA, mips = 0) => new img({
 	w: 0, h: 0, d: src ? Array.isArray(src) ? src.length : 1 : 0, m: mips||1
 })
 Object.assign($, {
-	UPSCALE_SMOOTH: 1, DOWNSCALE_SMOOTH: 2, MIPMAP_SMOOTH: 4, SMOOTH: 7, REPEAT_X: 8, REPEAT_MIRRORED_X: 16, REPEAT_Y: 32, REPEAT_MIRRORED_Y: 64, REPEAT: 40, REPEAT_MIRRORED: 80,
+	UPSCALE_SMOOTH: 1, DOWNSCALE_SMOOTH: 2,
+	MIPMAP_SMOOTH: 4, SMOOTH: 7,
+	REPEAT_X: 8, REPEAT_MIRRORED_X: 16,
+	REPEAT_Y: 32, REPEAT_MIRRORED_Y: 64,
+	REPEAT: 40, REPEAT_MIRRORED: 80,
 	R: 1, G: 2, B: 4, A: 8,
 	RGB: 7, RGBA: 15,
 	IF_SET: 16, IF_UNSET: 32, NEVER: 48,
@@ -390,9 +395,11 @@ Object.assign($, {
 	FLOAT: 0, VEC2: 1, VEC3: 2, VEC4: 3,
 	INT: 16, IVEC2: 17, IVEC3: 18, IVEC4: 19,
 	UINT: 32, UVEC2: 33, UVEC3: 34, UVEC4: 35,
-	TEXTURE: 20, UTEXTURE: 24, FTEXTURE: 28, COLOR: 4, UCOLOR: 8, FCOLOR: 12,
+	TEXTURE: 20, UTEXTURE: 24, FTEXTURE: 28,
+	COLOR: 4, UCOLOR: 8, FCOLOR: 12,
 	FIXED: 4,
-	TRIANGLE_STRIP: 5, TRIANGLES: 4, TRIANGLE_FAN: 6, LINE_LOOP: 2, LINE_STRIP: 3, LINES: 1, POINTS: 0
+	TRIANGLE_STRIP: 5, TRIANGLES: 4, TRIANGLE_FAN: 6,
+	LINE_LOOP: 2, LINE_STRIP: 3, LINES: 1, POINTS: 0
 })
 $.vec2 = (x=0,y=x) => ({x,y})
 $.vec2.one = $.vec2(1); const v2z = $.vec2.zero = $.vec2(0)
@@ -447,7 +454,7 @@ $.Formats={
 }
 const grow = ArrayBuffer.prototype.transfer ? ()=>{arr=new Float32Array(arr.buffer.transfer(i*8)),iarr=new Int32Array(arr.buffer)}:()=>{const oa=arr;(arr=new Float32Array(i*2)).set(oa,0);iarr=new Int32Array(arr.buffer)}
 class drw{
-	t;#a;#b;#c;#d;#e;#f;#m;#shader;s
+	t;#a;#b;#c;#d;#e;#f;_mask;#shader;s
 	get width(){return this.t.w}
 	get height(){return this.t.h}
 	get texture(){ return this.t.img; }
@@ -520,7 +527,7 @@ class drw{
 		}
 		gl.blitFramebuffer(srcX, srcY, srcX+srcW, srcY+srcH, x, y, x+srcW, y+srcH, gl.COLOR_BUFFER_BIT, gl.NEAREST)
 	}
-	constructor(t,a=1,b=0,c=0,d=1,e=0,f=0,m=290787599,s=$.Shader.DEFAULT,sp=defaultShape){this.t=t;this.#a=a;this.#b=b;this.#c=c;this.#d=d;this.#e=e;this.#f=f;this.#m=m;this.#shader=s;this.s=sp}
+	constructor(t,a=1,b=0,c=0,d=1,e=0,f=0,m=290787599,s=$.Shader.DEFAULT,sp=defaultShape){this.t=t;this.#a=a;this.#b=b;this.#c=c;this.#d=d;this.#e=e;this.#f=f;this._mask=m;this.#shader=s;this._shp=sp}
 	translate(x=0,y=0){ this.#e+=x*this.#a+y*this.#c;this.#f+=x*this.#b+y*this.#d }
 	scale(x=1,y=x){ this.#a*=x; this.#b*=x; this.#c*=y; this.#d*=y }
 	rotate(r=0){
@@ -545,7 +552,7 @@ class drw{
 		this.#c=ta*y+this.#c*x;this.#d=tb*y+this.#d*x
 	}
 	getTransform(){ return {a: this.#a, b: this.#b, c: this.#c, d: this.#d, e: this.#e, f: this.#f} }
-	reset(a=1,b=0,c=0,d=1,e=0,f=0){this.#a=a;this.#b=b;this.#c=c;this.#d=d;this.#e=e;this.#f=f;this.#m=290787599;this.#shader=$.Shader.DEFAULT;this.s=defaultShape}
+	reset(a=1,b=0,c=0,d=1,e=0,f=0){this.#a=a;this.#b=b;this.#c=c;this.#d=d;this.#e=e;this.#f=f;this._mask=290787599;this.#shader=$.Shader.DEFAULT;this._shp=defaultShape}
 	box(x=0,y=0,w=1,h=w){ this.#e+=x*this.#a+y*this.#c; this.#f+=x*this.#b+y*this.#d; this.#a*=w; this.#b*=w; this.#c*=h; this.#d*=h }
 	to(x=0, y=0){ if(typeof x=='object'){y=x.y;x=x.x} return {x:this.#a*x+this.#c*y+this.#e,y:this.#b*x+this.#d*y+this.#f}}
 	from(x=0, y=0){
@@ -564,44 +571,44 @@ class drw{
 	}
 	determinant(){return this.#a*this.#d-this.#b*this.#c}
 	pixelRatio(){return sqrt(abs(this.#a*this.#d-this.#b*this.#c)*this.t.w*this.t.h)}
-	sub(){ return new drw(this.t,this.#a,this.#b,this.#c,this.#d,this.#e,this.#f,this.#m,this.#shader,this.s) }
-	resetTo(m){ this.#a=m.#a;this.#b=m.#b;this.#c=m.#c;this.#d=m.#d;this.#e=m.#e;this.#f=m.#f;this.#m=m.#m;this.#shader=m.#shader;this.s=m.s }
+	sub(){ return new drw(this.t,this.#a,this.#b,this.#c,this.#d,this.#e,this.#f,this._mask,this.#shader,this._shp) }
+	resetTo(m){ this.#a=m.#a;this.#b=m.#b;this.#c=m.#c;this.#d=m.#d;this.#e=m.#e;this.#f=m.#f;this._mask=m._mask;this.#shader=m.#shader;this._shp=m._shp }
 	set shader(sh){ this.#shader=typeof sh=='function'?sh:$.Shader.DEFAULT }
 	get shader(){return this.#shader}
-	set mask(m){this.#m=this.#m&-256|m&255}
-	get mask(){return this.#m&255}
-	set blend(b){this.#m=this.#m&255|(b||1135889)<<8}
-	get blend(){return this.#m>>8}
-	get geometry(){return this.s}
-	set geometry(a){this.s=a||defaultShape}
+	set mask(m){this._mask=this._mask&-256|m&255}
+	get mask(){return this._mask&255}
+	set blend(b){this._mask=this._mask&255|(b||1135889)<<8}
+	get blend(){return this._mask>>8}
+	get geometry(){return this._shp}
+	set geometry(a){this._shp=a||defaultShape}
 	draw(...values){
-		setv(this.t,this.#m); const i = this.#shader(values)
+		const i = this.#shader(values)
 		arr[i  ] = this.#a; arr[i+1] = this.#c; arr[i+2] = this.#e
 		arr[i+3] = this.#b; arr[i+4] = this.#d; arr[i+5] = this.#f
 	}
 	drawRect(x=0, y=0, w=1, h=1, ...values){
-		setv(this.t,this.#m); const i = this.#shader(values)
+		const i = this.#shader(values)
 		arr[i  ] = this.#a*w; arr[i+1] = this.#c*h; arr[i+2] = this.#e+x*this.#a+y*this.#c
 		arr[i+3] = this.#b*w; arr[i+4] = this.#d*h; arr[i+5] = this.#f+x*this.#b+y*this.#d
 	}
 	drawMat(a=1, b=0, c=0, d=1, e=0, f=0, ...values){
-		setv(this.t,this.#m); const i = this.#shader(values)
+		const i = this.#shader(values)
 		const ta=this.#a,tb=this.#b,tc=this.#c,td=this.#d,te=this.#e,tf=this.#f
 		arr[i  ] = ta*a+tc*b; arr[i+1] = ta*c+tc*d; arr[i+2] = ta*e+tc*f+te
 		arr[i+3] = tb*a+td*b; arr[i+4] = tb*c+td*d; arr[i+5] = tb*e+td*f+tf
 	}
 	drawv(values){
-		setv(this.t,this.#m); const i = this.#shader(values)
+		const i = this.#shader(values)
 		arr[i  ] = this.#a; arr[i+1] = this.#c; arr[i+2] = this.#e
 		arr[i+3] = this.#b; arr[i+4] = this.#d; arr[i+5] = this.#f
 	}
 	drawRectv(x=0, y=0, w=1, h=1, values){
-		setv(this.t,this.#m); const i = this.#shader(values)
+		const i = this.#shader(values)
 		arr[i  ] = this.#a*w; arr[i+1] = this.#c*h; arr[i+2] = this.#e+x*this.#a+y*this.#c
 		arr[i+3] = this.#b*w; arr[i+4] = this.#d*h; arr[i+5] = this.#f+x*this.#b+y*this.#d
 	}
 	drawMatv(a=1, b=0, c=0, d=1, e=0, f=0, values){
-		setv(this.t,this.#m); const i = this.#shader(values)
+		const i = this.#shader(values)
 		const ta=this.#a,tb=this.#b,tc=this.#c,td=this.#d,te=this.#e,tf=this.#f
 		arr[i  ] = ta*a+tc*b; arr[i+1] = ta*c+tc*d; arr[i+2] = ta*e+tc*f+te
 		arr[i+3] = tb*a+td*b; arr[i+4] = tb*c+td*d; arr[i+5] = tb*e+td*f+tf
@@ -637,7 +644,7 @@ class drw{
 	clear(r = 0, g = r, b = r, a = g){
 		if(typeof r=='object')a=r.w??0,b=r.z??0,g=r.y,r=r.x
 		i&&draw()
-		setv(this.t, this.#m)
+		setv(this.t, this._mask)
 		gl.clearColor(r, g, b, a)
 		const q = this.t.stencil=this.t.stencil+1&7
 		gl.clear(q?16384:(gl.stencilMask(255), 17408))
@@ -646,7 +653,7 @@ class drw{
 	}
 	clearStencil(){
 		i&&draw()
-		setv(this.t, this.#m)
+		setv(this.t, this._mask)
 		const q = this.t.stencil=this.t.stencil+1&7
 		if(!q) gl.stencilMask(255), gl.clear(1024)
 		gl.disable(2960); pmask &= -241
@@ -712,12 +719,12 @@ function setv(t,m){
 		pmask = m
 	}
 }
-function draw(b = shuniBind){
+function draw(){
 	gl.bufferData(34962, iarr.subarray(0, i), 35040)
 	const {type,start:s,length:l}=shp
 	fd += i; i /= sh.count; fdc++; fs += i
 	gl.drawArraysInstanced(type, s, l, i)
-	i = 0; boundUsed = b
+	i = 0; boundUsed = shuniBind
 	if(pendingFences.length){ fencetail ??= pendingFences[0]; for(const f of pendingFences){
 		f.sync = gl.fenceSync(37143,0)
 		fencehead = fencehead ? fencehead.next = f : f
@@ -765,8 +772,8 @@ T = $.Shader = (src, inputs, defaults, uniforms, uDefaults, output=4, frat=0.5) 
 	let id = 0
 	inputs = typeof inputs=='number' ? [inputs] : inputs || []
 	uniforms = typeof uniforms=='number' ? [uniforms] : uniforms || []
-	defaults = defaults != null ? Array.isArray(defaults) ? defaults : [defaults] : []
-	uDefaults = uDefaults != null ? Array.isArray(uDefaults) ? uDefaults : [uDefaults] : []
+	defaults = defaults !== undefined ? Array.isArray(defaults) ? defaults : [defaults] : []
+	uDefaults = uDefaults !== undefined ? Array.isArray(uDefaults) ? uDefaults : [uDefaults] : []
 	for(const t of inputs){
 		let c = (t&3)+1, n = names[t&3|t>>4<<2]
 		const isCol = t==4||t==8||t==12
@@ -804,7 +811,7 @@ T = $.Shader = (src, inputs, defaults, uniforms, uDefaults, output=4, frat=0.5) 
 		id++
 	}
 	id = 0; let j2 = 0, j3 = 0
-	const fn2Params = [], fn2Body = ['fd+=j2;i&&draw(0);if(sh!=s){shfCount=fCount;shfMask=fMask;gl.useProgram((sh=s).program);gl.bindVertexArray(s.vao)}'], fn3Body = []
+	const fn2Params = [], fn2Body = ['fd+=j2;i&&draw();boundUsed=0;if(sh!=s){shfCount=fCount;shfMask=fMask;gl.useProgram((sh=s).program);gl.bindVertexArray(s.vao)}'], fn3Body = []
 	const uniTex = [], uniLocs = []
 	for(const t of uniforms){
 		let c = (t&3)+1, n = names[t&3|t>>4<<2]
@@ -853,7 +860,7 @@ T = $.Shader = (src, inputs, defaults, uniforms, uDefaults, output=4, frat=0.5) 
 		+(o&16?`highp vec4 fGetPixel(int u,ivec3 p,int l){${T||treeIf(0,fCount)}}`:'')
 		+(o&8?`uvec4 uGetPixel(int u,ivec3 p,int l){${g=i=>'return texelFetch(GL_i['+i+'],p,l);',treeIf(0,maxTex-fCount,maxTex)}}`:'')
 		+(o&28?`ivec3 getSize(int u,int l){${g=i=>'return textureSize(GL_'+(i<fCount?'f['+i:'i['+(i-fCount))+'],l);',T=treeIf(0,maxTex)}}`:'')
-	fnBody[0] = '}){if(sh!=s){i&&draw(0);shfCount=fCount;shfMask=fMask;gl.useProgram((sh=s).program);gl.bindVertexArray(s.vao);bindUniTex()}if(shp!=this.s){i&&draw();shp=this.s}if(s.geometry!=this.s.b){gl.bindBuffer(34962,s.geometry=this.s.b);gl.vertexAttribPointer(0,4,gl.FLOAT,0,0,0);gl.bindBuffer(34962,buf)}const b=boundUsed^shuniBind;'+texCheck.join(';')+';const j=i;if((i=j+'+j+')>arr.length)'+(ArrayBuffer.prototype.transfer?'arr=new Float32Array(arr.buffer.transfer(i*8)),iarr=new Int32Array(arr.buffer)':'{const oa=arr;(arr=new Float32Array(i*2)).set(oa,0);iarr=new Int32Array(arr.buffer)}')
+	fnBody[0] = '}){setv(this.t,this._mask);if(sh!=s){i&&draw();boundUsed=0;shfCount=fCount;shfMask=fMask;gl.useProgram((sh=s).program);gl.bindVertexArray(s.vao);bindUniTex()}if(shp!=this._shp){i&&draw();shp=this._shp}if(s.geometry!=this._shp.b){gl.bindBuffer(34962,s.geometry=this._shp.b);gl.vertexAttribPointer(0,4,gl.FLOAT,0,0,0);gl.bindBuffer(34962,buf)}const b=boundUsed^shuniBind;'+texCheck.join(';')+';const j=i;if((i=j+'+j+')>arr.length)'+(ArrayBuffer.prototype.transfer?'arr=new Float32Array(arr.buffer.transfer(i*8)),iarr=new Int32Array(arr.buffer)':'{const oa=arr;(arr=new Float32Array(i*2)).set(oa,0);iarr=new Int32Array(arr.buffer)}')
 	fnBody.push('return j})')
 	const s = eval(fnParams.join('')+fnBody.join(';')), p = s.program = gl.createProgram()
 	s.uniforms = eval(`(function(${fn2Params}){${fn2Body.join(';')};bindUniTex()})`)
