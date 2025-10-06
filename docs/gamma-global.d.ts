@@ -193,15 +193,15 @@ declare global{
 		readonly layers: number
 
 		/**
-		 * Width, in pixels of a subtexture, when accounting for its crop
+		 * Width, in pixels of a sub-texture, when accounting for its crop
 		 */
 		readonly subWidth: number
 		/**
-		 * Height, in pixels of a subtexture, when accounting for its crop
+		 * Height, in pixels of a sub-texture, when accounting for its crop
 		 */
 		readonly subHeight: number
 		/**
-		 * Aspect ratio of a subtexture, i.e subWidth/subHeight.
+		 * Aspect ratio of a sub-texture, i.e subWidth/subHeight.
 		 * 
 		 * Value will be < 1 for vertical textures, > 1 for horizontal textures and == 1 for square textures
 		 */
@@ -222,15 +222,15 @@ declare global{
 		/** Used to make image-backed textures `await`able. Will trigger a load. */
 		readonly then: ((resolve: (res: Texture) => any, reject: (err: any) => any) => void) | null
 
-		/** `x` parameter used to define a subtexture. Can be safely modified at any time */
+		/** `x` parameter used to define a sub-texture. Can be safely modified at any time */
 		x: number
-		/** `y` parameter used to define a subtexture. Can be safely modified at any time */
+		/** `y` parameter used to define a sub-texture. Can be safely modified at any time */
 		y: number
-		/** `width` parameter used to define a subtexture. Can be safely modified at any time */
+		/** `width` parameter used to define a sub-texture. Can be safely modified at any time */
 		w: number
-		/** `height` parameter used to define a subtexture. Can be safely modified at any time */
+		/** `height` parameter used to define a sub-texture. Can be safely modified at any time */
 		h: number
-		/** `layer` parameter used to define a subtexture. Can be safely modified at any time */
+		/** `layer` parameter used to define a sub-texture. Can be safely modified at any time */
 		l: number
 
 		/**
@@ -265,42 +265,42 @@ declare global{
 		load(): void
 
 		/**
-		 * Returns a subtexture. The underlying data pointed to by a subtexture is the same, so that modifications to a texture are seen through all its subtextures. A `Texture` object is then just a view into its backing data. This is analogous to `TypedArray`s, `DataView` or `Buffer` being views into an `ArrayBuffer`. Note that all textures and subtextures are of the same class and thus the same methods and properties are available on them
+		 * Returns a sub-texture. The underlying data pointed to by a sub-texture is the same, so that modifications to a texture are seen through all its sub-textures. A `Texture` object is then just a view into its backing data. This is analogous to `TypedArray`s, `DataView` or `Buffer` being views into an `ArrayBuffer`. Note that all textures and sub-textures are of the same class and thus the same methods and properties are available on them
 		 * 
 		 * Coordinates are usually the range [0,1] however taking coordinates outside is completely valid and will use the texture's wrapping mode to fill the outside
 		 * 
-		 * @param l Layer. By default subtextures use the same layer as the texture they are made from, and the original texture object uses layer 0
+		 * @param l Layer. By default sub-textures use the same layer as the texture they are made from, and the original texture object uses layer 0
 		 * 
 		 * @performance This method is CPU-arithmetic, very fast
 		 */
 		sub(x: number, y: number, w: number, h: number, l?: number): Texture
 
 		/**
-		 * Returns a "super texture" subtexture. The underlying data pointed to by a subtexture is the same, so that modifications to a texture are seen through all its subtextures. A `Texture` object is then just a view into its backing data. This is analogous to `TypedArray`s, `DataView` or `Buffer` being views into an `ArrayBuffer`. Note that all textures and subtextures are of the same class and thus the same methods and properties are available on them
+		 * Returns a "super texture" sub-texture. The underlying data pointed to by a sub-texture is the same, so that modifications to a texture are seen through all its sub-textures. A `Texture` object is then just a view into its backing data. This is analogous to `TypedArray`s, `DataView` or `Buffer` being views into an `ArrayBuffer`. Note that all textures and sub-textures are of the same class and thus the same methods and properties are available on them
 		 * 
-		 * Unlike .sub(), the subtexture returned is such that its subtexture defined by the provided values contains the whole of this texture. In other words, `tex.super(a, b, c, d).sub(a, b, c, d)` is the same as `tex`
+		 * Unlike .sub(), the sub-texture returned is such that its sub-texture defined by the provided values contains the whole of this texture. In other words, `tex.super(a, b, c, d).sub(a, b, c, d)` is the same as `tex`
 		 * 
-		 * @param l Layer. By default subtextures use the same layer as the texture they are made from, and the original texture object uses layer 0
+		 * @param l Layer. By default sub-textures use the same layer as the texture they are made from, and the original texture object uses layer 0
 		 * 
 		 * @performance This method is CPU-arithmetic, very fast. Slightly slower than .sub() due to the use of division
 		 */
 		super(x: number, y: number, w: number, h: number, l?: number): Texture
 
 		/**
-		 * Returns a subtexture. The underlying data pointed to by a subtexture is the same, so that modifications to a texture are seen through all its subtextures. A `Texture` object is then just a view into its backing data. This is analogous to `TypedArray`s, `DataView` or `Buffer` being views into an `ArrayBuffer`. Note that all textures and subtextures are of the same class and thus the same methods and properties are available on them
+		 * Returns a sub-texture. The underlying data pointed to by a sub-texture is the same, so that modifications to a texture are seen through all its sub-textures. A `Texture` object is then just a view into its backing data. This is analogous to `TypedArray`s, `DataView` or `Buffer` being views into an `ArrayBuffer`. Note that all textures and sub-textures are of the same class and thus the same methods and properties are available on them
 		 * 
 		 * Unlike .sub(), the provided values are measured in pixels and usually in the range [0,w] / [0,h]
 		 * 
-		 * @param l Layer. By default subtextures use the same layer as the texture they are made from, and the original texture object uses layer 0
+		 * @param l Layer. By default sub-textures use the same layer as the texture they are made from, and the original texture object uses layer 0
 		 * 
 		 * @performance This method is CPU-arithmetic, however for image-backed textures, it will trigger a load if the texture is not yet loaded (in order to obtain the texture's width/height)
 		 */
 		crop(x: number, y: number, w: number, h: number, l?: number): Texture
 
 		/**
-		 * Returns a subtexture. The underlying data pointed to by a subtexture is the same, so that modifications to a texture are seen through all its subtextures. A `Texture` object is then just a view into its backing data. This is analogous to `TypedArray`s, `DataView` or `Buffer` being views into an `ArrayBuffer`. Note that all textures and subtextures are of the same class and thus the same methods and properties are available on them
+		 * Returns a sub-texture. The underlying data pointed to by a sub-texture is the same, so that modifications to a texture are seen through all its sub-textures. A `Texture` object is then just a view into its backing data. This is analogous to `TypedArray`s, `DataView` or `Buffer` being views into an `ArrayBuffer`. Note that all textures and sub-textures are of the same class and thus the same methods and properties are available on them
 		 * 
-		 * The subtexture is not cropped in any way: only the layer is changed
+		 * The sub-texture is not cropped in any way: only the layer is changed
 		 * 
 		 * @performance This method is CPU-arithmetic, very fast
 		 */
@@ -452,7 +452,7 @@ declare global{
 	/** See `Texture.options` */ const REPEAT_MIRRORED = 80
 
 	/**
-	 * Create a drawable context for a single layer of a texture. Note that the subtexture layer/crop are ignored, the drawable always draws to the entire layer
+	 * Create a drawable context for a single layer of a texture. Note that the sub-texture layer/crop are ignored, the drawable always draws to the entire layer
 	 * 
 	 * Conceptually, a `Drawable` is an object describing where and how to draw, its methods being used to actually draw. The 'target' behind a `Drawable` can be the canvas, a texture's layer, or a multisampled buffer (see `DrawableMSAA`). Due to `Drawable`s being mainly state, the texture can be changed at any time (Exceptions: the main target, multisampled targets and stencil buffers). Multiple `Drawable`s can even point to the same texture layer
 	 * 
@@ -535,6 +535,8 @@ declare global{
 		/**
 		 * Skew all following draw operations by the ratios x and y
 		 * 
+		 * Note that the parameters are ratios and NOT degrees. Ratios are related to degrees via the `tan()` and `atan()` functions. A skew of 0 degrees has a ratio of 0. 45 degrees has a ratio of 1 and 90 degrees a ratio of Infinity
+		 * 
 		 * A square drawn at `(0, 0)` with size `(1, 1)` after the transform would be a parallelogram with corners at `(0, 0)`, `(1, y)`, `(x, 1)` and `(x+1, y+1)`
 		 * 
 		 * @performance This method is CPU-arithmetic, very fast and usually inlined
@@ -606,12 +608,12 @@ declare global{
 		 */
 		pixelRatio(): number
 		/**
-		 * Create a subdrawable, which points to the same target, stencil buffer, etc... as this one, much like `Texture.sub()`, however it keeps its own state such as transform, blend, mask, shader, geometry, making it ideal for passing to other functions that may modify their drawable context arbitrarily without us needing to revert it afterwards
+		 * Create a sub-context, which points to the same target, stencil buffer, etc... as this one, much like `Texture.sub()`, however it keeps its own state such as transform, blend, mask, shader, geometry, making it ideal for passing to other functions that may modify their drawable context arbitrarily without us needing to revert it afterwards
 		 * @performance This method is CPU-logic, fast and usually inlined.
 		 **/
 		sub(): Drawable
 		/**
-		 * Reset all subdrawable state (transform, shader, blend, mask, geometry) to match another drawable
+		 * Reset all sub-context state (transform, shader, blend, mask, geometry) to match another drawable
 		 * @param ctx The drawable to copy state from
 		 * @performance This method is CPU-logic, very fast and usually inlined
 		 */
@@ -943,9 +945,9 @@ declare global{
 	 * - `TEXTURE` A texture object of a float format. Subtexture crop/layer ignored. Read below for how to use these.
 	 * - `FTEXTURE` A texture object of a high-precision floating point format (16F / 32F). Subtexture crop/layer ignored. Read below for how to use these.
 	 * - `UTEXTURE` A texture object of integer format. Subtexture crop/layer ignored. Read below for how to use these.
-	 * - `COLOR` A texture or flat color of a float format. Texture comes presampled in the shader (sample position is decided on the CPU side by subtexture crop/layer). Read below for how to use these.
-	 * - `FCOLOR` A texture or flat color of a high-precision floating point format. Texture comes presampled in the shader (sample position is decided on the CPU side by subtexture crop/layer). Read below for how to use these.
-	 * - `UCOLOR` A texture or flat color of an integer format. Texture comes presampled in the shader (sample position is decided on the CPU side by subtexture crop/layer). Read below for how to use these.
+	 * - `COLOR` A texture or flat color of a float format. Texture comes presampled in the shader (sample position is decided on the CPU side by sub-texture crop/layer). Read below for how to use these.
+	 * - `FCOLOR` A texture or flat color of a high-precision floating point format. Texture comes presampled in the shader (sample position is decided on the CPU side by sub-texture crop/layer). Read below for how to use these.
+	 * - `UCOLOR` A texture or flat color of an integer format. Texture comes presampled in the shader (sample position is decided on the CPU side by sub-texture crop/layer). Read below for how to use these.
 	 * @param defaults The default values for the inputs. If not provided, a suitable `0`-like default is used (`TEXTURE`/`FTEXTURE`/`UTEXTURE` cannot have a default value)
 	 * @param uniforms Shader uniforms (config). These have the same possible values as `inputs`
 	 * @param uDefaults The default values for the uniforms. If not provided, a suitable `0`-like default is used (`TEXTURE`/`FTEXTURE`/`UTEXTURE` cannot have a default value)

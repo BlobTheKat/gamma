@@ -1,6 +1,5 @@
 Gamma.font = $ => {
 	const vec4one = $.vec4.one, vec2l = {x:0,y:1}, msdfShader = $.Shader.MSDF = $.Shader("void main(){vec3 c=arg0().rgb;color=arg2*clamp(arg1.y*(max(min(c.r, c.g), min(max(c.r, c.g), c.b))-.5+arg1.x)+.5,0.,1.);}", [$.COLOR, $.VEC2, $.VEC4], [undefined, {x:0,y:1}, vec4one])
-$.TEXT_AA=NaN
 $.Shader.font = (src, args, defaults, uni=[], uniDefaults = [], a) => {
 	let pr = 'float field(){vec3 c=arg0().rgb;return max(min(c.r, c.g), min(max(c.r, c.g), c.b)); }\n#define scale arg1\n'
 	for(let i = 0; i < args.length; i++)
@@ -60,7 +59,7 @@ $.Shader.font = (src, args, defaults, uni=[], uniDefaults = [], a) => {
 
 	const defaultSet = [BreakToken(/\r\n?|\n/y, BreakToken.WRAP_AFTER | BreakToken.INVISIBLE, ''), BreakToken(/[$£"+]?[\w'-]+[,.!?:;"^%€*]?/yi, BreakToken.NORMAL, '-'), BreakToken(/[ \t]+/y, BreakToken.VANISH)]
 	const defaultToken = BreakToken(/[^]/y)
-	const EMPTY_MAP = new Map, V = {x: 0, y: 0}, O = {off:0,spr:NaN,0:null,1:V}, DEFAULT_PASSES = [0,0,0,O]
+	const EMPTY_MAP = new Map, V = {x: 0, y: 0}, O = {off:0,spr:-1,0:null,1:V}, DEFAULT_PASSES = [0,0,0,O]
 	// Advance. Shader. Scale. Y offset. Stretch. Skew. Letter spacing. Curve
 	const ADV = 1, SH = 2, SC = 3, YO = 4, ST = 5, SK = 6, LSB = 7, ARC = 8
 	const getSepW = (t, cmap, arc, lsb = 0) => {
@@ -114,19 +113,28 @@ $.Shader.font = (src, args, defaults, uni=[], uniDefaults = [], a) => {
 			#yo = 0
 			get yOffset(){return this.#yo}
 			set yOffset(a){this.#yo=+a;this.#q.#l==this&&(this.#q.#l=null)}
-			offsetBy(a = 0){
+			offsetBy(a = 0, scaleIrrespective = false){
 				if(!a) return
 				const q = this.#q, len = q.length
-				let idx = 0, o = 0
+				let idx = 0, o = 0, rsc = 1, dirty = false, yo = 0
 				while(idx < len){
 					const s = q[idx++]
 					if(typeof s == 'number'){
 						if(s == YO){
 							if(!o) o = 1
-							q[idx] += a
-						}
+							yo = q[idx]; q[idx] = yo + a*rsc
+							dirty = false
+						}else if(scaleIrrespective && s == SC) rsc = 1/q[idx], dirty = true
 						idx++
-					}else if(typeof s == 'string' || typeof s == 'function') if(!o) o = 2
+					}else if(typeof s == 'string' || typeof s == 'function'){
+						if(dirty){
+							q.push(null,null)
+							for(let i=q.length-3;i>=idx;i--) q[i+2] = q[i]
+							q[idx++] = YO
+							q[idx++] = yo + a*rsc
+						}
+						if(!o) o = 2
+					}
 				}
 				if(o != 1) q.unshift(YO, a)
 				q.#_yo += a; q.#l = null
@@ -643,7 +651,8 @@ $.Shader.font = (src, args, defaults, uni=[], uniDefaults = [], a) => {
 				if(q.#l!=this) this.#setv(q)
 				w==w?q.push(fn,ADV,w):q.push(fn)
 			}
-			indexAt(x = 0){
+			indexAt(x = 0, thr = .5){
+				thr--
 				const q = this.#q
 				let cmap = null
 				let idx = 0
@@ -674,7 +683,7 @@ $.Shader.font = (src, args, defaults, uni=[], uniDefaults = [], a) => {
 							const fw = ar ? asin(w*ar)*ar1||w : w
 							x -= fw
 							if(!mask) continue
-							if(x <= fw*-.5) return li
+							if(x <= fw*thr) return li
 							li = i += ch.length
 						}else if(mask) i += s.length
 					}else if(typeof s == 'object'){
@@ -747,7 +756,7 @@ $.Shader.font = (src, args, defaults, uni=[], uniDefaults = [], a) => {
 									v1[0] = g.tex
 									V.x = v1.off*rf1
 									const {spr} = v1
-									V.y = spr!==spr?pxr:spr*rf
+									V.y = spr<0?pxr:spr*rf
 									ctx.drawRectv((g.x+lsb)*st+x+xr,g.y+y,g.w*st,g.h,v1)
 								}
 							}
@@ -1049,7 +1058,7 @@ ffff\ 0000\ 0000\ ffff\
 ffff\ ffff\ ffff\ ffff\
 `))
 	class font extends Map{
-		rangeFactor = 0; #cb = []; map = new Map; ascend = 0
+		rangeFactor = 0; ascend = 0; #cb = []
 		_default = {x:0.05,y:-0.0625,w:0.5,h:0.75,xadv:0.6,tex:defaultChar}
 		get then(){return this.#cb?this.#then:undefined}
 		#then(cb,rj){this.#cb?.push(cb,rj)}
@@ -1061,8 +1070,7 @@ ffff\ ffff\ ffff\ ffff\
 			const cb = this.#cb; this.#cb = null
 			if(cb) for(let i=1;i<cb.length;i+=2) cb[i]?.(e)
 		}
-		set(char = -1, tex = null, adv = 0, x=0, y=0, w=0, h=0){
-			if(typeof tex == 'number') adv = tex, tex = null
+		set(char = -1, adv = 0, tex = null, x=0, y=0, w=0, h=0){
 			if(typeof char == 'string') char = char.codePointAt()
 			if(char < 0){
 				const d = this._default
@@ -1073,9 +1081,9 @@ ffff\ ffff\ ffff\ ffff\
 				else super.set(~char, { x: +x, y: +y, w: +w, h: +h, xadv: +adv, tex })
 			}
 		}
-		getWidth(char){
+		getAdvance(char = -1){
 			if(typeof char == 'string') char = char.codePointAt()
-			return (this.get(~char) ?? this._default).xadv
+			return (char < 0 ? this._default : (this.get(~char) ?? this._default)).xadv
 		}
 		setKerning(a, b, adv = 0){
 			let code = 0
@@ -1133,7 +1141,7 @@ ffff\ ffff\ ffff\ ffff\
 			if(this.#cb) return
 			lsb *= .5
 			off /= this.rangeFactor
-			spr = spr!==spr ? ctx.pixelRatio()*2*this.rangeFactor : this.rangeFactor/spr
+			spr = spr<0 ? ctx.pixelRatio()*2*this.rangeFactor : this.rangeFactor/spr
 			for(const ch of txt){
 				const c = ch.codePointAt()
 				const g = this.get(~c) ?? this._default
