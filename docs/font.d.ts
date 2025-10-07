@@ -1,12 +1,12 @@
 /// <reference path="./gamma.d.ts" />
 export {}
 declare global{
-	namespace GammaExtensions{ type font = typeof GammaExtensions.font; }
+	namespace GammaInstance{ type font = typeof GammaInstance.font; }
 	namespace Gamma{
-		function font(): GammaExtensions.font
-		function font(o: object): asserts o is GammaExtensions.font
+		function font(): GammaInstance.font
+		function font(o: object): asserts o is GammaInstance.font
 	}
-namespace GammaExtensions.font{
+namespace GammaInstance.font{
 	/** See `RichText.addTextPass()`, `Font.draw()` */
 	const TEXT_AA: number
 	namespace Shader{
