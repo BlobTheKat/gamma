@@ -7,8 +7,6 @@ declare global{
 		function font(o: object): asserts o is GammaInstance.font
 	}
 namespace GammaInstance.font{
-	/** See `RichText.addTextPass()`, `Font.draw()` */
-	const TEXT_AA: number
 	namespace Shader{
 		/** MSDF Shader, default shader used by `RichText` and expected by `Font.draw()` */
 		const MSDF: Shader

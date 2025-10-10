@@ -4,7 +4,7 @@ title = 'Snake game'
 
 const src = loader(import.meta)
 
-const bg = await Img(src`./mountains.jpeg`)
+const bg = await Texture.from(src`./mountains.jpeg`)
 
 Shader.AA_CIRCLE ??= Shader(`
 void main(){
@@ -45,7 +45,7 @@ class Tooltip{
 		}
 		ctx.translate(-this.w2, 0)
 		ctx.shader = Shader.MSDF
-		this.font.draw(ctx, this.txt, [vec4(alpha*.5)], 0, TEXT_AA, lsb)
+		this.font.draw(ctx, this.txt, [vec4(alpha*.5)], 0, -1, lsb)
 	}
 }
 

@@ -58,8 +58,8 @@ $.Shader.font = (src, args, defaults, uni=[], uniDefaults = [], a) => {
 	BreakToken.INVISIBLE = 32
 
 	const defaultSet = [BreakToken(/\r\n?|\n/y, BreakToken.WRAP_AFTER | BreakToken.INVISIBLE, ''), BreakToken(/[$£"+]?[\w'-]+[,.!?:;"^%€*]?/yi, BreakToken.NORMAL, '-'), BreakToken(/[ \t]+/y, BreakToken.VANISH)]
-	const defaultToken = BreakToken(/[^]/y)
-	const EMPTY_MAP = new Map, V = {x: 0, y: 0}, O = {off:0,spr:-1,0:null,1:V}, DEFAULT_PASSES = [0,0,0,O]
+	const defaultToken = BreakToken(/[^]/y, BreakToken.ALWAYS_BREAK)
+	const V = {x: 0, y: 0}, O = {off:0,spr:-1,0:null,1:V}, DEFAULT_PASSES = [0,0,0,O]
 	// Advance. Shader. Scale. Y offset. Stretch. Skew. Letter spacing. Curve
 	const ADV = 1, SH = 2, SC = 3, YO = 4, ST = 5, SK = 6, LSB = 7, ARC = 8
 	const getSepW = (t, cmap, arc, lsb = 0) => {
@@ -225,8 +225,8 @@ $.Shader.font = (src, args, defaults, uni=[], uniDefaults = [], a) => {
 				q.#w=NaN; q.#l = null
 			}
 			#v = DEFAULT_PASSES
-			addTextPass(ord, x, y, a, off=0, spr=NaN){
-				const o = {off, spr: 1/spr, 0: null, 1: V}
+			addTextPass(ord, x, y, a, off=0, spr=-1){
+				const o = {off, spr: .5/spr, 0: null, 1: V}
 				if(a) for(let i=0;i<a.length;i++) o[i+2] = a[i]
 				const v = this.#v, v2 = this.#v = []
 				let i = 0
@@ -273,8 +273,8 @@ $.Shader.font = (src, args, defaults, uni=[], uniDefaults = [], a) => {
 				this.#q.#l = null
 			}
 
-			insertTextPass(ord, x, y, a, off=0, spr=NaN){
-				const o = {off, spr: 1/spr, 0:null,1: V}
+			insertTextPass(ord, x, y, a, off=0, spr=-1){
+				const o = {off, spr: .5/spr, 0:null,1: V}
 				if(a) for(let i=0;i<a.length;i++) o[i+2] = a[i]
 				const q = this.#q, len = q.length
 				let idx = 0, p = 0
@@ -799,20 +799,19 @@ $.Shader.font = (src, args, defaults, uni=[], uniDefaults = [], a) => {
 				while(i < str.length){
 					let j = 0, t = defaultToken
 					let _i0 = q2.length, _w = w, _sh = s2.#sh, _sc = s2.#sc, _yo = s2.#yo, _st = s2.#st, _sk = s2.#sk, _lsb = s2.#lsb, _f = s2.#f, _arc = s2.#arc, _v = s2.#v, _m = q2.#_m, _len = q2.#len
-					a: while(true){
+					a: do{
 						if(toks) for(t of toks){
 							t.lastIndex = i
-							const m = t.exec(str)
-							if(!m) continue
-							if(j) break
+							if(!t.test(str)) continue
+							if(j){ t = defaultToken; break a }
 							// Match!
-							i += j = m[0].length
+							j = t.lastIndex-i
+							i = t.lastIndex
 							toks = t.next ?? toks
 							break a
 						}
 						++j
-						if(++i == str.length) break
-					}
+					}while(++i < str.length)
 					const ty = t.type
 					if(ty&16){
 						lines.push(s2)
@@ -1112,7 +1111,7 @@ ffff\ ffff\ ffff\ ffff\
 		chlumsky(src, atlas = 'atlas.png'){ if(src.endsWith('/')) src += 'index.json'; fetch(src).then(a => (src=a.url,a.json())).then(d => {
 			const {atlas:{type,distanceRange,size,width,height},metrics:{ascender,descender},glyphs,kerning} = d
 			this.rangeFactor = distanceRange/size
-			const img = $.Img(new URL(atlas, src).href,$.SMOOTH, type.toLowerCase().endsWith('msdf') ? $.Formats.RGB : $.Formats.RGBA4)
+			const img = $.Texture.from(new URL(atlas, src).href,$.SMOOTH, type.toLowerCase().endsWith('msdf') ? $.Formats.RGB : $.Formats.RGBA4)
 			this.ascend = ascender/(ascender-descender)
 			for(const {unicode1,unicode2,advance} of kerning) super.set(unicode2+unicode1*1114112, advance)
 			for(const {unicode,advance,planeBounds:pb,atlasBounds:ab} of glyphs) super.set(~unicode, pb ? {
@@ -1127,7 +1126,7 @@ ffff\ ffff\ ffff\ ffff\
 			const s = 1/d.info.size
 			this.rangeFactor = df.distanceRange/sc
 			const b = this.ascend = base/sc
-			const p = pages.map(a => $.Img(new URL(a,src).href,$.SMOOTH, df.fieldType.toLowerCase().endsWith('msdf') ? $.Formats.RGB : $.Formats.RGBA4))
+			const p = pages.map(a => $.Texture.from(new URL(a,src).href,$.SMOOTH, df.fieldType.toLowerCase().endsWith('msdf') ? $.Formats.RGB : $.Formats.RGBA4))
 			for(const {first,second,amount} of kernings) super.set(second+first*1114112, amount/s)
 			for(const {id,x,y,width,height,xoffset,yoffset,xadvance,page} of chars) super.set(id, {
 				x: xoffset*s, y: b-(yoffset-baselineOffset+height)*s,
@@ -1137,11 +1136,11 @@ ffff\ ffff\ ffff\ ffff\
 			})
 			this.done()
 		}, this.error.bind(this)); return this}
-		draw(ctx, txt, v=[], off=0, spr=NaN, lsb = 0, last = -1){
+		draw(ctx, txt, v=[], off=0, spr=-1, lsb = 0, last = -1){
 			if(this.#cb) return
 			lsb *= .5
 			off /= this.rangeFactor
-			spr = spr<0 ? ctx.pixelRatio()*2*this.rangeFactor : this.rangeFactor/spr
+			spr = spr<0 ? ctx.pixelRatio()*2*this.rangeFactor : .5*this.rangeFactor/spr
 			for(const ch of txt){
 				const c = ch.codePointAt()
 				const g = this.get(~c) ?? this._default

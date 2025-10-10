@@ -1,4 +1,5 @@
-let ctx1 = null, ctx2 = null
+/// <reference path="../docs/monolith-global.d.ts" />
+
 function drawSquare(c){
 	c.clear()
 	const wid = c.width/c.height * 10
@@ -9,17 +10,22 @@ function drawSquare(c){
 	return c
 }
 
+const d = Drawable()
+let tex = null, msaa = null
+
 render = () => {
 	const w = ctx.width >> 4, h = ctx.height >> 4
-	if(!ctx2) ctx2 = Drawable(Texture(w, h, 1, Formats.RGBA))
-	else if(ctx2.width != w || ctx2.height != h){
-		ctx2.texture.delete()
-		ctx2.texture = Texture(w, h, 1, Formats.RGBA)
+	const useMSAA = t%2<1
+	if(!tex || tex.width != w || tex.height != h){
+		tex?.delete()
+		tex = Texture(w, h, 1, Formats.RGBA)
 	}
-	if(t%2 < 1){
-		if(!ctx1 || ctx1.width != w || ctx1.height != h) ctx1 = DrawableMSAA(w, h, Formats.RGBA)
-		drawSquare(ctx1)
-		ctx2.paste(ctx1)
-	}else drawSquare(ctx2)
-	ctx.draw(ctx2.texture)
+	if(useMSAA && (!msaa || msaa.width != w || msaa.height != h)){
+		msaa?.delete()
+		msaa = Texture.MSAA(w, h, 999, Formats.RGBA)
+	}
+	d.setTarget(0, useMSAA ? msaa : tex)
+	drawSquare(d)
+	if(useMSAA) tex.paste(msaa)
+	ctx.draw(tex)
 }

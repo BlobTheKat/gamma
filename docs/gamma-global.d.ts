@@ -48,15 +48,15 @@ declare global{
 		/** Fixed-point 3-channel format, usually 8 bits per channel, in the range [0,1] */ RGB,
 		/** Fixed-point 4-channel format, usually 8 bits per channel, in the range [0,1] */ RGBA,
 		/**
-		 * Fixed-point 3-channel format, with (R: 5, G: 6, B: 5) bits for respective channels. Values are decoded into the range [0,1].
+		 * Fixed-point 3-channel format, with (R: 5, G: 6, B: 5) bits for respective channels. Values are decoded into the range [0,1]
 		 * 
-		 * Values are specified using 16 bit integers, with red packed into the highest bits, green in the middle, and blue lowest.
+		 * Values are specified using 16 bit integers, with red packed into the highest bits, green in the middle, and blue lowest
 		 */
 		RGB565,
 		/**
-		 * Fixed-point 4-channel format, with (R: 5, G: 5, B: 5, A: 1) bits for respective channels. Values are decoded into the range [0,1].
+		 * Fixed-point 4-channel format, with (R: 5, G: 5, B: 5, A: 1) bits for respective channels. Values are decoded into the range [0,1]
 		 * 
-		 * Values are specified using 16 bit integers, with red packed into the highest bits, green in the middle, blue lower, and alpha lowest.
+		 * Values are specified using 16 bit integers, with red packed into the highest bits, green in the middle, blue lower, and alpha lowest
 		 * 
 		 * It is recommended to use Uint16Array to avoid having to detect or deal with host endianness
 		 */
@@ -67,22 +67,22 @@ declare global{
 		 * - 5 bit exponent with bias=15, just like half-precision floats
 		 * - 5 or 6 mantissa bits
 		 * 
-		 * Exponent is always encoded in bits just above the mantissa (i.e `eeeeemmmmmm`). Red packed into the highest bits, green in the middle, blue lowest.
+		 * Exponent is always encoded in bits just above the mantissa (i.e `eeeeemmmmmm`). Red packed into the highest bits, green in the middle, blue lowest
 		 * It is recommended to use Uint32Array/Int32Array to avoid having to detect or deal with host endianness
 		 */
 		R11F_G11F_B10F,
 		/**
-		 * Fixed-point 4-channel format, with (R: 10, G: 10, B: 10, A: 2) bits for respective channels. Values are decoded into the range [0,1].
+		 * Fixed-point 4-channel format, with (R: 10, G: 10, B: 10, A: 2) bits for respective channels. Values are decoded into the range [0,1]
 		 * 
-		 * Values are specified using 32 bit integers, with red packed into the highest bits, green in the middle, blue lower, and alpha lowest.
+		 * Values are specified using 32 bit integers, with red packed into the highest bits, green in the middle, blue lower, and alpha lowest
 		 * 
 		 * It is recommended to use Uint32Array/Int32Array to avoid having to detect or deal with host endianness
 		 */
 		RGB10_A2,
 		/**
-		 * Fixed-point 4-channel format, with 4 bits per channels. Values are decoded into the range [0,1].
+		 * Fixed-point 4-channel format, with 4 bits per channels. Values are decoded into the range [0,1]
 		 * 
-		 * Values are specified using 16 bit integers, with red packed into the highest bits, green in the middle, blue lower, and alpha lowest.
+		 * Values are specified using 16 bit integers, with red packed into the highest bits, green in the middle, blue lower, and alpha lowest
 		 * 
 		 * It is recommended to use Uint16Array to avoid having to detect or deal with host endianness
 		 */
@@ -90,7 +90,7 @@ declare global{
 		/**
 		 * Floating-point 3-channel format, with 9 bits per channels, and an additional 5 bit shared exponent
 		 * 
-		 * Values are specified using 32 bit integers, with red packed into the LOWEST bits (unlike other formats), green in the middle, blue higher, and the exponent highest.
+		 * Values are specified using 32 bit integers, with red packed into the LOWEST bits (unlike other formats), green in the middle, blue higher, and the exponent highest
 		 * 
 		 * Colors are decoded for any given channel as `(channel_value / 512) * pow(2, exponent - 15)`. The exponent can then be used to mimic a **HDR**-like effect, efficiently encoding very bright or very dim colors without loss in precision
 		 * 
@@ -140,14 +140,6 @@ declare global{
 	function Texture(width: number, height: number, layers?: number, options?: number, format?: Formats, mipmaps?: number): Texture
 	/** An image source from which to populate a Texture object. String values indicate a url that is `fetch()`ed on-demand */
 	type ImageSource = string | ImageBitmap | Blob | ImageBitmapSource
-	/**
-	 * Create an image-backed texture. This texture is lazily loaded from the source(s)
-	 * @param src 
-	 * @param options Texture options. See the `Texture.options` property (property can be changed at any time)
-	 * @param format Texture format. See `Formats`. Cannot be changed later. Default: `Formats.RGBA`
-	 * @param mipmaps Number of mipmaps to allocate. Default: 1 (_"no mipmaps"_)
-	 */
-	function Img(src: ImageSource | ImageSource[], options?: number, format?: Formats, mipmaps?: number): Texture
 
 	namespace Texture{
 		/** Not all implementations support linear filtering (SMOOTH) for xxx32F textures. This boolean indicates if this kind of filtering is supported. If it is not, nearest-neighbor (pixelated) will be used instead for those texture types */
@@ -155,19 +147,58 @@ declare global{
 
 		/**
 		 * The maximum texture width supported by the underlying hardware
-		 * According to OpenGL ES Specs, this value is required to be at least 2048, however virtually all environments will support at least 4096. Support for > 4096 is not very common.
+		 * According to OpenGL ES Specs, this value is required to be at least 2048, however virtually all environments will support at least 4096. Support for > 4096 is not very common
 		 */
 		const MAX_WIDTH: number
 		/**
 		 * The maximum texture height supported by the underlying hardware
-		 * According to OpenGL ES Specs, this value is required to be at least 2048, however virtually all environments will support at least 4096. Support for > 4096 is not very common.
+		 * According to OpenGL ES Specs, this value is required to be at least 2048, however virtually all environments will support at least 4096. Support for > 4096 is not very common
 		 */
 		const MAX_HEIGHT: number
 		/**
 		 * The maximum number of layers per texture supported by the underlying hardware
-		 * According to OpenGL ES Specs, this value is required to be at least 256, and this is what most environments support. For more layers, you should instead use atlases (combining textures vertically/horizontally/both), or use multiple textures.
+		 * According to OpenGL ES Specs, this value is required to be at least 256, and this is what most environments support. For more layers, you should instead use atlases (combining textures vertically/horizontally/both), or use multiple textures
 		 */
 		const MAX_LAYERS: number
+
+		/** Maximum number of samples per pixels supported by the underlying hardware. Any value you pass to `Texture.MSAA()` higher than this will be clamped to this value */
+		const MAX_MSAA: number
+
+		interface MSAA{
+			/** Width of MSAA surface in logical pixels */
+			width: number
+			/** Height of MSAA surface in logical pixels */
+			height: number
+			/** Number of samples per pixel for this surface */
+			msaa: number
+			/**
+			 * Free the resources of this surface as soon as possible. It is invalid to use the MSAA object for anything beyond this point, the object should be "forgotten"
+			 * Under the hood, the MSAA's data will be freed by the GPU once all draw operations using it have finished
+			 * 
+			 * @performance This method is relatively fast, however, consider reusing MSAA surfaces where possible rather than quickly creating and deleting them, as reconstruction will be expensive and older drivers might not be optimized for rapid texture freeing/allocation
+			 */
+			delete(): void
+		}
+		/**
+		 * Create a multisampled surface
+		 * 
+		 * @param width Width of surface, in logical pixels
+		 * @param height Height of surface, in logical pixels
+		 * @param format Most hardware will only support `Formats.RGBA8`, `Formats.RGB565`, `Formats.RGBA4` and `Formats.RGB5_A1`
+		 * @param msaa How many samples per logical pixel to allocate. This is a hint; the actual value may be rounded or clamped. Set to a high value (e.g, 256) to use as many samples as available
+		 * 
+		 * @performance This method performs the allocation of the MSAA, which will use a lot of video memory. Drawing to a multisampled target will not perform more shader invocation but may slow down rendering due to slower rasterization and greatly increased video memory access
+		 */
+		function MSAA(width: number, height: number, msaa: number, format: Formats): MSAA
+		
+		/**
+		 * Create an image-backed texture. This texture is lazily loaded from the source(s)
+		 * @param src 
+		 * @param options Texture options. See the `Texture.options` property (property can be changed at any time)
+		 * @param format Texture format. See `Formats`. Cannot be changed later. Default: `Formats.RGBA`
+		 * @param mipmaps Number of mipmaps to allocate. Default: 1 (_"no mipmaps"_)
+		 */
+		function from(src: ImageSource | ImageSource[], options?: number, format?: Formats, mipmaps?: number): Texture
 	}
 	interface Texture{
 		/**
@@ -201,20 +232,20 @@ declare global{
 		 */
 		readonly subHeight: number
 		/**
-		 * Aspect ratio of a sub-texture, i.e subWidth/subHeight.
+		 * Aspect ratio of a sub-texture, i.e subWidth/subHeight
 		 * 
 		 * Value will be < 1 for vertical textures, > 1 for horizontal textures and == 1 for square textures
 		 */
 		readonly aspectRatio: number
 
 		/**
-		 * Whether the image-backed texture is loaded.
+		 * Whether the image-backed texture is loaded
 		 * Always true for non-image-backed textures
 		 */
 		readonly loaded: boolean
 
 		/**
-		 * Whether the image-backed texture is currently being loaded.
+		 * Whether the image-backed texture is currently being loaded
 		 * Always false for non-image-backed textures
 		 */
 		readonly waiting: boolean
@@ -256,9 +287,9 @@ declare global{
 		options: number
 
 		/**
-		 * Trigger an image-backed texture to be loaded.
+		 * Trigger an image-backed texture to be loaded
 		 * 
-		 * If the image is already loaded or loading (i.e `this.loaded || this.waiting`), this is a no-op.
+		 * If the image is already loaded or loading (i.e `this.loaded || this.waiting`), this is a no-op
 		 * 
 		 * Otherwise, `waiting` immediately becomes true, then, once the image has finished loading and the texture object has been populated, `loaded` will become true and `waiting` will become false
 		 */
@@ -322,7 +353,7 @@ declare global{
 		 * @param dstMip Which mipmap to write data to. Default: 0
 		 * @returns `this`, or `null` if this is an image-backed texture that is not loaded yet
 		 * 
-		 * @performance This method performs an upload to the GPU, which is primarily bandwidth-bound for typical-size textures. If the texture was recently used then this will create a light draw boundary (See `Drawable.draw()` for more info)
+		 * @performance This method performs a GPU-GPU copy, which is faster than uploading a texture. If the texture was recently used then this will create a light draw boundary (See `Drawable.draw()` for more info)
 		 */
 		paste(tex: Texture, x?: number, y?: number, layer?: number, dstMip?: number, srcX?: number, srcY?: number, srcLayer?: number, srcWidth?: number, srcHeight?: number, srcLayers?: number, srcMip?: number): this | null
 
@@ -338,23 +369,6 @@ declare global{
 		 * @performance This method performs an upload to the GPU, which is primarily bandwidth-bound for typical-size textures. Extra preprocessing may be done for certain source types (e.g <img> elements), which may be CPU-bound. It is recommended to use ImageBitmap sources where possible (with the correct options provided by Gamma.bitmapOpts), as they are GPU-ready by design. It may also cause partial pipeline stalls if following draw operations depend on the texture data but have to wait for the upload to finish, however this is mostly mitigated with modern drivers. If the texture was recently used then this will create a light draw boundary (See `Drawable.draw()` for more info)
 		 */
 		paste(img: ImageSource, x?: number, y?: number, layer?: number, dstMip?: number): Promise<this> | null
-
-		/**
-		 * Copy data from a drawable object (other than the main canvas target) to this
-		 * @param ctx The source to copy data from
-		 * @param x Left edge of area to paste, in pixels. Default: 0
-		 * @param y Bottom edge of area to paste, in pixels. Default: 0
-		 * @param layer First layer of area to paste. Default: 0
-		 * @param srcX Left edge of area to copy data from in the source texture, in pixels. Default: 0
-		 * @param srcY Bottom edge of area to copy data from in the source texture, in pixels. Default: 0
-		 * @param srcWidth Width of area to copy in pixels. Defaults to the source's width
-		 * @param srcHeight Height of area to copy in pixels. Defaults to the source's height
-		 * @param dstMip Which mipmap to write data to. Default: 0
-		 * @returns `this`, or `null` if this is an image-backed texture that is not loaded yet
-		 * 
-		 * @performance This method performs an upload to the GPU, which is primarily bandwidth-bound for typical-size textures. It may also cause partial pipeline stalls if following draw operations depend on the texture data but have to wait for the upload to finish, however this is mostly mitigated with modern drivers. If the texture was recently used then this will create a light draw boundary (See `Drawable.draw()` for more info)
-		 */
-		paste(ctx: Drawable, x?: number, y?: number, layer?: number, dstMip?: number, srcX?: number, srcY?: number, srcWidth?: number, srcHeight?: number): this | null
 
 		/**
 		 * Copy data from memory to this texture
@@ -384,7 +398,7 @@ declare global{
 		pasteData(data: Uint8Array | Uint8ClampedArray | Uint16Array | Uint32Array | Float16Array | Float32Array, x?: number, y?: number, layer?: number, width?: number, height?: number, layers?: number, mip?: number): this | null
 
 		/**
-		 * Copy data from this texture to CPU memory, asynchronously.
+		 * Copy data from this texture to CPU memory, asynchronously
 		 * 
 		 * This method is asynchronous due to how GPUs work: The CPU send commands to the GPU, but for performance reasons, the CPU does not wait for the GPU to finish executing those commands before moving on. This means that if we were to read data back immediately, we would have to wait for the GPU to finish all previous commands, which could be very slow. Instead, we issue a command to copy the texture data to a temporary buffer, then later, when that command has finished executing, we copy that temporary buffer to CPU memory and resolve the promise with that data. Despite this, the data is still guaranteed to be from the time readData() was called (i.e any draw operations issued after readData() will not be reflected in the data returned by the promise)
 		 * 
@@ -432,7 +446,7 @@ declare global{
 		genMipmaps(): void
 
 		/**
-		 * Free the resources of this texture as soon as possible. It is invalid to use the texture object for anything beyond this point, the object should be "forgotten" and cannot be reinitialized.
+		 * Free the resources of this texture as soon as possible. It is invalid to use the texture object for anything beyond this point, the object should be "forgotten" and cannot be reinitialized
 		 * Under the hood, the texture's data will be freed by the GPU once all draw operations using it have finished
 		 * 
 		 * @performance This method is relatively fast, however, consider reusing textures where possible rather than quickly creating and deleting them, as reconstruction may be expensive and older drivers might not be optimized for rapid texture freeing/allocation. If the texture was recently used then this will create a light draw boundary (See `Drawable.draw()` for more info)
@@ -452,30 +466,21 @@ declare global{
 	/** See `Texture.options` */ const REPEAT_MIRRORED = 80
 
 	/**
-	 * Create a drawable context for a single layer of a texture. Note that the sub-texture layer/crop are ignored, the drawable always draws to the entire layer
+	 * Create a drawable context optionally with a stencil buffer
 	 * 
-	 * Conceptually, a `Drawable` is an object describing where and how to draw, its methods being used to actually draw. The 'target' behind a `Drawable` can be the canvas, a texture's layer, or a multisampled buffer (see `DrawableMSAA`). Due to `Drawable`s being mainly state, the texture can be changed at any time (Exceptions: the main target, multisampled targets and stencil buffers). Multiple `Drawable`s can even point to the same texture layer
+	 * Conceptually, a `Drawable` is an object describing where and how to draw, its methods being used to actually draw. The 'target' behind a `Drawable` can be the canvas (as is the case for the main target), or one or more texture layer / multisampled buffer (see `Texture.MSAA`). You can add up to `Drawable.MAX_TARGETS` targets, differentiated by their IDs (0, 1, 2, ...)
 	 * 
-	 * @param tex The texture that draw operations will write to
-	 * @param layer Which layer to draw stuff to
-	 * @param mip If the texture has mipmaps, they cannot all be modified simultaneously for performance reasons. To draw to all mipmaps, draw to mipmap 0 and then call tex.genMipmaps() once done to generate all other mipmaps from mipmap 0
+	 * To actually add targets to a drawable, see `Drawable.setTarget`.
+	 * 
 	 * @param stencil Whether to also allocate a stencil buffer for IF_SET/IF_UNSET/SET/UNSET functionality. When this parameter is false, the stencil buffer will not be allocated and will behave as if it is always 0. Default: false (for performance reasons. Set to true only when you actually need it)
 	 * 
 	 * @performance This method itself is mostly CPU-only logic (a bit more expensive if a stencil buffer is allocated). However, using many drawables, especially interlaced, will have severe performance implications. See `Drawable.draw()` for more info
 	 */
-	function Drawable(tex: Texture, layer?: number, mip?: number, stencil?: boolean): Drawable
-	/**
-	 * Create a multisampled drawable context. See `Drawable` for more info on what a drawable is
-	 * 
-	 * @param width Width of draw target, in logical pixels
-	 * @param height Height of draw target, in logical pixels
-	 * @param format Most hardware will only support RGBA8, RGB565, RGBA4 and RGB5_A1
-	 * @param msaa How many samples per logical pixel to allocate. This is a hint; the actual value may be rounded or clamped. Set to a high value (e.g, 256) to use as many samples as available.
-	 * @param stencil Whether to also allocate a stencil buffer for IF_SET/IF_UNSET/SET/UNSET functionality. When this parameter is false, the stencil buffer will not be allocated and will behave as if it is always 0. Default: false (for performance reasons. Set to true only when you actually need it)
-	 * 
-	 * @performance This method performs the allocation of the MSAA (and the stencil buffer if requested), which will use a lot of video memory. Drawing to a multisampled target will not perform more shader invocation but may slow down rendering due to slower rasterization (converting shapes to pixels) and greatly increased video memory access. See `Drawable`'s performance note for more info
-	 */
-	function DrawableMSAA(width: number, height: number, format: Formats, msaa: number, stencil?: boolean): Drawable
+	function Drawable(stencil?: boolean): Drawable
+	namespace Drawable{
+		/** Maximum number of targets that can be set with `Drawable.setTarget()`. The targets are differentiated by their IDs (0, 1, 2, ..., up to this value) */
+		const MAX_TARGETS: number
+	}
 
 	interface Drawable{
 		/** The backing target's whole width in pixels */
@@ -483,25 +488,30 @@ declare global{
 		/** The backing target's whole height in pixels */
 		readonly height: number
 		/**
-		 * The backing target, if it is a texture, or null if it is the main canvas or an MSAA buffer. This value can be changed if and only if it is a texture. Note that if it is changed and the new texture has a different size then the stencil buffer will be resized which may result in some unusual artifacts.
-		 * @performance Changing this value may create a heavy draw boundary if it causes a draw target change (See `Drawable.draw()` for more info). Additionally, changing the dimensions of the target (by changing to a texture of a different size) may be relatively expensive as the stencil buffer (if present) will have to be reallocated and resampled
-		 */
-		texture: Texture | null
-		/**
-		 * Whether this drawable has a stencil buffer, allowing for IF_SET/IF_UNSET/SET/UNSET functionality. This value can be changed for all drawables except the main target
-		 * @performance Changing this value may create a heavy draw boundary if it causes a draw target change (See `Drawable.draw()` for more info). Allocating a stencil buffer may be slightly expensive for large targets, removing it is relatively fast
+		 * Whether this drawable has a stencil buffer, allowing for IF_SET/IF_UNSET/SET/UNSET functionality. This value can be changed for all drawables except the main context
+		 * @performance Changing this value may create a heavy draw boundary if it causes a draw target change (See `Drawable.draw()` for more info). Allocating a stencil buffer may be slightly expensive for large targets, removing it is relatively fast. If you assign without changing (e.g `ctx.hasStencil = true` when it was already true), then no work is actually done. This may be preferable to a check-and-assign
 		 */
 		hasStencil: boolean
+
 		/**
-		 * Which layer of the texture to draw to. This value can be changed if and only if it is a texture. Otherwise, it is always 0
-		 * @performance Changing this value may create a heavy draw boundary if it causes a draw target change (See `Drawable.draw()` for more info).
+		 * Set a drawable target for this drawable context
+		 * 
+		 * This method is not valid on the main context. Additionally, all targets added to a single `Drawable` must have the same width and height
+		 * @param id The slot ID to set the target on. See `Drawable()` and `Drawable.MAX_TARGETS`
+		 * @param target A texture or MSAA to which draw operations should go to, or null to remove the current target at that slot. Note that sub-texture layer/crop are ignored, the drawable always draws to the entire layer
+		 * @param layer Draw to a specific layer of the texture (Default: 0)
+		 * @param mip Draw to a specific mipmap of the texture (Default: 0)
 		 */
-		textureLayer: number
+		setTarget(id: number, target: Texture, layer?: number, mip?: number): void
+		setTarget(id: number, target: Texture.MSAA): void
+		setTarget(id: number, target?: null): void
+
 		/**
-		 * Which mipmap of the texture to draw to (typically 0). This value can be changed if and only if it is a texture. Otherwise, it is always 0
-		 * @performance Changing this value may create a heavy draw boundary if it causes a draw target change (See `Drawable.draw()` for more info).
+		 * Clear all currently bound targets (see `Drawable.setTarget`)
+		 * 
+		 * Additionally, any stencil buffer's memory is freed (beware, manually unsetting every target via `.setTarget(id, null)` will not do this!)
 		 */
-		textureMipmap: number
+		clearTargets(): void
 
 		/**
 		 * Translate (move) all following draw operations, x+ corresponds to right and y+ corresponds to up
@@ -604,12 +614,12 @@ declare global{
 		determinant(): number
 		/**
 		 * The pixel ratio of the current transformation matrix. This is the geometric mean of the absolute values of the eigenvalues, or, in other words, sqrt(determinant), multiplied by the drawable's width and height. It can be used to determine appropriate mipmap levels for textures, and represents how many pixels one unit in the current transform space corresponds to on average on the draw target
-		 * @performance This method is CPU-arithmetic, fast and usually inlined, however it uses a square root.
+		 * @performance This method is CPU-arithmetic, fast and usually inlined, however it uses a square root
 		 */
 		pixelRatio(): number
 		/**
 		 * Create a sub-context, which points to the same target, stencil buffer, etc... as this one, much like `Texture.sub()`, however it keeps its own state such as transform, blend, mask, shader, geometry, making it ideal for passing to other functions that may modify their drawable context arbitrarily without us needing to revert it afterwards
-		 * @performance This method is CPU-logic, fast and usually inlined.
+		 * @performance This method is CPU-logic, fast and usually inlined
 		 **/
 		sub(): Drawable
 		/**
@@ -643,7 +653,7 @@ declare global{
 		 * 
 		 * By default, all color channels are enabled and no stencil operations are performed (`R | G | B | A`)
 		 * 
-		 * If you need continuous stencil values rather than just 0 and 1 (e.g nice antialiased borders), consider making use of the alpha channel with blend modes to achieve similar effects.
+		 * If you need continuous stencil values rather than just 0 and 1 (e.g nice antialiased borders), consider making use of the alpha channel with blend modes to achieve similar effects
 		 * @performance Changing this value will create a light draw boundary (See `Drawable.draw()` for more info)
 		 */
 		mask: number
@@ -667,11 +677,11 @@ declare global{
 		 * - Writing to a texture that was recently used
 		 * - Using a lot of distinct textures
 		 * - Etc...
-		 * Otherwise, coalesced draw calls will ultimately all be drawn with the same `glDrawArraysInstanced()` call (or similar).
+		 * Otherwise, coalesced draw calls will ultimately all be drawn with the same `glDrawArraysInstanced()` call (or similar)
 		 * 
-		 * The type of draw boundary can also affect performance. For example, a 'light' draw boundary caused by changing the blend mode might cost the equivalent of a couple of draw() calls, while one caused by changing draw target (a 'heavy' draw boundary) might cost several dozen or even hundred times more.
+		 * The type of draw boundary can also affect performance. For example, a 'light' draw boundary caused by changing the blend mode might cost the equivalent of a couple of draw() calls, while one caused by changing draw target (a 'heavy' draw boundary) might cost several dozen or even hundred times more
 		 * 
-		 * There is also CPU overhead to consider. Javascript can be well-optimized and the implementation for `draw()` is optimized to the brink of my insanity including code-generation (DO NOT LOOK IN THE SOURCE CODE IT IS ABSOLUTELY MINDF*CK GET ME OUT OF HERE PLEASE HELP) however only so much can be done, and a portion is left to you to not make silly decisions that undo any efforts the library may try to make. The function is optimized to receive statically-typed arguments (e.g not passing a vec4 to a vec2, a string to a number, or passing too many arguments). In favorable conditions, `draw` will be inlined and reduced to a dynamic call to a private method of the shader, used to pack the passed values into an internal buffer.
+		 * There is also CPU overhead to consider. Javascript can be well-optimized and the implementation for `draw()` is optimized to the brink of my insanity including code-generation (DO NOT LOOK IN THE SOURCE CODE IT IS ABSOLUTELY MINDF*CK GET ME OUT OF HERE PLEASE HELP) however only so much can be done, and a portion is left to you to not make silly decisions that undo any efforts the library may try to make. The function is optimized to receive statically-typed arguments (e.g not passing a vec4 to a vec2, a string to a number, or passing too many arguments). In favorable conditions, `draw` will be inlined and reduced to a dynamic call to a private method of the shader, used to pack the passed values into an internal buffer
 		 * 
 		 * Benchmarks and citations may be added later if I have not `git commit -m suicide` by then
 		 */
@@ -754,7 +764,7 @@ declare global{
 		/**
 		 * Clear the whole stencil buffer to 0
 		 * 
-		 * @performance Will create a light draw boundary (See `Drawable.draw()` for more info). Well-optimized, under the hood, all 8 bits of the stencil buffer are used. "Clearing" the stencil buffer will simply switch to another bit, until all 8 bits have been used up, at which point the buffer is actually cleared, this operation is often times cheaper than attempting to clear only a portion of the stencil buffer with a `draw*()` call, however, benchmark your specific case if you are unsure.
+		 * @performance Will create a light draw boundary (See `Drawable.draw()` for more info). Well-optimized, under the hood, all 8 bits of the stencil buffer are used. "Clearing" the stencil buffer will simply switch to another bit, until all 8 bits have been used up, at which point the buffer is actually cleared, this operation is often times cheaper than attempting to clear only a portion of the stencil buffer with a `draw*()` call, however, benchmark your specific case if you are unsure
 		 */
 		clearStencil(): void
 	}
@@ -805,7 +815,7 @@ declare global{
 	 * 
 	 * Any of these values can be mixed to apply different rules for rgb values as for alpha values, for example, `RGB_ADD | A_MAX` will apply `ADD` to rgb channels and `MAX` to the alpha channel, and `RGB_SRC_ALPHA | ZERO` will use `SRC_ALPHA` for rgb and `ZERO` for alpha. Note that there are no `RGB_ZERO` or `A_ZERO` as these are just `ZERO` (even that can be omitted altogether as it is `== 0`)
 	 * 
-	 * @param alphaToCoverage Use the alpha value in conjunction with MSAA draw targets to simulate higher fidelity blending. Only a portion of the per-pixel samples are written, depending on the source's alpha. Note that when using this you should not provide premultiplied source, nor multiply the destination by `ONE_MINUS_SRC_ALPHA`.
+	 * @param alphaToCoverage Use the alpha value in conjunction with MSAA draw targets to simulate higher fidelity blending. Only a portion of the per-pixel samples are written, depending on the source's alpha. Note that when using this you should not provide premultiplied source, nor multiply the destination by `ONE_MINUS_SRC_ALPHA`
 	 * @performance This function is pure arithmetic and often even constant-folded
 	 */
 	function Blend(sfac: number, combine: number, dfac: number, alphaToCoverage: boolean): Blend
@@ -883,15 +893,15 @@ declare global{
 		 * | `0.75`       | `0.75 - 0.5*dst`  |
 		 * | `1.00`       | `1 - dst`         |
 		 * 
-		 * This includes the alpha channel. It may be wise to set the source alpha to `0` if you want it unchanged, or create your own blending mode.
+		 * This includes the alpha channel. It may be wise to set the source alpha to `0` if you want it unchanged, or create your own blending mode
 		 */
 		const INVERT: Blend
 	}
 
 	/**
-	 * Construct a geometry.
+	 * Construct a geometry
 	 * 
-	 * By default (the default geometry), a sprite drawn in a box at `(x, y)` and size `(w, h)` will take the shape of a square (i.e from `(x, y)` to `(x+w, y)` to `(x, y+h)` to `(x+w, y+h)`), however, this can be changed with geometries.
+	 * By default (the default geometry), a sprite drawn in a box at `(x, y)` and size `(w, h)` will take the shape of a square (i.e from `(x, y)` to `(x+w, y)` to `(x, y+h)` to `(x+w, y+h)`), however, this can be changed with geometries
 	 * 
 	 * Geometries are created in the same way as meshes using lower level graphics APIs. You provide a list of vertices (points), and a method of connecting them to draw triangles (or lines/points). Quads do not exist, but can be made of 2 triangles
 	 * @param type The primitive type, which determines how to connect vertices (points). Can be one of
@@ -914,7 +924,7 @@ declare global{
 		length: number
 		/**
 		 * Create a subgeometry, i.e a geometry containing only a subset of the points of this geometry, optionally with a different type
-		 * @performance This method is CPU-arithmetic, very fast. Using many subgeometries of the same geometry is also faster than using many different geometries. For many related geometries, consider building one large geometry and taking subgeometries of it.
+		 * @performance This method is CPU-arithmetic, very fast. Using many subgeometries of the same geometry is also faster than using many different geometries. For many related geometries, consider building one large geometry and taking subgeometries of it
 		 */
 		sub(start: number, length?: number, type?: number): Geometry
 	}
@@ -942,12 +952,12 @@ declare global{
 	 * - `IVEC2`/`IVEC3`/`IVEC4` An object in the shape of `{x, y}`/`{x, y, z}`/`{x, y, z, w}` interpreted and passed to the shader as 32 bit signed integers
 	 * - `UINT` A number interpreted and passed to the shader as a 32 bit unsigned integer
 	 * - `UVEC2`/`UVEC3`/`UVEC4` An object in the shape of `{x, y}`/`{x, y, z}`/`{x, y, z, w}` interpreted and passed to the shader as 32 bit unsigned integers
-	 * - `TEXTURE` A texture object of a float format. Subtexture crop/layer ignored. Read below for how to use these.
-	 * - `FTEXTURE` A texture object of a high-precision floating point format (16F / 32F). Subtexture crop/layer ignored. Read below for how to use these.
-	 * - `UTEXTURE` A texture object of integer format. Subtexture crop/layer ignored. Read below for how to use these.
-	 * - `COLOR` A texture or flat color of a float format. Texture comes presampled in the shader (sample position is decided on the CPU side by sub-texture crop/layer). Read below for how to use these.
-	 * - `FCOLOR` A texture or flat color of a high-precision floating point format. Texture comes presampled in the shader (sample position is decided on the CPU side by sub-texture crop/layer). Read below for how to use these.
-	 * - `UCOLOR` A texture or flat color of an integer format. Texture comes presampled in the shader (sample position is decided on the CPU side by sub-texture crop/layer). Read below for how to use these.
+	 * - `TEXTURE` A texture object of a float format. Subtexture crop/layer ignored. Read below for how to use these
+	 * - `FTEXTURE` A texture object of a high-precision floating point format (16F / 32F). Subtexture crop/layer ignored. Read below for how to use these
+	 * - `UTEXTURE` A texture object of integer format. Subtexture crop/layer ignored. Read below for how to use these
+	 * - `COLOR` A texture or flat color of a float format. Texture comes presampled in the shader (sample position is decided on the CPU side by sub-texture crop/layer). Read below for how to use these
+	 * - `FCOLOR` A texture or flat color of a high-precision floating point format. Texture comes presampled in the shader (sample position is decided on the CPU side by sub-texture crop/layer). Read below for how to use these
+	 * - `UCOLOR` A texture or flat color of an integer format. Texture comes presampled in the shader (sample position is decided on the CPU side by sub-texture crop/layer). Read below for how to use these
 	 * @param defaults The default values for the inputs. If not provided, a suitable `0`-like default is used (`TEXTURE`/`FTEXTURE`/`UTEXTURE` cannot have a default value)
 	 * @param uniforms Shader uniforms (config). These have the same possible values as `inputs`
 	 * @param uDefaults The default values for the uniforms. If not provided, a suitable `0`-like default is used (`TEXTURE`/`FTEXTURE`/`UTEXTURE` cannot have a default value)
@@ -955,7 +965,7 @@ declare global{
 	 * - `UINT` to make this shader only for rendering to integer targets
 	 * - `FIXED` (normal value)
 	 * - `FLOAT` for high precision targets (16F / 32F). This exists because `FIXED` will try to use the lowest precision available (`lowp`, for performance reasons), which may be insufficient for some use cases
-	 * @param intFrac Optionally give a hint as to the bias towards integer or float textures. For example, if your shader uses one float and one int texture, but the int texture tends to stay the same while the float texture changes often, set this to `1` to indicate that you will use more float textures. Out of the 16 available texture slots, 15 will then be allocated for float textures, as opposed to 8 by default (when `intFrac == 0.5`), which will slightly increase performance.
+	 * @param intFrac Optionally give a hint as to the bias towards integer or float textures. For example, if your shader uses one float and one int texture, but the int texture tends to stay the same while the float texture changes often, set this to `1` to indicate that you will use more float textures. Out of the 16 available texture slots, 15 will then be allocated for float textures, as opposed to 8 by default (when `intFrac == 0.5`), which will slightly increase performance
 	 * 
 	 * Note that you cannot use more than 16 different texture parameters in a single shader (across both `inputs` and `uniforms`), and that the number of inputs is also individually limited (don't go crazy and if you do run out, consider combining multiple `FLOAT`s to a `VEC2`/`VEC3`/`VEC4`, etc...)
 	 * 
@@ -1058,7 +1068,7 @@ declare global{
 		/**
 		 * Shader for drawing to integer-texture targets
 		 * 
-		 * Values: `(thing: Texture | vec4)` (i.e `[UCOLOR]`)
+		 * Values: `(thing: vec4)` (i.e `[UVEC4]`)
 		 * 
 		 * Uniforms: none
 		 * 

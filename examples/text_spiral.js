@@ -20,7 +20,7 @@ const lines = paragraph.break((i, offs) => {
 for(let i=0;i<lines.length;i++)
 	lines[i].curveBy(curves[i])
 
-const img = Img('examples/creo5.png')
+const img = Texture.from('examples/creo5.png')
 let zoom = 50
 let cam = globalThis.cam = {x: 0, y: 0, z: 50}
 render = () => {

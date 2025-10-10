@@ -2,8 +2,6 @@
 /// <reference path="./gamma-global.d.ts" />
 export {}
 declare global{
-	/** See `RichText.addTextPass()`, `Font.draw()` */
-	const TEXT_AA: number
 	namespace Shader{
 		/** MSDF Shader, default shader used by `RichText` and expected by `Font.draw()` */
 		const MSDF: Shader
