@@ -722,17 +722,20 @@ const treeIf = (s=0, e=maxTex,o=0) => {
 	return `if(u<${m+o}){${treeIf(s,m,o)}}else{${treeIf(m,e,o)}}`
 }
 const names = ['float','vec2','vec3','vec4','int','ivec2','ivec3','ivec4','uint','uvec2','uvec3','uvec4']
-T = $.Shader = (src, inputs, defaults, uniforms, uDefaults, output=4, frat=0.5) => {
-	const fnParams = ['(function({'], fnBody = ['',''], shaderHead = ['#version 300 es\nprecision highp float;precision highp int;layout(location=0)in vec4 _pos;out vec2 uv,xy;layout(location=1)in mat2x3 m;',''], shaderBody = ['void main(){gl_PointSize=1.0;uv=_pos.zw;gl_Position=vec4((xy=vec3(_pos.xy,1.)*m)*2.-1.,0.,1.);'], shaderHead2 = ['#version 300 es\nprecision highp float;precision highp int;in vec2 uv,xy;out '+(output==0?'vec4 color;':output==16||output==32?'uvec4 color;':'lowp vec4 color;'),'']
+T = $.Shader = (src, inputs, defaults, uniforms, uDefaults, outputs=4, frat=0.5) => {
+
+	inputs = typeof inputs=='number' ? [inputs] : inputs || []
+	uniforms = typeof uniforms=='number' ? [uniforms] : uniforms || []
+	defaults = defaults !== undefined ? Array.isArray(defaults) ? defaults : [defaults] : []
+	uDefaults = uDefaults !== undefined ? Array.isArray(uDefaults) ? uDefaults : [uDefaults] : []
+	outputs = typeof outputs=='number' ? [outputs] : outputs || []
+	if(outputs.length > Drawable.MAX_TARGETS) throw `Too many shader outputs (Drawable.MAX_TARGETS == ${Drawable.MAX_TARGETS})`
+	const fnParams = ['(function({'], fnBody = ['',''], shaderHead = ['#version 300 es\nprecision highp float;precision highp int;layout(location=0)in vec4 _pos;out vec2 uv,xy;layout(location=1)in mat2x3 m;',''], shaderBody = ['void main(){gl_PointSize=1.0;uv=_pos.zw;gl_Position=vec4((xy=vec3(_pos.xy,1.)*m)*2.-1.,0.,1.);'], shaderHead2 = ['#version 300 es\nprecision highp float;precision highp int;in vec2 uv,xy;\n#define color color0\n'+outputs.map((o,i) => `layout(location=${i})out ${!o?'':o==16||o==32?'u':'lowp '}vec4 color${i};`).join(';'),'']
 	let j = 6, o = 0, fCount = 0, iCount = 0
 	const types = [3,3]
 	const texCheck = []
 	
 	let id = 0
-	inputs = typeof inputs=='number' ? [inputs] : inputs || []
-	uniforms = typeof uniforms=='number' ? [uniforms] : uniforms || []
-	defaults = defaults !== undefined ? Array.isArray(defaults) ? defaults : [defaults] : []
-	uDefaults = uDefaults !== undefined ? Array.isArray(uDefaults) ? uDefaults : [uDefaults] : []
 	for(const t of inputs){
 		let c = (t&3)+1, n = names[t&3|t>>4<<2]
 		const isCol = t==4||t==8||t==12
@@ -825,7 +828,6 @@ T = $.Shader = (src, inputs, defaults, uniforms, uDefaults, output=4, frat=0.5) 
 	s.uniforms = eval(`(function(${fn2Params}){${fn2Body.join(';')};bindUniTex()})`)
 	const bindUniTex = eval(`(function(){${fn3Body.join(';')};shuniBind=boundUsed})`)
 	const fMask = 32-fCount&&(-1>>>fCount)
-	s.outInt = (output==16||output==32)<<31
 	const v=gl.createShader(35633), f=gl.createShader(35632)
 	shaderBody.push('}')
 	gl.shaderSource(v, shaderHead.join('')+shaderBody.join(''))
