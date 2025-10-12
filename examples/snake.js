@@ -15,7 +15,7 @@ void main(){
 
 	color = arg0() * alpha;
 }
-`, COLOR)
+`, {params: COLOR})
 
 const ubuntu = await Font.chlumsky('fonts/ubuntu/')
 

@@ -277,6 +277,10 @@ declare global{
 
 	type GammaInstance = typeof GammaInstance
 namespace GammaInstance{
+// © 2025 Matthew Reiner. https://github.com/BlobTheKat/gamma
+/// <reference path="./gamma.d.ts" />
+export {}
+declare global{
 	/**
 	 * The canvas element passed to Gamma(), or a new canvas element if none was provided
 	 */
@@ -1220,7 +1224,7 @@ namespace GammaInstance{
 	 * 
 	 * Virtually anything you need to know about GLSL can be found online (or by asking an LLM). Here, we will just focus on things that are done differently or new
 	 * 
-	 * @param inputs Shader sprite inputs. These can be any of the following, passed as an array, or a single value, representing an array with one element
+	 * @param options.params Shader sprite parameters. These can be any of the following, passed as an array, or a single value, representing an array with one element
 	 * - `FLOAT` A number interpreted and passed to the shader as a single-precision float
 	 * - `VEC2`/`VEC3`/`VEC4` An object in the shape of `{x, y}`/`{x, y, z}`/`{x, y, z, w}` interpreted and passed to the shader as single-precision floats
 	 * - `INT` A number interpreted and passed to the shader as a 32 bit signed integer
@@ -1233,16 +1237,17 @@ namespace GammaInstance{
 	 * - `COLOR` A texture or flat color of a float format. Texture comes presampled in the shader (sample position is decided on the CPU side by sub-texture crop/layer). Read below for how to use these
 	 * - `FCOLOR` A texture or flat color of a high-precision floating point format. Texture comes presampled in the shader (sample position is decided on the CPU side by sub-texture crop/layer). Read below for how to use these
 	 * - `UCOLOR` A texture or flat color of an integer format. Texture comes presampled in the shader (sample position is decided on the CPU side by sub-texture crop/layer). Read below for how to use these
-	 * @param defaults The default values for the inputs. If not provided, a suitable `0`-like default is used (`TEXTURE`/`FTEXTURE`/`UTEXTURE` cannot have a default value)
-	 * @param uniforms Shader uniforms (config). These have the same possible values as `inputs`
-	 * @param uDefaults The default values for the uniforms. If not provided, a suitable `0`-like default is used (`TEXTURE`/`FTEXTURE`/`UTEXTURE` cannot have a default value)
-	 * @param output The type of output for this shader. Can be
+	 * @param options.defaults The default values for the parameters. If not provided, a suitable `0`-like default is used (`TEXTURE`/`FTEXTURE`/`UTEXTURE` cannot have a default value)
+	 * @param options.uniforms Shader uniforms (config). These have the same possible values as `params`
+	 * @param options.uniformDefaults The default values for the uniforms. If not provided, a suitable `0`-like default is used (`TEXTURE`/`FTEXTURE`/`UTEXTURE` cannot have a default value)
+	 * @param options.outputs The type of output for this shader. Can be
 	 * - `UINT` to make this shader only for rendering to integer targets
 	 * - `FIXED` (normal value)
 	 * - `FLOAT` for high precision targets (16F / 32F). This exists because `FIXED` will try to use the lowest precision available (`lowp`, for performance reasons), which may be insufficient for some use cases
-	 * @param intFrac Optionally give a hint as to the bias towards integer or float textures. For example, if your shader uses one float and one int texture, but the int texture tends to stay the same while the float texture changes often, set this to `1` to indicate that you will use more float textures. Out of the 16 available texture slots, 15 will then be allocated for float textures, as opposed to 8 by default (when `intFrac == 0.5`), which will slightly increase performance
+	 * Multiple outputs supported for drawing to multiple textures at once. See `Drawable.setTarget`
+	 * @param options.intFrac Optionally give a hint as to the bias towards integer or float textures. For example, if your shader uses one float and one int texture, but the int texture tends to stay the same while the float texture changes often, set this to `1` to indicate that you will use more float textures. Out of the 16 available texture slots, 15 will then be allocated for float textures, as opposed to 8 by default (when `intFrac == 0.5`), which will slightly increase performance
 	 * 
-	 * Note that you cannot use more than 16 different texture parameters in a single shader (across both `inputs` and `uniforms`), and that the number of inputs is also individually limited (don't go crazy and if you do run out, consider combining multiple `FLOAT`s to a `VEC2`/`VEC3`/`VEC4`, etc...)
+	 * Note that you cannot use more than 16 different texture parameters in a single shader (across both `params` and `uniforms`), and that the number of params is also individually limited (don't go crazy and if you do run out, consider combining multiple `FLOAT`s to a `VEC2`/`VEC3`/`VEC4`, etc...)
 	 * 
 	 * ## Additions to GLSL
 	 * 
@@ -1305,7 +1310,7 @@ namespace GammaInstance{
 	 * 
 	 * If you made it this far without your brain exploding, congratulations! Take a break :)
 	 */
-	function Shader(glsl: string, inputs: number | number[], defaults: number | number[], uniforms: number | number[], uDefaults: number | number[], output: number, intFrac: number): Shader
+	function Shader(glsl: string, options?: { params?: number | number[], defaults?: number | number[], uniforms?: number | number[], uniformDefaults?: number | number[], outputs?: number, intFrac?: number }): Shader
 
 	/** See `Shader()` */ const FLOAT = 0
 	/** See `Shader()` */ const VEC2 = 1
@@ -1430,4 +1435,4 @@ namespace GammaInstance{
 	 */
 	let glLost: (() => any) | null
 }
-}
+}}

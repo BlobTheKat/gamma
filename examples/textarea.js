@@ -56,7 +56,7 @@ void main(){
 	float dist = 0.5 - length(uv - 0.5), alpha = clamp(dist/fwidth(dist) + 0.5, 0.0, 1.0);
 	color = arg0() * alpha;
 }
-`, COLOR, vec4.one)
+`, {params: COLOR, defaults: vec4.one})
 
 let cx = 0, cxi = 0, zoom = NaN, zoomi = 0
 render = () => {

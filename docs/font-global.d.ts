@@ -14,14 +14,14 @@ declare global{
 		 * - Other parameters (the "values" of the text/line pass) are accessed via `value0`, `value1`, ... instead of `arg0`, `arg1`, ...
 		 *    - The first value is `value0`, which is the color by convention
 		 * @param glsl The shader's source code. See `Shader()`
-		 * @param inputs Shader arguments. See `Shader()`
-		 * @param defaults Argument default values. See `Shader()`
-		 * @param uniforms Shader uniforms. See `Shader()`
-		 * @param uDefaults Uniform default values. See `Shader()`
-		 * @param output Shader output type. See `Shader()`
-		 * @param intFrac Integer texture share. See `Shader()`
+		 * @param options.params Shader arguments. See `Shader()`
+		 * @param options.defaults Argument default values. See `Shader()`
+		 * @param options.uniforms Shader uniforms. See `Shader()`
+		 * @param options.uniformDefaults Uniform default values. See `Shader()`
+		 * @param options.outputs Shader output type. See `Shader()`
+		 * @param options.intFrac Integer texture share. See `Shader()`
 		 */
-		function font(glsl: string, inputs: number | number[], defaults: number | number[], uniforms: number | number[], uDefaults: number | number[], output: number, intFrac: number): Shader
+		function font(glsl: string, options?: { params?: number | number[], defaults?: number | number[], uniforms?: number | number[], uniformDefaults?: number | number[], output?: number, intFrac?: number }): Shader
 	}
 	/**
 	 * Create a BreakToken. Group many `BreakToken`s into an array (a "token class") to fully specify how a piece of text should be tokenized, which defines how and where text can be broken by the `RichText.break()` function. 
