@@ -1,17 +1,40 @@
 import { minify } from 'terser'
 import fs, {promises as fsa} from 'fs'
 
+const renames = {
+	__proto__: null,
+	gl: '_',
+	defaultShape: '$d',
+	defaults: '$D',
+	uniformDefaults: '$U',
+	setv: '$S',
+	sh: '$s',
+	shp: '$p',
+	program: '$P',
+	vao: '$V',
+	grow: '$G',
+	shuniBind: '$x',
+	boundUsed: '$X',
+	uniLocs: '$L',
+	switchShader: '$l',
+	setShp: '$h',
+	iarr: '$I',
+	arr: '$i',
+	img: '$m'
+}
 /** @type { {[x: string]: import('terser').MinifyOptions} } */
 const tersers = {
 	__proto__: null,
 	'gamma.js': {
 		mangle: {
 			eval: true,
-			reserved: ['A', 'g', 'gl', '$', 'arr', 'iarr', 'draw', 'i', 'shuniBind', 'boundUsed', 'uniLocs', 'switchShader', 'setShp', 'x', 'y', 'z', 'w', 'h', 'l', 'a', 'b', 'c', 'd', 'e', 'f'],
+			reserved: ['$', 'draw', ...'ixyzwhlabcdef', ...Object.keys(renames), ...Object.values(renames)],
 			properties: { regex: /^_/ }
 		}
 	}
 }, defaultTerser = {}
+
+renames._shp = 'S'
 
 const glConstants = {
 	TEXTURE_2D_ARRAY: 35866,
@@ -72,13 +95,11 @@ const glConstants = {
 }
 const unknownConstants = new Set()
 
-const renames = {gl: 'g', draw: 'A'}
-
 const postprocessors = {
 	__proto__: null,
 	'gamma.js': code =>
 		code.replace(/gl\.([A-Z]\w*)/g, (str, name) => glConstants[name] ?? (unknownConstants.size != unknownConstants.add(name).size && console.warn('Unminified GL constant: gl.'+name), str))
-		.replace(/(?<![\w$])(gl|draw)(?![\w$])/g, v => renames[v])
+		.replace(/(?<![\w$]|\$\.)\w\w+(?![\w$])/g, v => renames[v] ?? v)
 }
 
 const pr = []

@@ -841,10 +841,10 @@ $.Shader = (src, {params, defaults, uniforms, uniformDefaults, outputs=4, intFra
 		+(used&8?`uvec4 uGetPixel(int u,ivec3 p,int l){${switcher(i=>'return texelFetch(GL_i['+(i-maxTex)+'],p,l);',maxTex,2*maxTex-fCount)}}`:'')
 		+(used&28?`ivec3 getSize(int u,int l){${switcher(i=>'return textureSize(GL_'+(i<fCount?'f['+i:'i['+(i-fCount))+'],l);',0,maxTex)}}`:'')
 	const fMask = 32-fCount&&(-1>>>fCount)
-	fn2Body[0] = `i&&draw(0);if(sh!=s){gl.useProgram(p);gl.bindVertexArray(vao);switchShader(s,${fCount},${fMask})}`
-	fnBody[0] = `setv(this.t,this._mask);if(sh!=s){i&&draw(0);switchShader(s,${fCount},${fMask});gl.useProgram(p);gl.bindVertexArray(vao);B()};if(shp!=this._shp)setShp(this._shp);if(geo!=this._shp.b){gl.bindBuffer(34962,geo=this._shp.b);gl.vertexAttribPointer(0,4,gl.FLOAT,0,0,0);gl.bindBuffer(34962,buf)};let b=boundUsed^shuniBind;`+texCheck.join(';')+`;const j=grow(${count})`
+	fn2Body[0] = `i&&draw(0);if(sh!=s){gl.useProgram(program);gl.bindVertexArray(vao);switchShader(s,${fCount},${fMask})}`
+	fnBody[0] = `setv(this.t,this._mask);if(sh!=s){i&&draw(0);switchShader(s,${fCount},${fMask});gl.useProgram(program);gl.bindVertexArray(vao);B()};if(shp!=this._shp)setShp(this._shp);if(geo!=this._shp.b){gl.bindBuffer(34962,geo=this._shp.b);gl.vertexAttribPointer(0,4,gl.FLOAT,0,0,0);gl.bindBuffer(34962,buf)};let b=boundUsed^shuniBind;`+texCheck.join(';')+`;const j=grow(${count})`
 	fnBody.push('return j')
-	const s = eval(`let geo=defaultShape.b${states.length?','+states.join(','):''};const B=function(){${fn3Body.join(';')};shuniBind=boundUsed},s=function({${fnParams}}){${fnBody.join(';')}};s.uniforms=(function(${fn2Params}){${fn2Body.join(';')};B()});s`), p = gl.createProgram()
+	const s = eval(`let geo=defaultShape.b${states.length?','+states.join(','):''};const B=function(){${fn3Body.join(';')};shuniBind=boundUsed},s=function({${fnParams}}){${fnBody.join(';')}};s.uniforms=(function(${fn2Params}){${fn2Body.join(';')};B()});s`), program = gl.createProgram()
 	const v=gl.createShader(35633), f=gl.createShader(35632)
 	shaderBody.push('}')
 	if(attrs) shaderHead[0]+='layout(location=3)in uvec4 a0;flat out uvec4 GL_a0;', shaderBody[0]+='GL_a0=a0;', shaderHead2[0]+='flat in uvec4 GL_a0;'
@@ -852,14 +852,14 @@ $.Shader = (src, {params, defaults, uniforms, uniformDefaults, outputs=4, intFra
 	gl.compileShader(v)
 	gl.shaderSource(f, shaderHead2.join('')+'\n'+src)
 	gl.compileShader(f)
-	gl.attachShader(p, v)
-	gl.attachShader(p, f)
+	gl.attachShader(program, v)
+	gl.attachShader(program, f)
 	if(T=gl.getShaderInfoLog(f)) console.warn('GLSL Error:\n'+T)
-	else gl.linkProgram(p)
-	gl.useProgram(p)
-	const uniLocs = uniNames.map(n => gl.getUniformLocation(p, n))
+	else gl.linkProgram(program)
+	gl.useProgram(program)
+	const uniLocs = uniNames.map(n => gl.getUniformLocation(program, n))
 	for(let i = 0; i < maxTex; i++)
-		gl.uniform1i(gl.getUniformLocation(p, i<fCount?'GL_f['+i+']':'GL_i['+(i-fCount)+']'), i>=fCount?maxTex+i-fCount:i)
+		gl.uniform1i(gl.getUniformLocation(program, i<fCount?'GL_f['+i+']':'GL_i['+(i-fCount)+']'), i>=fCount?maxTex+i-fCount:i)
 	s.count = count
 	const vao = gl.createVertexArray()
 	gl.bindVertexArray(vao)
