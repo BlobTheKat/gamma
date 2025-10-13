@@ -1,11 +1,11 @@
 Gamma.font = $ => {
-	const vec4one = $.vec4.one, vec2l = {x:0,y:1}, msdfShader = $.Shader.MSDF = $.Shader("void main(){vec3 c=arg0(uv).rgb;color=arg2*clamp(arg1.y*(max(min(c.r, c.g), min(max(c.r, c.g), c.b))-.5+arg1.x)+.5,0.,1.);}", {params: [$.COLOR, $.VEC2, $.VEC4], defaults: [undefined, {x:0,y:1}, vec4one]})
+	const vec4one = $.vec4.one, vec2l = {x:0,y:1}, msdfShader = $.Shader.MSDF = $.Shader("void main(){vec3 c=param0(uv).rgb;color=param2*clamp(param1.y*(max(min(c.r, c.g), min(max(c.r, c.g), c.b))-.5+param1.x)+.5,0.,1.);}", {params: [$.COLOR, $.VEC2, $.VEC4], defaults: [undefined, {x:0,y:1}, vec4one]})
 $.Shader.font = (src, o) => {
-	let pr = 'float field(vec2 uv){vec3 c=arg0(uv).rgb;return max(min(c.r, c.g), min(max(c.r, c.g), c.b)); }\n#define scale arg1\n'
+	let pr = 'float field(vec2 uv){vec3 c=param0(uv).rgb;return max(min(c.r, c.g), min(max(c.r, c.g), c.b)); }\n#define scale param1\n'
 	if(!Array.isArray(o.params)) O.params = typeof o.params == 'number' ? [o.params] : []
 	if(!Array.isArray(o.defaults)) o.defaults = o.defaults === undefined ? [] : [o.defaults]
 	for(let i = 0; i < o.params.length; i++)
-		pr += `#define value${i} arg${i+2}\n`
+		pr += `#define value${i} param${i+2}\n`
 	o.params.unshift($.COLOR, $.VEC2); o.defaults.unshift(undefined, {x:0,y:1})
 	return $.Shader(pr+src, o)
 }

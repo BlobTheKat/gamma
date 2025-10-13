@@ -963,8 +963,8 @@ declare global{
 	 * @param options.uniformDefaults The default values for the uniforms. If not provided, a suitable `0`-like default is used (`TEXTURE`/`FTEXTURE`/`UTEXTURE` cannot have a default value)
 	 * @param options.outputs The type of output for this shader. Can be
 	 * - `UINT` to make this shader only for rendering to integer targets
-	 * - `FIXED` (normal value)
-	 * - `FLOAT` for high precision targets (16F / 32F). This exists because `FIXED` will try to use the lowest precision available (`lowp`, for performance reasons), which may be insufficient for some use cases
+	 * - `LOWP` (normal value)
+	 * - `FLOAT` for high precision targets (16F / 32F). This exists because `LOWP` will try to use the lowest precision available (`lowp`, for performance reasons), which may be insufficient for some use cases
 	 * Multiple outputs supported for drawing to multiple textures at once. See `Drawable.setTarget`
 	 * @param options.intFrac Optionally give a hint as to the bias towards integer or float textures. For example, if your shader uses one float and one int texture, but the int texture tends to stay the same while the float texture changes often, set this to `1` to indicate that you will use more float textures. Out of the 16 available texture slots, 15 will then be allocated for float textures, as opposed to 8 by default (when `intFrac == 0.5`), which will slightly increase performance
 	 * 
@@ -1000,7 +1000,7 @@ declare global{
 	 * ivec3 getSize(uTex2DArray texture, int mip);
 	 * 
 	 * // The arguments and uniforms specified at the shader's creation
-	 * in auto arg0, arg1, arg2, ...;
+	 * in auto param0, param1, param2, ...;
 	 * uniform auto uni0, uni1, uni2, ...;
 	 * 
 	 * // The color to output (can be lowp vec4, highp vec4 or uvec4, specified by the `output` parameter at the shader's creation)
@@ -1013,14 +1013,14 @@ declare global{
 	 * 
 	 * // `COLOR`/`FCOLOR`/`UCOLOR`s are used by calling them, e.g
 	 * void main(){
-	 * ‍   // Assuming arg0 is a `COLOR`
-	 * ‍   col = arg0(uv);
+	 * ‍   // Assuming param0 is a `COLOR`
+	 * ‍   col = param0(uv);
 	 * }
 	 * 
 	 * // All other types are used like normal
 	 * // E.g
 	 * void main(){
-	 * ‍   if(arg0 > 1){
+	 * ‍   if(param0 > 1){
 	 * ‍      col = getColor(uni0, vec3(uv, 0));
 	 * ‍   }else{
 	 * ‍      // something idk this is just an example
@@ -1051,7 +1051,7 @@ declare global{
 	/** See `Shader()` */ const COLOR = 4
 	/** See `Shader()` */ const UCOLOR = 8
 	/** See `Shader()` */ const FCOLOR = 12
-	/** See `Shader()` */ const FIXED = 4
+	/** See `Shader()` */ const LOWP = 4
 
 	interface Shader{
 		/** Set the shader's uniforms, as specified by the shader itself. See `Shader()` */

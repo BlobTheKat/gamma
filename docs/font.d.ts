@@ -16,7 +16,7 @@ declare global{
 		 *    - Always returns 1 for line passes
 		 * - A new parameter `scale` encodes the scale and offset used to transform raw SDF values into alpha values, as specified by the text pass.
 		 *    - Default behavior would look something like `clamp( (field()-.5 + scale.x) * scale.y + .5, 0., 1.)`
-		 * - Other parameters (the "values" of the text/line pass) are accessed via `value0`, `value1`, ... instead of `arg0`, `arg1`, ...
+		 * - Other parameters (the "values" of the text/line pass) are accessed via `value0`, `value1`, ... instead of `param0`, `param1`, ...
 		 *    - The first value is `value0`, which is the color by convention
 		 * @param glsl The shader's source code. See `Shader()`
 		 * @param options.params Shader arguments. See `Shader()`
@@ -332,6 +332,7 @@ declare global{
 		 * ```sh
 		 * msdf-atlas-gen -font my_font.ttf -json my_font/index.json -imageout my_font/atlas.png -size 64 -pxrange 8
 		 * ```
+		 * where `msdf-atlas-gen` can usually be installed from your package manager, or by compiling and installing the project at the above github repository.
 		 * `pxrange` (The pixel range) affects the `rangeFactor` value. Higher = more blur / font weights possible
 		 */
 		chlumsky(src: string, atlas?: string): Font

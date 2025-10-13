@@ -20,7 +20,7 @@ const lines = paragraph.break((i, offs) => {
 for(let i=0;i<lines.length;i++)
 	lines[i].curveBy(curves[i])
 
-const img = Texture.from('examples/creo5.png')
+const img = Texture.from('examples/mountains.jpeg')
 let zoom = 50
 let cam = globalThis.cam = {x: 0, y: 0, z: 50}
 render = () => {
@@ -46,6 +46,6 @@ render = () => {
 		const scale = max(c2.width/img.width, c2.height/img.height)
 		const w = img.width*scale, h = img.height*scale
 		c2.blend = Blend.MULTIPLY
-		c2.drawRect(w*-.5, h*-.5, w, h, img, vec4(2))
+		c2.drawRect(w*-.5, h*-.5, w, h, img)
 	}
 }

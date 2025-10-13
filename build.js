@@ -5,22 +5,26 @@ const renames = {
 	__proto__: null,
 	gl: '_',
 	defaultShape: '$d',
-	defaults: '$D',
-	uniformDefaults: '$U',
+	_defaults: '$D',
+	_uDefaults: '$U',
 	setv: '$S',
 	sh: '$s',
 	shp: '$p',
 	program: '$P',
 	vao: '$V',
 	grow: '$G',
+	geo: '$g',
 	shuniBind: '$x',
 	boundUsed: '$X',
 	uniLocs: '$L',
-	switchShader: '$l',
+	switchShader: '$H',
 	setShp: '$h',
 	iarr: '$I',
 	arr: '$i',
 	img: '$m'
+}, propRenames = {
+	_shp: 'S',
+	_mask: 'M'
 }
 /** @type { {[x: string]: import('terser').MinifyOptions} } */
 const tersers = {
@@ -28,13 +32,11 @@ const tersers = {
 	'gamma.js': {
 		mangle: {
 			eval: true,
-			reserved: ['$', 'draw', ...'ixyzwhlabcdef', ...Object.keys(renames), ...Object.values(renames)],
-			properties: { regex: /^_/ }
+			reserved: ['$', 'draw', ...'ixyzwhlabcdef', ...Object.values(renames), ...Object.keys(renames)],
+			properties: { regex: new RegExp('^(?!' + Object.keys(propRenames).join('|')+')_') }
 		}
 	}
 }, defaultTerser = {}
-
-renames._shp = 'S'
 
 const glConstants = {
 	TEXTURE_2D_ARRAY: 35866,
@@ -99,7 +101,8 @@ const postprocessors = {
 	__proto__: null,
 	'gamma.js': code =>
 		code.replace(/gl\.([A-Z]\w*)/g, (str, name) => glConstants[name] ?? (unknownConstants.size != unknownConstants.add(name).size && console.warn('Unminified GL constant: gl.'+name), str))
-		.replace(/(?<![\w$]|\$\.)\w\w+(?![\w$])/g, v => renames[v] ?? v)
+		.replace(/(?<![\w$]|[^\.]\.)[\w$]{1,}/g, v => renames[v] ?? v)
+		.replace(/(?<![\w$])_[\w$]+(?![\w$])/g, v => propRenames[v] ?? v)
 }
 
 const pr = []

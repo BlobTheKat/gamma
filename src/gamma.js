@@ -108,7 +108,7 @@ Object.assign($, {
 	UINT: 32, UVEC2: 33, UVEC3: 34, UVEC4: 35,
 	TEXTURE: 20, UTEXTURE: 24, FTEXTURE: 28,
 	COLOR: 4, UCOLOR: 8, FCOLOR: 12,
-	FIXED: 4,
+	LOWP: 4,
 	TRIANGLE_STRIP: 5, TRIANGLES: 4, TRIANGLE_FAN: 6,
 	LINE_LOOP: 2, LINE_STRIP: 3, LINES: 1, POINTS: 0
 })
@@ -728,14 +728,15 @@ const maxAttribs = gl.getParameter(gl.MAX_VERTEX_ATTRIBS)<<2
 function switchShader(s, fc, fm){ sh = s; shfCount = fc; shfMask = fm }
 function setShp(s){ i&&draw(); shp = s; shpType = s.type; shpStart = s.start; shpLen = s.length }
 // Code generation bullshit GO!
-$.Shader = (src, {params, defaults, uniforms, uniformDefaults, outputs=4, intFrac=0.5}={}) => {
+$.Shader = (src, {params, defaults: _defaults, uniforms, uniformDefaults: _uDefaults, outputs=4, vertexParams, intFrac=0.5}={}) => {
 	params = typeof params=='number' ? [params] : params || []
+	vertexParams = typeof vertexParams=='number' ? [vertexParams] : vertexParams || []
 	uniforms = typeof uniforms=='number' ? [uniforms] : uniforms || []
-	defaults = defaults !== undefined ? Array.isArray(defaults) ? [...defaults] : [defaults] : []
-	uniformDefaults = uniformDefaults !== undefined ? Array.isArray(uniformDefaults) ? [...uniformDefaults] : [uniformDefaults] : []
+	_defaults = _defaults !== undefined ? Array.isArray(_defaults) ? [..._defaults] : [_defaults] : []
+	_uDefaults = _uDefaults !== undefined ? Array.isArray(_uDefaults) ? [..._uDefaults] : [_uDefaults] : []
 	outputs = typeof outputs=='number' ? [outputs] : outputs || []
 	if(outputs.length > Drawable.MAX_TARGETS) throw `Too many shader outputs (Drawable.MAX_TARGETS == ${Drawable.MAX_TARGETS})`
-	const fnParams = [], fnBody = [''], shaderHead = ['#version 300 es\nprecision highp float;precision highp int;layout(location=0)in vec4 _pos;centroid out vec2 uv,xy;layout(location=1)in mat2x3 m;',''], shaderBody = ['void main(){gl_PointSize=1.0;uv=_pos.zw;gl_Position=vec4((xy=vec3(_pos.xy,1.)*m)*2.-1.,0.,1.);'], shaderHead2 = ['#version 300 es\nprecision highp float;precision highp int;centroid in vec2 uv,xy;\n#define color color0\n'+outputs.map((o,i) => `layout(location=${i})out ${!o?'':o==16||o==32?'u':'lowp '}vec4 color${i};`).join(';'),'']
+	const fnParams = [], fnBody = [''], shaderHead = ['#version 300 es\nprecision highp float;precision highp int;centroid out vec2 uv,xy;layout(location=0)in mat2x3 m;layout(location=2)in vec4 _pos;',''], shaderBody = ['void main(){gl_PointSize=1.0;uv=_pos.zw;gl_Position=vec4((xy=vec3(_pos.xy,1.)*m)*2.-1.,0.,1.);'], shaderHead2 = ['#version 300 es\nprecision highp float;precision highp int;centroid in vec2 uv,xy;\n#define color color0\n'+outputs.map((o,i) => `layout(location=${i})out ${!o?'':o==16||o==32?'u':'lowp '}vec4 color${i};`).join(';'),'']
 	let count = 6, used = 0, fCount = 0, iCount = 0
 	const texCheck = []
 	let attrs = 0
@@ -762,8 +763,8 @@ $.Shader = (src, {params, defaults, uniforms, uniformDefaults, outputs=4, intFra
 	for(const t of params){
 		let c = (t&3)+1, n = names[t&3|t>>4<<2]
 		const isCol = t==4||t==8||t==12
-		defaults[id] ??= t==4?v4z:c==1?0:c==2?v2z:c==3?v3z:v4z
-		fnParams.push(id+':a'+count+'=defaults['+id+']')
+		_defaults[id] ??= t==4?v4z:c==1?0:c==2?v2z:c==3?v3z:v4z
+		fnParams.push(id+':a'+count+'=_defaults['+id+']')
 		const A = t>15||t==8?'iarr[j+':'arr[j+'
 		if(t==20||t==24||t==28){
 			n='int',used|=(1<<(t>>2)-3),fCount++
@@ -775,13 +776,13 @@ $.Shader = (src, {params, defaults, uniforms, uniformDefaults, outputs=4, intFra
 			texCheck.push(`let a${count+1}=-1;if(a${count}.t){if((a${count+1}=img.auto(a${count}.t,${-(t==8)}))==-1){i&&draw(b^boundUsed);a${count+1}=img.auto(a${count}.t,${-(t==8)})}a${count+1}|=a${count}.l<<8}`)
 			fCount++
 			const v = addAttr(1), v2 = addAttr(2), v3 = addAttr(2)
-			shaderHead2.push(`${t==4?'lowp ':t==8?'u':'highp '}vec4 arg${id}(vec2 uv){int v=int(${v});if(v<0)return vec4(uintBitsToFloat(${v2}),uintBitsToFloat(${v3}));return ${t==4?'g':t==8?'uG':'fG'}etColor(v&255,vec3(uv*uintBitsToFloat(${v3})+uintBitsToFloat(${v2}),v>>8));}`)
+			shaderHead2.push(`${t==4?'lowp ':t==8?'u':'highp '}vec4 param${id}(vec2 uv){int v=int(${v});if(v<0)return vec4(uintBitsToFloat(${v2}),uintBitsToFloat(${v3}));return ${t==4?'g':t==8?'uG':'fG'}etColor(v&255,vec3(uv*uintBitsToFloat(${v3})+uintBitsToFloat(${v2}),v>>8));}`)
 			used |= (1<<(t>>2)+1)
 			fnBody.push(`iarr[j+${count}]=a${count+1};if(a${count+1}>=0)arr[j+${count+1}]=a${count}.x,arr[j+${count+2}]=a${count}.y,arr[j+${count+3}]=a${count}.w,arr[j+${count+4}]=a${count}.h;else ${A}${count+1}]=a${count}.x,${A}${count+2}]=a${count}.y,${A}${count+3}]=a${count}.z,${A}${count+4}]=a${count}.w`)
 			c = 5
 		}else{
 			const v = addAttr(c)
-			shaderHead2.push(`\n#define arg${id} ${t<16?'uintBitsToFloat':t<32?names[t&3|4]:''}(${v})\n`)
+			shaderHead2.push(`\n#define param${id} ${t<16?'uintBitsToFloat':t<32?names[t&3|4]:''}(${v})\n`)
 			if(c==1) fnBody.push(A+count+']=a'+count)
 			else for(let c1=0;c1<c;c1++) fnBody.push(A+(count+c1)+']=a'+count+'.'+'xyzw'[c1])
 		}
@@ -794,8 +795,8 @@ $.Shader = (src, {params, defaults, uniforms, uniformDefaults, outputs=4, intFra
 	let states = []
 	for(const t of uniforms){
 		let c = (t&3)+1, n = names[t&3|t>>4<<2]
-		uniformDefaults[id] ??= t==4?v4z:c==1?0:c==2?v2z:c==3?v3z:v4z
-		fn2Params.push('a'+uniCount+'=uniformDefaults['+id+']')
+		_uDefaults[id] ??= t==4?v4z:c==1?0:c==2?v2z:c==3?v3z:v4z
+		fn2Params.push('a'+uniCount+'=_uDefaults['+id+']')
 		if(t==12||t==28) used|=2
 		if(t==8||t==24) iCount++,fCount--
 		if(t==20||t==24||t==28){
@@ -842,7 +843,7 @@ $.Shader = (src, {params, defaults, uniforms, uniformDefaults, outputs=4, intFra
 		+(used&28?`ivec3 getSize(int u,int l){${switcher(i=>'return textureSize(GL_'+(i<fCount?'f['+i:'i['+(i-fCount))+'],l);',0,maxTex)}}`:'')
 	const fMask = 32-fCount&&(-1>>>fCount)
 	fn2Body[0] = `i&&draw(0);if(sh!=s){gl.useProgram(program);gl.bindVertexArray(vao);switchShader(s,${fCount},${fMask})}`
-	fnBody[0] = `setv(this.t,this._mask);if(sh!=s){i&&draw(0);switchShader(s,${fCount},${fMask});gl.useProgram(program);gl.bindVertexArray(vao);B()};if(shp!=this._shp)setShp(this._shp);if(geo!=this._shp.b){gl.bindBuffer(34962,geo=this._shp.b);gl.vertexAttribPointer(0,4,gl.FLOAT,0,0,0);gl.bindBuffer(34962,buf)};let b=boundUsed^shuniBind;`+texCheck.join(';')+`;const j=grow(${count})`
+	fnBody[0] = `setv(this.t,this._mask);if(sh!=s){i&&draw(0);switchShader(s,${fCount},${fMask});gl.useProgram(program);gl.bindVertexArray(vao);B()};if(shp!=this._shp)setShp(this._shp);if(geo!=this._shp.b){gl.bindBuffer(34962,geo=this._shp.b);gl.vertexAttribPointer(2,4,gl.FLOAT,0,0,0);gl.bindBuffer(34962,buf)};let b=boundUsed^shuniBind;`+texCheck.join(';')+`;const j=grow(${count})`
 	fnBody.push('return j')
 	const s = eval(`let geo=defaultShape.b${states.length?','+states.join(','):''};const B=function(){${fn3Body.join(';')};shuniBind=boundUsed},s=function({${fnParams}}){${fnBody.join(';')}};s.uniforms=(function(${fn2Params}){${fn2Body.join(';')};B()});s`), program = gl.createProgram()
 	const v=gl.createShader(35633), f=gl.createShader(35632)
@@ -864,15 +865,15 @@ $.Shader = (src, {params, defaults, uniforms, uniformDefaults, outputs=4, intFra
 	const vao = gl.createVertexArray()
 	gl.bindVertexArray(vao)
 	gl.bindBuffer(gl.ARRAY_BUFFER, defaultShape.b)
-	gl.enableVertexAttribArray(0)
-	gl.vertexAttribPointer(0, 4, gl.FLOAT, 0, 0, 0)
+	gl.enableVertexAttribArray(2)
+	gl.vertexAttribPointer(2, 4, gl.FLOAT, 0, 0, 0)
 	gl.bindBuffer(gl.ARRAY_BUFFER, buf)
 	if(count+6 > maxAttribs) throw 'Exceeded maximum number of shader parameters'
 	count <<= 2
 	for(let loc = 0; loc < 2; loc++){
-		gl.enableVertexAttribArray(loc+1)
-		gl.vertexAttribPointer(loc+1, 3, gl.FLOAT, false, count, loc * 12)
-		gl.vertexAttribDivisor(loc+1, 1)
+		gl.enableVertexAttribArray(loc)
+		gl.vertexAttribPointer(loc, 3, gl.FLOAT, false, count, loc * 12)
+		gl.vertexAttribDivisor(loc, 1)
 	}
 	for(let i1 = 0; i1 < attrs; i1 += 4){
 		const loc = (i1>>2)+3
@@ -885,9 +886,10 @@ $.Shader = (src, {params, defaults, uniforms, uniformDefaults, outputs=4, intFra
 }
 let fdc = 0, fs = 0, fd = 0
 $.Shader.MAX_PARAMS = maxAttribs-12
-$.Shader.UINT = $.Shader(`void main(){color=arg0;}`, {params:$.UVEC4, outputs:$.UINT})
+$.Shader.UINT = $.Shader(`void main(){color=param0;}`, {params:$.UVEC4, outputs:$.UINT})
 $.Shader.BLACK = $.Shader(`void main(){color=vec4(0,0,0,1);}`)
-$.Shader.DEFAULT = $.Shader(`void main(){color=arg0(uv)*arg1;}`, {params:[$.COLOR, $.VEC4], defaults:[void 0, $.vec4.one]})
+$.Shader.DEFAULT = $.Shader(`void main(){color=param0(uv)*param1;}`, {params:[$.COLOR, $.VEC4], defaults:[void 0, $.vec4.one]})
+let lastClr = 0
 $.flush = () => {
 	i&&draw()
 	if(pboUsed) pboUsed = false
@@ -902,7 +904,11 @@ $.flush = () => {
 		gl.bindTexture(gl.TEXTURE_2D_ARRAY, bound[i] = null)
 		t.i = -1
 	}
-	arr = new Float32Array(1024), iarr = new Int32Array(arr.buffer)
+	let now = performance.now()
+	if(now-lastClr>1000){
+		lastClr = now
+		arr = new Float32Array(arr.length>>>1), iarr = new Int32Array(arr.buffer)
+	}
 }
 const ctx = $.ctx = new drw(curt = {_tex: null, _stencil: 0, _stenBuf: null, w: 0, h: 0, u: 0})
 $.setSize = (w = 0, h = 0) => {
