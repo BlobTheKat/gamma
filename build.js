@@ -7,7 +7,7 @@ const tersers = {
 	'gamma.js': {
 		mangle: {
 			eval: true,
-			reserved: ['A', 'g', 'gl', '$', 'arr', 'iarr', 'draw', 'i', 'shuniBind', 'boundUsed', 'shfCount', 'shfMask', 'uniLocs', 'x', 'y', 'z', 'w', 'h', 'l', 'a', 'b', 'c', 'd', 'e', 'f'],
+			reserved: ['A', 'g', 'gl', '$', 'arr', 'iarr', 'draw', 'i', 'shuniBind', 'boundUsed', 'uniLocs', 'switchShader', 'setShp', 'x', 'y', 'z', 'w', 'h', 'l', 'a', 'b', 'c', 'd', 'e', 'f'],
 			properties: { regex: /^_/ }
 		}
 	}
@@ -67,7 +67,8 @@ const glConstants = {
 	REPLACE: 7681,
 	ZERO: 0,
 	KEEP: 7680,
-	SAMPLE_ALPHA_TO_COVERAGE: 32926
+	SAMPLE_ALPHA_TO_COVERAGE: 32926,
+	TRIANGLE_STRIP: 5
 }
 const unknownConstants = new Set()
 
@@ -81,6 +82,7 @@ const postprocessors = {
 }
 
 const pr = []
+let allDefs = '', allDefsGlobal = ''
 for(const src of fs.readdirSync('docs')){
 	if(src.startsWith('monolith')){
 		pr.push(fsa.unlink('docs/'+src).catch(_ => null))
@@ -90,6 +92,8 @@ for(const src of fs.readdirSync('docs')){
 	const name = src.slice(0, -12)
 	pr.push(fsa.readFile('docs/'+src).then(code => {
 		code = code.toString()
+		allDefs += `export type * from "./${name}.d.ts"\n`
+		allDefsGlobal += `export type * from './${name}.d.ts'\nexport type * from './${name}-global.d.ts'\n`
 		if(name == 'gamma'){
 			return fsa.readFile('docs/_gamma.d.ts').then(head => {
 				head = head.toString()
@@ -113,6 +117,8 @@ ${code.split('\n').slice(4).join('\n')}
 }
 for(const p of pr) await p
 pr.length = 0
+fs.writeFileSync('docs/monolith.d.ts', allDefs.trimEnd())
+fs.writeFileSync('docs/monolith-global.d.ts', allDefsGlobal.trimEnd())
 let all = ''
 for(const src of fs.readdirSync('min')) pr.push(fsa.unlink('min/'+src).catch(_=>null))
 for(const p of pr) await p

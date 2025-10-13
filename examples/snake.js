@@ -13,7 +13,7 @@ void main(){
 	// Make [0, 1] the range covered by one pixel
 	float alpha = clamp(dist/fwidth(dist) + 0.5, 0.0, 1.0);
 
-	color = arg0() * alpha;
+	color = arg0(uv) * alpha;
 }
 `, {params: COLOR})
 

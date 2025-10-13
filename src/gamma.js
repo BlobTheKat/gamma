@@ -50,9 +50,119 @@ gl.disable(gl.DEPTH_TEST)
 gl.enable(gl.BLEND)
 gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
 gl.pixelStorei(gl.PACK_ALIGNMENT, 1)
+
 const unpackBuffer = gl.createBuffer()
 gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, unpackBuffer)
+
+// Texture-function-related global state
 let premultAlpha = true, lastPbo = null, lastPboSize = -1, pboUsed = false
+// Drawing-related global state
+let pmask = 285217039, sh = null, shfCount = 0, shfMask = 0
+let curfb = null, boundUsed = 0, shuniBind = 0, shpType = gl.TRIANGLE_STRIP, shpStart = 0, shpLen = 4, shp = null
+gl.bindFramebuffer(gl.READ_FRAMEBUFFER, gl.createFramebuffer())
+const drawfb = gl.createFramebuffer(), buf = gl.createBuffer()
+gl.bindBuffer(gl.ARRAY_BUFFER, buf)
+const maxTex = min(32, gl.getParameter(34930)), bound = []
+for(let i = maxTex<<1; i --> 0;) bound.push(null)
+
+Object.assign($, {
+	UPSCALE_SMOOTH: 1, DOWNSCALE_SMOOTH: 2,
+	MIPMAP_SMOOTH: 4, SMOOTH: 7,
+	REPEAT_X: 8, REPEAT_MIRRORED_X: 16,
+	REPEAT_Y: 32, REPEAT_MIRRORED_Y: 64,
+	REPEAT: 40, REPEAT_MIRRORED: 80,
+	R: 1, G: 2, B: 4, A: 8,
+	RGB: 7, RGBA: 15,
+	IF_SET: 16, IF_UNSET: 32, NEVER: 48,
+	UNSET: 64, SET: 128, FLIP: 192,
+	ONE: 17, ZERO: 0, RGB_ONE: 1, A_ONE: 16,
+	SRC: 34, RGB_SRC: 2,
+	ONE_MINUS_SRC: 51,
+	RGB_ONE_MINUS_SRC: 3,
+	SRC_ALPHA: 68,
+	RGB_SRC_ALPHA: 4,
+	A_SRC: 64,
+	ONE_MINUS_SRC_ALPHA: 85,
+	RGB_ONE_MINUS_SRC_ALPHA: 5,
+	A_ONE_MINUS_SRC: 80,
+	DST: 136, RGB_DST: 8,
+	ONE_MINUS_DST: 153,
+	RGB_ONE_MINUS_DST: 9,
+	DST_ALPHA: 102,
+	RGB_DST_ALPHA: 6,
+	A_DST: 96,
+	ONE_MINUS_DST_ALPHA: 119,
+	RGB_ONE_MINUS_DST_ALPHA: 7,
+	A_ONE_MINUS_DST: 112,
+	ADD: 17, RGB_ADD: 1, A_ADD: 16,
+	SUB: 85,
+	RGB_SUB: 5,
+	A_SUB: 80,
+	SUB_REV: 102,
+	RGB_SUB_REV: 6,
+	A_SUB_REV: 96,
+	MIN: 34, RGB_MIN: 2, A_MIN: 32,
+	MAX: 51, RGB_MAX: 3, A_MAX: 48,
+	FLOAT: 0, VEC2: 1, VEC3: 2, VEC4: 3,
+	INT: 16, IVEC2: 17, IVEC3: 18, IVEC4: 19,
+	UINT: 32, UVEC2: 33, UVEC3: 34, UVEC4: 35,
+	TEXTURE: 20, UTEXTURE: 24, FTEXTURE: 28,
+	COLOR: 4, UCOLOR: 8, FCOLOR: 12,
+	FIXED: 4,
+	TRIANGLE_STRIP: 5, TRIANGLES: 4, TRIANGLE_FAN: 6,
+	LINE_LOOP: 2, LINE_STRIP: 3, LINES: 1, POINTS: 0
+})
+$.Formats={
+	R: [33321,gl.RED,gl.UNSIGNED_BYTE],
+	RG: [33323,gl.RG,gl.UNSIGNED_BYTE],
+	RGB: [32849,gl.RGB,gl.UNSIGNED_BYTE],
+	RGBA: [32856,gl.RGBA,gl.UNSIGNED_BYTE],
+	/*LUM: [gl.LUMINANCE,gl.LUMINANCE,gl.UNSIGNED_BYTE],
+	LUMA: [gl.LUMINANCE_ALPHA,gl.LUMINANCE_ALPHA,gl.UNSIGNED_BYTE],
+	A: [gl.ALPHA,gl.ALPHA,gl.UNSIGNED_BYTE],*/
+	RGB565: [36194,gl.RGB,33635],
+	R11F_G11F_B10F: [35898,gl.RGB,gl.UNSIGNED_INT_10F_11F_11F_REV],
+	RGB5_A1: [32855,gl.RGBA,32820],
+	RGB10_A2: [32857,gl.RGBA,gl.UNSIGNED_INT_2_10_10_10_REV],
+	RGBA4: [32854,gl.RGBA,32819],
+	RGB9_E5: [35901,gl.RGB,gl.UNSIGNED_INT_5_9_9_9_REV],
+	R8: [33330,36244,gl.UNSIGNED_BYTE,1<<31],
+	RG8: [33336,33320,gl.UNSIGNED_BYTE,1<<31],
+	RGB8: [36221,36248,gl.UNSIGNED_BYTE,1<<31],
+	RGBA8: [36220,36249,gl.UNSIGNED_BYTE,1<<31],
+	R16: [33332,36244,5123,1<<31],
+	RG16: [33338,33320,5123,1<<31],
+	RGB16: [36215,36248,5123,1<<31],
+	RGBA16: [36214,36249,5123,1<<31],
+	R32: [33334,36244,gl.UNSIGNED_INT,1<<31],
+	RG32: [33340,33320,gl.UNSIGNED_INT,1<<31],
+	RGB32: [36209,36248,gl.UNSIGNED_INT,1<<31],
+	RGBA32: [36208,36249,gl.UNSIGNED_INT,1<<31],
+	R16F: [33325,gl.RED,gl.HALF_FLOAT],
+	RG16F: [33327,gl.RG,gl.HALF_FLOAT],
+	RGB16F: [34843,gl.RGB,gl.HALF_FLOAT],
+	RGBA16F: [34842,gl.RGBA,gl.HALF_FLOAT],
+	R16F_32F: [33325,gl.RED,gl.FLOAT],
+	RG16F_32F: [33327,gl.RG,gl.FLOAT],
+	RGB16F_32F: [34843,gl.RGB,gl.FLOAT],
+	RGBA16F_32F: [34842,gl.RGBA,gl.FLOAT],
+	R32F: [33326,gl.RED,gl.FLOAT],
+	RG32F: [33328,gl.RG,gl.FLOAT],
+	RGB32F: [34837,gl.RGB,gl.FLOAT],
+	RGBA32F: [34836,gl.RGBA,gl.FLOAT]
+}
+$.vec2 = (x=0,y=x) => ({x,y})
+$.vec2.one = $.vec2(1); const v2z = $.vec2.zero = $.vec2(0)
+$.vec2.add = (a,b) => typeof b=='number'?{x:a.x+b,y:a.y+b}:{x:a.x+b.x,y:a.y+b.y}
+$.vec2.multiply = (a,b) => typeof b=='number'?{x:a.x*b,y:a.y*b}:{x:a.x*b.x,y:a.y*b.y}
+$.vec3 = (x=0,y=x,z=x) => ({x,y,z})
+$.vec3.one = $.vec3(1); const v3z = $.vec3.zero = $.vec3(0)
+$.vec3.add = (a,b) => typeof b=='number'?{x:a.x+b,y:a.y+b,z:a.z+b}:{x:a.x+b.x,y:a.y+b.y,z:a.z+b.z}
+$.vec3.multiply = (a,b) => typeof b=='number'?{x:a.x*b,y:a.y*b,z:a.z*b}:{x:a.x*b.x,y:a.y*b.y,z:a.z*b.z}
+$.vec4 = (x=0,y=x,z=x,w=x) => ({x,y,z,w})
+$.vec4.one = $.vec4(1); const v4z = $.vec4.zero = $.vec4(0)
+$.vec4.add = (a,b) => typeof b=='number'?{x:a.x+b,y:a.y+b,z:a.z+b,w:a.w+b}:{x:a.x+b.x,y:a.y+b.y,z:a.z+b.z,w:a.w+b.w}
+$.vec4.multiply = (a,b) => typeof b=='number'?{x:a.x*b,y:a.y*b,z:a.z*b,w:a.w*b}:{x:a.x*b.x,y:a.y*b.y,z:a.z*b.z,w:a.w*b.w}
 class img{
 	get isInteger(){ return this.t.f.length>3 }
 	get format(){ return this.t.f }
@@ -311,7 +421,7 @@ class img{
 }
 $.Drawable = (stencil = false) => new drw({ _tex: gl.createFramebuffer(), _stencil: 0, _stenBuf: stencil ? gl.createRenderbuffer() : null, w: 0, h: 0, u: 0 })
 $.Drawable.MAX_TARGETS = gl.getParameter(gl.MAX_COLOR_ATTACHMENTS)
-let arr = new Float32Array(16), iarr = new Int32Array(arr.buffer), i = 0
+let arr = new Float32Array(1024), iarr = new Int32Array(arr.buffer), i = 0
 $.Texture = (w = 0, h = 0, d = 0, o = 0, f = Formats.RGBA, mips = 0) => {
 	const t = { _tex: gl.createTexture(), i: -1, o, f, src: null, w, h, d: +d||1, m: mips = mips || 1 }
 	const tx = new img(t)
@@ -336,118 +446,21 @@ $.Texture.from = (src, o = 0, fmt = Formats.RGBA, mips = 0) => new img({
 	_tex: null, i: -1, o, f:fmt, src: src ? Array.isArray(src) ? src : [src] : [],
 	w: 0, h: 0, d: src ? Array.isArray(src) ? src.length : 1 : 0, m: mips||1
 })
-Object.assign($, {
-	UPSCALE_SMOOTH: 1, DOWNSCALE_SMOOTH: 2,
-	MIPMAP_SMOOTH: 4, SMOOTH: 7,
-	REPEAT_X: 8, REPEAT_MIRRORED_X: 16,
-	REPEAT_Y: 32, REPEAT_MIRRORED_Y: 64,
-	REPEAT: 40, REPEAT_MIRRORED: 80,
-	R: 1, G: 2, B: 4, A: 8,
-	RGB: 7, RGBA: 15,
-	IF_SET: 16, IF_UNSET: 32, NEVER: 48,
-	UNSET: 64, SET: 128, FLIP: 192,
-	ONE: 17, ZERO: 0, RGB_ONE: 1, A_ONE: 16,
-	SRC: 34, RGB_SRC: 2,
-	ONE_MINUS_SRC: 51,
-	RGB_ONE_MINUS_SRC: 3,
-	SRC_ALPHA: 68,
-	RGB_SRC_ALPHA: 4,
-	A_SRC: 64,
-	ONE_MINUS_SRC_ALPHA: 85,
-	RGB_ONE_MINUS_SRC_ALPHA: 5,
-	A_ONE_MINUS_SRC: 80,
-	DST: 136, RGB_DST: 8,
-	ONE_MINUS_DST: 153,
-	RGB_ONE_MINUS_DST: 9,
-	DST_ALPHA: 102,
-	RGB_DST_ALPHA: 6,
-	A_DST: 96,
-	ONE_MINUS_DST_ALPHA: 119,
-	RGB_ONE_MINUS_DST_ALPHA: 7,
-	A_ONE_MINUS_DST: 112,
-	ADD: 17, RGB_ADD: 1, A_ADD: 16,
-	SUB: 85,
-	RGB_SUB: 5,
-	A_SUB: 80,
-	SUB_REV: 102,
-	RGB_SUB_REV: 6,
-	A_SUB_REV: 96,
-	MIN: 34, RGB_MIN: 2, A_MIN: 32,
-	MAX: 51, RGB_MAX: 3, A_MAX: 48,
-	FLOAT: 0, VEC2: 1, VEC3: 2, VEC4: 3,
-	INT: 16, IVEC2: 17, IVEC3: 18, IVEC4: 19,
-	UINT: 32, UVEC2: 33, UVEC3: 34, UVEC4: 35,
-	TEXTURE: 20, UTEXTURE: 24, FTEXTURE: 28,
-	COLOR: 4, UCOLOR: 8, FCOLOR: 12,
-	FIXED: 4,
-	TRIANGLE_STRIP: 5, TRIANGLES: 4, TRIANGLE_FAN: 6,
-	LINE_LOOP: 2, LINE_STRIP: 3, LINES: 1, POINTS: 0
-})
-$.vec2 = (x=0,y=x) => ({x,y})
-$.vec2.one = $.vec2(1); const v2z = $.vec2.zero = $.vec2(0)
-$.vec2.add = (a,b) => typeof b=='number'?{x:a.x+b,y:a.y+b}:{x:a.x+b.x,y:a.y+b.y}
-$.vec2.multiply = (a,b) => typeof b=='number'?{x:a.x*b,y:a.y*b}:{x:a.x*b.x,y:a.y*b.y}
-$.vec3 = (x=0,y=x,z=x) => ({x,y,z})
-$.vec3.one = $.vec3(1); const v3z = $.vec3.zero = $.vec3(0)
-$.vec3.add = (a,b) => typeof b=='number'?{x:a.x+b,y:a.y+b,z:a.z+b}:{x:a.x+b.x,y:a.y+b.y,z:a.z+b.z}
-$.vec3.multiply = (a,b) => typeof b=='number'?{x:a.x*b,y:a.y*b,z:a.z*b}:{x:a.x*b.x,y:a.y*b.y,z:a.z*b.z}
-$.vec4 = (x=0,y=x,z=x,w=x) => ({x,y,z,w})
-$.vec4.one = $.vec4(1); const v4z = $.vec4.zero = $.vec4(0)
-$.vec4.add = (a,b) => typeof b=='number'?{x:a.x+b,y:a.y+b,z:a.z+b,w:a.w+b}:{x:a.x+b.x,y:a.y+b.y,z:a.z+b.z,w:a.w+b.w}
-$.vec4.multiply = (a,b) => typeof b=='number'?{x:a.x*b,y:a.y*b,z:a.z*b,w:a.w*b}:{x:a.x*b.x,y:a.y*b.y,z:a.z*b.z,w:a.w*b.w}
-$.Formats={
-	R: [33321,gl.RED,gl.UNSIGNED_BYTE],
-	RG: [33323,gl.RG,gl.UNSIGNED_BYTE],
-	RGB: [32849,gl.RGB,gl.UNSIGNED_BYTE],
-	RGBA: [32856,gl.RGBA,gl.UNSIGNED_BYTE],
-	/*LUM: [gl.LUMINANCE,gl.LUMINANCE,gl.UNSIGNED_BYTE],
-	LUMA: [gl.LUMINANCE_ALPHA,gl.LUMINANCE_ALPHA,gl.UNSIGNED_BYTE],
-	A: [gl.ALPHA,gl.ALPHA,gl.UNSIGNED_BYTE],*/
-	RGB565: [36194,gl.RGB,33635],
-	R11F_G11F_B10F: [35898,gl.RGB,gl.UNSIGNED_INT_10F_11F_11F_REV],
-	RGB5_A1: [32855,gl.RGBA,32820],
-	RGB10_A2: [32857,gl.RGBA,gl.UNSIGNED_INT_2_10_10_10_REV],
-	RGBA4: [32854,gl.RGBA,32819],
-	RGB9_E5: [35901,gl.RGB,gl.UNSIGNED_INT_5_9_9_9_REV],
-	R8: [33330,36244,gl.UNSIGNED_BYTE,1<<31],
-	RG8: [33336,33320,gl.UNSIGNED_BYTE,1<<31],
-	RGB8: [36221,36248,gl.UNSIGNED_BYTE,1<<31],
-	RGBA8: [36220,36249,gl.UNSIGNED_BYTE,1<<31],
-	R16: [33332,36244,5123,1<<31],
-	RG16: [33338,33320,5123,1<<31],
-	RGB16: [36215,36248,5123,1<<31],
-	RGBA16: [36214,36249,5123,1<<31],
-	R32: [33334,36244,gl.UNSIGNED_INT,1<<31],
-	RG32: [33340,33320,gl.UNSIGNED_INT,1<<31],
-	RGB32: [36209,36248,gl.UNSIGNED_INT,1<<31],
-	RGBA32: [36208,36249,gl.UNSIGNED_INT,1<<31],
-	R16F: [33325,gl.RED,gl.HALF_FLOAT],
-	RG16F: [33327,gl.RG,gl.HALF_FLOAT],
-	RGB16F: [34843,gl.RGB,gl.HALF_FLOAT],
-	RGBA16F: [34842,gl.RGBA,gl.HALF_FLOAT],
-	R16F_32F: [33325,gl.RED,gl.FLOAT],
-	RG16F_32F: [33327,gl.RG,gl.FLOAT],
-	RGB16F_32F: [34843,gl.RGB,gl.FLOAT],
-	RGBA16F_32F: [34842,gl.RGBA,gl.FLOAT],
-	R32F: [33326,gl.RED,gl.FLOAT],
-	RG32F: [33328,gl.RG,gl.FLOAT],
-	RGB32F: [34837,gl.RGB,gl.FLOAT],
-	RGBA32F: [34836,gl.RGBA,gl.FLOAT]
-}
-const grow = ArrayBuffer.prototype.transfer ? ()=>{arr=new Float32Array(arr.buffer.transfer(i*8)),iarr=new Int32Array(arr.buffer)}:()=>{const oa=arr;(arr=new Float32Array(i*2)).set(oa,0);iarr=new Int32Array(arr.buffer)}
+
+const grow = ArrayBuffer.prototype.transfer ?
+	by=>{const j=i;if((i=j+by)>arr.length){arr=new Float32Array(arr.buffer.transfer(i*8)),iarr=new Int32Array(arr.buffer)}return j}
+	: by=>{const j=i;if((i=j+by)>arr.length){const oa=arr;(arr=new Float32Array(i*2)).set(oa,0);iarr=new Int32Array(arr.buffer)}return j}
 class drw0{
-	t;s;_mask=0;_sh=null
+	t;s;_mask=0
 	get width(){ return this.t.w }
 	get height(){ return this.t.h }
-	set shader(sh){ this._sh=typeof sh=='function'?sh:$.Shader.DEFAULT }
-	get shader(){return this._sh}
 	set mask(m){this._mask=this._mask&-256|m&255}
 	get mask(){return this._mask&255}
 	set blend(b){this._mask=this._mask&255|(b||1135889)<<8}
 	get blend(){return this._mask>>8}
 	get geometry(){return this._shp}
 	set geometry(a){this._shp=a||defaultShape}
-	constructor(t,m=290787599,s=$.Shader.DEFAULT,sp=defaultShape){this.t=t;this._mask=m;this._sh=s;this._shp=sp}
+	constructor(t,m=290787599,sp=defaultShape){this.t=t;this._mask=m;this._shp=sp}
 	setTarget(id=0, tex=null, l=0, mip=0){
 		const {t} = this
 		if(!t._tex) return
@@ -533,8 +546,10 @@ class drw0{
 	}
 }
 class drw extends drw0{
-	#a;#b;#c;#d;#e;#f
-	constructor(t,m=290787599,s=$.Shader.DEFAULT,sp=defaultShape,a=1,b=0,c=0,d=1,e=0,f=0){super(t,m,s,sp);this.#a=a;this.#b=b;this.#c=c;this.#d=d;this.#e=e;this.#f=f}
+	#a; #b; #c; #d; #e; #f; #sh
+	set shader(sh){ this.#sh=typeof sh=='function'?sh:$.Shader.DEFAULT }
+	get shader(){return this.#sh}
+	constructor(t,m=290787599,sp=defaultShape,s=$.Shader.DEFAULT,a=1,b=0,c=0,d=1,e=0,f=0){super(t,m,sp);this.#sh=s;this.#a=a;this.#b=b;this.#c=c;this.#d=d;this.#e=e;this.#f=f}
 	translate(x=0,y=0){ this.#e+=x*this.#a+y*this.#c;this.#f+=x*this.#b+y*this.#d }
 	scale(x=1,y=x){ this.#a*=x; this.#b*=x; this.#c*=y; this.#d*=y }
 	rotate(r=0){
@@ -560,7 +575,7 @@ class drw extends drw0{
 		this.#c=ta*y+this.#c*x;this.#d=tb*y+this.#d*x
 	}
 	getTransform(){ return {a: this.#a, b: this.#b, c: this.#c, d: this.#d, e: this.#e, f: this.#f} }
-	reset(a=1,b=0,c=0,d=1,e=0,f=0){if(typeof a=='object')({a,b,c,d,e,f}=a);this.#a=a;this.#b=b;this.#c=c;this.#d=d;this.#e=e;this.#f=f;this._mask=290787599;this._sh=$.Shader.DEFAULT;this._shp=defaultShape}
+	reset(a=1,b=0,c=0,d=1,e=0,f=0){if(typeof a=='object')({a,b,c,d,e,f}=a);this.#a=a;this.#b=b;this.#c=c;this.#d=d;this.#e=e;this.#f=f;this._mask=290787599;this.#sh=$.Shader.DEFAULT;this._shp=defaultShape}
 	box(x=0,y=0,w=1,h=w){ this.#e+=x*this.#a+y*this.#c; this.#f+=x*this.#b+y*this.#d; this.#a*=w; this.#b*=w; this.#c*=h; this.#d*=h }
 	to(x=0, y=0){ if(typeof x=='object')({x,y}=x); return {x:this.#a*x+this.#c*y+this.#e,y:this.#b*x+this.#d*y+this.#f}}
 	from(x=0, y=0){
@@ -579,73 +594,65 @@ class drw extends drw0{
 	}
 	determinant(){return this.#a*this.#d-this.#b*this.#c}
 	pixelRatio(){return sqrt(abs(this.#a*this.#d-this.#b*this.#c)*this.t.w*this.t.h)}
-	sub(){ return new drw(this.t,this._mask,this._sh,this._shp,this.#a,this.#b,this.#c,this.#d,this.#e,this.#f) }
-	resetTo(m){ this.#a=m.#a;this.#b=m.#b;this.#c=m.#c;this.#d=m.#d;this.#e=m.#e;this.#f=m.#f;this._mask=m._mask;this._sh=m._sh;this._shp=m._shp }
+	sub(){ return new drw(this.t,this._mask,this._shp,this.#sh,this.#a,this.#b,this.#c,this.#d,this.#e,this.#f) }
+	resetTo(m){ this.#a=m.#a;this.#b=m.#b;this.#c=m.#c;this.#d=m.#d;this.#e=m.#e;this.#f=m.#f;this._mask=m._mask;this.#sh=m.#sh;this._shp=m._shp }
 	draw(...values){
-		const i = this._sh(values)
+		const i = this.#sh(values)
 		arr[i  ] = this.#a; arr[i+1] = this.#c; arr[i+2] = this.#e
 		arr[i+3] = this.#b; arr[i+4] = this.#d; arr[i+5] = this.#f
 	}
 	drawRect(x=0, y=0, w=1, h=1, ...values){
-		const i = this._sh(values)
+		const i = this.#sh(values)
 		arr[i  ] = this.#a*w; arr[i+1] = this.#c*h; arr[i+2] = this.#e+x*this.#a+y*this.#c
 		arr[i+3] = this.#b*w; arr[i+4] = this.#d*h; arr[i+5] = this.#f+x*this.#b+y*this.#d
 	}
 	drawMat(a=1, b=0, c=0, d=1, e=0, f=0, ...values){
-		const i = this._sh(values)
+		const i = this.#sh(values)
 		const ta=this.#a,tb=this.#b,tc=this.#c,td=this.#d,te=this.#e,tf=this.#f
 		arr[i  ] = ta*a+tc*b; arr[i+1] = ta*c+tc*d; arr[i+2] = ta*e+tc*f+te
 		arr[i+3] = tb*a+td*b; arr[i+4] = tb*c+td*d; arr[i+5] = tb*e+td*f+tf
 	}
 	drawv(values){
-		const i = this._sh(values)
+		const i = this.#sh(values)
 		arr[i  ] = this.#a; arr[i+1] = this.#c; arr[i+2] = this.#e
 		arr[i+3] = this.#b; arr[i+4] = this.#d; arr[i+5] = this.#f
 	}
 	drawRectv(x=0, y=0, w=1, h=1, values){
-		const i = this._sh(values)
+		const i = this.#sh(values)
 		arr[i  ] = this.#a*w; arr[i+1] = this.#c*h; arr[i+2] = this.#e+x*this.#a+y*this.#c
 		arr[i+3] = this.#b*w; arr[i+4] = this.#d*h; arr[i+5] = this.#f+x*this.#b+y*this.#d
 	}
 	drawMatv(a=1, b=0, c=0, d=1, e=0, f=0, values){
-		const i = this._sh(values)
+		const i = this.#sh(values)
 		const ta=this.#a,tb=this.#b,tc=this.#c,td=this.#d,te=this.#e,tf=this.#f
 		arr[i  ] = ta*a+tc*b; arr[i+1] = ta*c+tc*d; arr[i+2] = ta*e+tc*f+te
 		arr[i+3] = tb*a+td*b; arr[i+4] = tb*c+td*d; arr[i+5] = tb*e+td*f+tf
 	}
 	dup(){
 		if(!i) return
-		const s = sh.count
-		if(i+s>arr.length) grow()
-		for(let j=i-s;j<i;j++)iarr[j+s]=iarr[j]
-		arr[i  ] = this.#a; arr[i+1] = this.#c; arr[i+2] = this.#e
-		arr[i+3] = this.#b; arr[i+4] = this.#d; arr[i+5] = this.#f
-		i += s
+		const s = sh.count, j = grow(s)
+		for(let k=j-s;k<j;k++)iarr[k+s]=iarr[k]
+		arr[j  ] = this.#a; arr[j+1] = this.#c; arr[j+2] = this.#e
+		arr[j+3] = this.#b; arr[j+4] = this.#d; arr[j+5] = this.#f
 	}
 	dupRect(x=0, y=0, w=1, h=1){
 		if(!i) return
-		const s = sh.count
-		if(i+s>arr.length) grow()
-		for(let j=i-s;j<i;j++)iarr[j+s]=iarr[j]
-		arr[i  ] = this.#a*w; arr[i+1] = this.#c*h; arr[i+2] = this.#e+x*this.#a+y*this.#c
-		arr[i+3] = this.#b*w; arr[i+4] = this.#d*h; arr[i+5] = this.#f+x*this.#b+y*this.#d
-		i += s
+		const s = sh.count, j = grow(s)
+		for(let k=j-s;k<j;k++)iarr[k+s]=iarr[k]
+		arr[j  ] = this.#a*w; arr[j+1] = this.#c*h; arr[j+2] = this.#e+x*this.#a+y*this.#c
+		arr[j+3] = this.#b*w; arr[j+4] = this.#d*h; arr[j+5] = this.#f+x*this.#b+y*this.#d
 	}
 	dupMat(a=1, b=0, c=0, d=1, e=0, f=0){
 		if(!i) return
-		const s = sh.count
-		if(i+s>arr.length) grow()
-		for(let j=i-s;j<i;j++)iarr[j+s]=iarr[j]
+		const s = sh.count, j = grow(s)
+		for(let k=j-s;k<j;k++)iarr[k+s]=iarr[k]
 		const ta=this.#a,tb=this.#b,tc=this.#c,td=this.#d,te=this.#e,tf=this.#f
-		arr[i  ] = ta*a+tc*b; arr[i+1] = ta*c+tc*d; arr[i+2] = ta*e+tc*f+te
-		arr[i+3] = tb*a+td*b; arr[i+4] = tb*c+td*d; arr[i+5] = tb*e+td*f+tf
-		i += s
+		arr[j  ] = ta*a+tc*b; arr[j+1] = ta*c+tc*d; arr[j+2] = ta*e+tc*f+te
+		arr[j+3] = tb*a+td*b; arr[j+4] = tb*c+td*d; arr[j+5] = tb*e+td*f+tf
 	}
 }
-let pmask=285217039
 
-$.Blend = T = (src = 17, combine = 17, dst = 0, dither=false) => src|dst<<8|combine<<16|dither<<23
-Object.assign(T, {
+Object.assign($.Blend = (src = 17, combine = 17, dst = 0, a2c = false) => src|dst<<8|combine<<16|a2c<<23, {
 	REPLACE: 1114129,
 	DEFAULT: 1135889,
 	ADD: 1118465,
@@ -684,24 +691,17 @@ function setv(t,m){
 		pmask = m
 	}
 }
-function draw(){
+function draw(b = shuniBind){
 	gl.bufferData(gl.ARRAY_BUFFER, iarr.subarray(0, i), 35040)
-	const {type,start:s,length:l}=shp
 	fd += i; i /= sh.count; fdc++; fs += i
-	gl.drawArraysInstanced(type, s, l, i)
-	i = 0; boundUsed = shuniBind
+	gl.drawArraysInstanced(shpType, shpStart, shpLen, i)
+	i = 0; boundUsed = b
 	if(pendingFences.length){ fencetail ??= pendingFences[0]; for(const f of pendingFences){
 		f.sync = gl.fenceSync(37143,0)
 		fencehead = fencehead ? fencehead.next = f : f
 	} pendingFences.length = 0 }
 }
-let sh=null,shfCount=0,shfMask=0,curfb=null
-gl.bindFramebuffer(gl.READ_FRAMEBUFFER, gl.createFramebuffer())
-const drawfb = gl.createFramebuffer(), buf = gl.createBuffer()
-gl.bindBuffer(gl.ARRAY_BUFFER, buf)
-const maxTex = min(32, gl.getParameter(34930))
-const bound = []; for(let i = maxTex<<1; i --> 0;) bound.push(null)
-T = $.Geometry = (type, points) => {
+$.Geometry = (type, points) => {
 	if(points.length&3) throw 'points.length is not a multiple of 4'
 	if(!(points instanceof Float32Array)){
 		const farr = new Float32Array(points.length)
@@ -717,38 +717,26 @@ T = $.Geometry = (type, points) => {
 function sub(s=0,l=this.length-s, type=this.type){
 	return {type, b: this.b, start: this.start+s, length: l, sub}
 }
-let boundUsed = 0, shp = T.DEFAULT = T($.TRIANGLE_STRIP, [0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1]), shuniBind = 0
-T = $.Geometry3D = (type, points) => {
-	if(points.length&7) throw 'points.length is not a multiple of 8'
-	if(!(points instanceof Float32Array)){
-		const farr = new Float32Array(points.length)
-		farr.set(points, 0); points = farr
-	}
-	const b = gl.createBuffer()
-	gl.bindBuffer(gl.ARRAY_BUFFER, b)
-	gl.bufferData(gl.ARRAY_BUFFER, points, 35044)
-	b.type = type
-	gl.bindBuffer(gl.ARRAY_BUFFER, buf)
-	return {type, b, start: 0, length: points.length>>3, sub}
-}
-const defaultShape = shp
+const defaultShape = $.Geometry.DEFAULT = $.Geometry($.TRIANGLE_STRIP, [0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 1, 1, 1, 1])
 const switcher = (f,s,e) => {
 	let m = 'switch(u){'
 	while(s<e) m += `case ${s}:${f(s++)}`
 	return m+'}'
 }
-const names = ['float','vec2','vec3','vec4','int','ivec2','ivec3','ivec4','uint','uvec2','uvec3','uvec4'], maxAttribs = gl.getParameter(gl.MAX_VERTEX_ATTRIBS)
-// Code generation bullshit GO GO GO
-T = $.Shader = (src, {params, defaults, uniforms, uniformDefaults, outputs=4, intFrac=0.5}={}) => {
+const names = ['float','vec2','vec3','vec4','int','ivec2','ivec3','ivec4','uint','uvec2','uvec3','uvec4']
+const maxAttribs = gl.getParameter(gl.MAX_VERTEX_ATTRIBS)<<2
+function switchShader(s, fc, fm){ sh = s; shfCount = fc; shfMask = fm }
+function setShp(s){ i&&draw(); shp = s; shpType = s.type; shpStart = s.start; shpLen = s.length }
+// Code generation bullshit GO!
+$.Shader = (src, {params, defaults, uniforms, uniformDefaults, outputs=4, intFrac=0.5}={}) => {
 	params = typeof params=='number' ? [params] : params || []
 	uniforms = typeof uniforms=='number' ? [uniforms] : uniforms || []
-	Object.freeze(defaults = defaults !== undefined ? Array.isArray(defaults) ? [...defaults] : [defaults] : [])
-	Object.freeze(uniformDefaults = uniformDefaults !== undefined ? Array.isArray(uniformDefaults) ? [...uniformDefaults] : [uniformDefaults] : [])
+	defaults = defaults !== undefined ? Array.isArray(defaults) ? [...defaults] : [defaults] : []
+	uniformDefaults = uniformDefaults !== undefined ? Array.isArray(uniformDefaults) ? [...uniformDefaults] : [uniformDefaults] : []
 	outputs = typeof outputs=='number' ? [outputs] : outputs || []
 	if(outputs.length > Drawable.MAX_TARGETS) throw `Too many shader outputs (Drawable.MAX_TARGETS == ${Drawable.MAX_TARGETS})`
-	const fnParams = [], fnBody = ['',''], shaderHead = ['#version 300 es\nprecision highp float;precision highp int;layout(location=0)in vec4 _pos;centroid out vec2 uv,xy;layout(location=1)in mat2x3 m;',''], shaderBody = ['void main(){gl_PointSize=1.0;uv=_pos.zw;gl_Position=vec4((xy=vec3(_pos.xy,1.)*m)*2.-1.,0.,1.);'], shaderHead2 = ['#version 300 es\nprecision highp float;precision highp int;centroid in vec2 uv,xy;\n#define color color0\n'+outputs.map((o,i) => `layout(location=${i})out ${!o?'':o==16||o==32?'u':'lowp '}vec4 color${i};`).join(';'),'']
-	let count = 6, o = 0, fCount = 0, iCount = 0
-	const types = [3,3]
+	const fnParams = [], fnBody = [''], shaderHead = ['#version 300 es\nprecision highp float;precision highp int;layout(location=0)in vec4 _pos;centroid out vec2 uv,xy;layout(location=1)in mat2x3 m;',''], shaderBody = ['void main(){gl_PointSize=1.0;uv=_pos.zw;gl_Position=vec4((xy=vec3(_pos.xy,1.)*m)*2.-1.,0.,1.);'], shaderHead2 = ['#version 300 es\nprecision highp float;precision highp int;centroid in vec2 uv,xy;\n#define color color0\n'+outputs.map((o,i) => `layout(location=${i})out ${!o?'':o==16||o==32?'u':'lowp '}vec4 color${i};`).join(';'),'']
+	let count = 6, used = 0, fCount = 0, iCount = 0
 	const texCheck = []
 	let attrs = 0
 	const addAttr = (sz) => {
@@ -776,27 +764,24 @@ T = $.Shader = (src, {params, defaults, uniforms, uniformDefaults, outputs=4, in
 		const isCol = t==4||t==8||t==12
 		defaults[id] ??= t==4?v4z:c==1?0:c==2?v2z:c==3?v3z:v4z
 		fnParams.push(id+':a'+count+'=defaults['+id+']')
-		const A = t>15?(o|=1,'iarr[j+'):'arr[j+'
+		const A = t>15||t==8?'iarr[j+':'arr[j+'
 		if(t==20||t==24||t==28){
-			n='int',o|=(1<<(t>>2)-3),fCount++
+			n='int',used|=(1<<(t>>2)-3),fCount++
 			texCheck.push(`a${count}=(img.auto(a${count+(t==24?'.t,-1':'.t,0')})+1||(i&&draw(b^boundUsed),img.auto(a${count+(t==24?'.t,-1':'.t,0')})+1))-1`)
 		}
-		if(t==12||t==28) o|=2
-		if(t==8||t==24) iCount++,fCount--
+		if(t==12||t==28) used |= 2
+		if(t==8||t==24) iCount++, fCount--
 		if(isCol){
-			texCheck.push(`let a${count+1}=${t==4?`-1;if(a${count}.t&&(a${count+1}=img.auto(a${count}.t,0))==-1)`:`img.auto(a${count+(t==8?'.t,-1':'.t,0')});if(a${count+1}==-1)`}{i&&draw(b^boundUsed);a${count+1}=img.auto(a${count+(t==8?'.t,-1':'.t,0')})}`)
+			texCheck.push(`let a${count+1}=-1;if(a${count}.t){if((a${count+1}=img.auto(a${count}.t,${-(t==8)}))==-1){i&&draw(b^boundUsed);a${count+1}=img.auto(a${count}.t,${-(t==8)})}a${count+1}|=a${count}.l<<8}`)
 			fCount++
 			const v = addAttr(1), v2 = addAttr(2), v3 = addAttr(2)
 			shaderHead2.push(`${t==4?'lowp ':t==8?'u':'highp '}vec4 arg${id}(vec2 uv){int v=int(${v});if(v<0)return vec4(uintBitsToFloat(${v2}),uintBitsToFloat(${v3}));return ${t==4?'g':t==8?'uG':'fG'}etColor(v&255,vec3(uv*uintBitsToFloat(${v3})+uintBitsToFloat(${v2}),v>>8));}`)
-			o|=(1<<(t>>2)+1)
-			types.push(17,4)
-			fnBody.push('iarr[j+'+count+']=a'+(count+1)+'|a'+count+'.l<<8')
-			for(c=0;++c<3;) fnBody.push(A+(count+c)+']=a'+count+'.'+' xy'[c])
-			fnBody.push(`if(a${count+1}>=0)${A+(count+3)}]=a${count}.w,${A+(count+4)}]=a${count}.h;else ${A+(count+3)}]=a${count}.z,${A+(count+4)}]=a${count}.w`)
+			used |= (1<<(t>>2)+1)
+			fnBody.push(`iarr[j+${count}]=a${count+1};if(a${count+1}>=0)arr[j+${count+1}]=a${count}.x,arr[j+${count+2}]=a${count}.y,arr[j+${count+3}]=a${count}.w,arr[j+${count+4}]=a${count}.h;else ${A}${count+1}]=a${count}.x,${A}${count+2}]=a${count}.y,${A}${count+3}]=a${count}.z,${A}${count+4}]=a${count}.w`)
 			c = 5
 		}else{
 			const v = addAttr(c)
-			shaderHead2.push(`\n#define arg${id} ${names[t&3|t>>4<<2]}(${v})\n`)
+			shaderHead2.push(`\n#define arg${id} ${t<16?'uintBitsToFloat':t<32?names[t&3|4]:''}(${v})\n`)
 			if(c==1) fnBody.push(A+count+']=a'+count)
 			else for(let c1=0;c1<c;c1++) fnBody.push(A+(count+c1)+']=a'+count+'.'+'xyzw'[c1])
 		}
@@ -811,10 +796,10 @@ T = $.Shader = (src, {params, defaults, uniforms, uniformDefaults, outputs=4, in
 		let c = (t&3)+1, n = names[t&3|t>>4<<2]
 		uniformDefaults[id] ??= t==4?v4z:c==1?0:c==2?v2z:c==3?v3z:v4z
 		fn2Params.push('a'+uniCount+'=uniformDefaults['+id+']')
-		if(t==12||t==28) o|=2
+		if(t==12||t==28) used|=2
 		if(t==8||t==24) iCount++,fCount--
 		if(t==20||t==24||t==28){
-			o|=(1<<(t>>2)-3),fCount++
+			used|=(1<<(t>>2)-3),fCount++
 			fn3Body.push(`gl.uniform1i(uniLocs[${uniNames.length}],s${states.length}?img.auto(s${states.length}${t==24?',-1':',0'}):${t==24?maxTex:0})`)
 			uniNames.push('uni'+id)
 			shaderHead2.push('uniform int uni'+id+';')
@@ -825,7 +810,7 @@ T = $.Shader = (src, {params, defaults, uniforms, uniformDefaults, outputs=4, in
 			fn3Body.push(`gl.uniform1i(uniLocs[${uniNames.length}],(s${states.length}?img.auto(s${states.length}${t==8?',-1':',0'}):${t==8?maxTex:0})|s${states.length+1})`)
 			fCount++
 			shaderHead2.push(t==8?`uniform uint ${v};uniform uvec4 ${v2}; ${t==4?'lowp ':t==8?'u':''}vec4 uni${id}(vec2 uv){if(${v}<0)return ${v2};return ${t==4?'g':t==8?'uG':'fG'}etColor(${v}&255,vec3(uv*uintBitsToFloat(${v2}.zw)+uintBitsToFloat(${v2}.xy),${v}>>8));}`:`uniform uint ${v};uniform vec4 ${v2}; ${t==4?'lowp ':t==8?'u':''}vec4 uni${id}(vec2 uv){if(${v}<0)return ${v2};return ${t==4?'g':t==8?'uG':'fG'}etColor(${v}&255,vec3(uv*${v2}.zw+${v2}.xy,${v}>>8));}`)
-			o|=(1<<(t>>2)+1)
+			used|=(1<<(t>>2)+1)
 			fn2Body.push(`s${states.length}=a${uniCount}.t;s${states.length+1}=a${uniCount}.l<<8;gl.uniform4f(uniLocs[${uniNames.length-1}],a${uniCount}.x,a${uniCount}.y,a${uniCount}.w,a${uniCount}.h)`)
 			uniNames.push(v, v2)
 			states.push(`s${states.length}=null,s${states.length+1}=0`)
@@ -845,25 +830,24 @@ T = $.Shader = (src, {params, defaults, uniforms, uniformDefaults, outputs=4, in
 	iCount = iCount && maxTex - fCount
 	let T = null
 	shaderHead2[1] =
-		(o&20?'uniform '+(o&2?'highp':'lowp')+' sampler2DArray GL_f['+fCount+'];':'')
-		+(o&8?'uniform highp usampler2DArray GL_i['+iCount+'];':'')
-		+(o&4?`lowp vec4 getColor(int u,vec3 p){${T=switcher(i=>'return texture(GL_f['+i+'],p);',0,fCount)}}`:'')
-		+(o&16?`highp vec4 fGetColor(int u,vec3 p){${T||switcher(i=>'return texture(GL_f['+i+'],p);',0,fCount)}}`:'')
-		+(o&8?`uvec4 uGetColor(int u,vec3 p){${switcher(i=>'return texture(GL_i['+(i-maxTex)+'],p);',maxTex,2*maxTex-fCount)}}`:'')
+		(used&20?'uniform '+(used&2?'highp':'lowp')+' sampler2DArray GL_f['+fCount+'];':'')
+		+(used&8?'uniform highp usampler2DArray GL_i['+iCount+'];':'')
+		+(used&4?`lowp vec4 getColor(int u,vec3 p){${T=switcher(i=>'return texture(GL_f['+i+'],p);',0,fCount)}}`:'')
+		+(used&16?`highp vec4 fGetColor(int u,vec3 p){${T||switcher(i=>'return texture(GL_f['+i+'],p);',0,fCount)}}`:'')
+		+(used&8?`uvec4 uGetColor(int u,vec3 p){${switcher(i=>'return texture(GL_i['+(i-maxTex)+'],p);',maxTex,2*maxTex-fCount)}}`:'')
 	shaderHead2[1] +=
-		(o&4?`lowp vec4 getPixel(int u,ivec3 p,int l){${T=switcher(i=>'return texelFetch(GL_f['+i+'],p,l);',0,fCount)}}`:'')
-		+(o&16?`highp vec4 fGetPixel(int u,ivec3 p,int l){${T||switcher(i=>'return texelFetch(GL_f['+i+'],p,l);',0,fCount)}}`:'')
-		+(o&8?`uvec4 uGetPixel(int u,ivec3 p,int l){${switcher(i=>'return texelFetch(GL_i['+(i-maxTex)+'],p,l);',maxTex,2*maxTex-fCount)}}`:'')
-		+(o&28?`ivec3 getSize(int u,int l){${switcher(i=>'return textureSize(GL_'+(i<fCount?'f['+i:'i['+(i-fCount))+'],l);',0,maxTex)}}`:'')
+		(used&4?`lowp vec4 getPixel(int u,ivec3 p,int l){${T=switcher(i=>'return texelFetch(GL_f['+i+'],p,l);',0,fCount)}}`:'')
+		+(used&16?`highp vec4 fGetPixel(int u,ivec3 p,int l){${T||switcher(i=>'return texelFetch(GL_f['+i+'],p,l);',0,fCount)}}`:'')
+		+(used&8?`uvec4 uGetPixel(int u,ivec3 p,int l){${switcher(i=>'return texelFetch(GL_i['+(i-maxTex)+'],p,l);',maxTex,2*maxTex-fCount)}}`:'')
+		+(used&28?`ivec3 getSize(int u,int l){${switcher(i=>'return textureSize(GL_'+(i<fCount?'f['+i:'i['+(i-fCount))+'],l);',0,maxTex)}}`:'')
 	const fMask = 32-fCount&&(-1>>>fCount)
-	fn2Body[0] = `fd+=${uniCount};i&&draw();boundUsed=0;if(sh!=s){shfCount=${fCount};shfMask=${fMask};gl.useProgram(p);sh=s;gl.bindVertexArray(vao)}`
-	fnBody[0] = `setv(this.t,this._mask);if(sh!=s){i&&draw();boundUsed=0;shfCount=${fCount};shfMask=${fMask};gl.useProgram(p);sh=s;gl.bindVertexArray(vao);B()}if(shp!=this._shp){i&&draw();shp=this._shp}if(geo!=this._shp.b){gl.bindBuffer(34962,geo=this._shp.b);gl.vertexAttribPointer(0,4,gl.FLOAT,0,0,0);gl.bindBuffer(34962,buf)}const b=boundUsed^shuniBind;`+texCheck.join(';')+';const j=i;if((i=j+'+count+')>arr.length)'+(ArrayBuffer.prototype.transfer?'arr=new Float32Array(arr.buffer.transfer(i*8)),iarr=new Int32Array(arr.buffer)':'{const oa=arr;(arr=new Float32Array(i*2)).set(oa,0);iarr=new Int32Array(arr.buffer)}')
+	fn2Body[0] = `i&&draw(0);if(sh!=s){gl.useProgram(p);gl.bindVertexArray(vao);switchShader(s,${fCount},${fMask})}`
+	fnBody[0] = `setv(this.t,this._mask);if(sh!=s){i&&draw(0);switchShader(s,${fCount},${fMask});gl.useProgram(p);gl.bindVertexArray(vao);B()};if(shp!=this._shp)setShp(this._shp);if(geo!=this._shp.b){gl.bindBuffer(34962,geo=this._shp.b);gl.vertexAttribPointer(0,4,gl.FLOAT,0,0,0);gl.bindBuffer(34962,buf)};let b=boundUsed^shuniBind;`+texCheck.join(';')+`;const j=grow(${count})`
 	fnBody.push('return j')
-	const {u, s} = eval(`let geo=defaultShape.b${states.length?','+states:''};function B(){${fn3Body.join(';')};shuniBind=boundUsed};({u(${fn2Params}){${fn2Body.join(';')};B()},s({${fnParams}}){${fnBody.join(';')}}})`), p = gl.createProgram()
-	s.uniforms = u
+	const s = eval(`let geo=defaultShape.b${states.length?','+states.join(','):''};const B=function(){${fn3Body.join(';')};shuniBind=boundUsed},s=function({${fnParams}}){${fnBody.join(';')}};s.uniforms=(function(${fn2Params}){${fn2Body.join(';')};B()});s`), p = gl.createProgram()
 	const v=gl.createShader(35633), f=gl.createShader(35632)
 	shaderBody.push('}')
-	if(attrs) shaderHead[0]+='layout(location=3)in uvec4 a0;flat out uvec4 GL_a0;', shaderHead2[0]+='flat in uvec4 GL_a0;'
+	if(attrs) shaderHead[0]+='layout(location=3)in uvec4 a0;flat out uvec4 GL_a0;', shaderBody[0]+='GL_a0=a0;', shaderHead2[0]+='flat in uvec4 GL_a0;'
 	gl.shaderSource(v, shaderHead.join('')+shaderBody.join(''))
 	gl.compileShader(v)
 	gl.shaderSource(f, shaderHead2.join('')+'\n'+src)
@@ -871,7 +855,7 @@ T = $.Shader = (src, {params, defaults, uniforms, uniformDefaults, outputs=4, in
 	gl.attachShader(p, v)
 	gl.attachShader(p, f)
 	if(T=gl.getShaderInfoLog(f)) console.warn('GLSL Error:\n'+T)
-	gl.linkProgram(p)
+	else gl.linkProgram(p)
 	gl.useProgram(p)
 	const uniLocs = uniNames.map(n => gl.getUniformLocation(p, n))
 	for(let i = 0; i < maxTex; i++)
@@ -883,18 +867,27 @@ T = $.Shader = (src, {params, defaults, uniforms, uniformDefaults, outputs=4, in
 	gl.enableVertexAttribArray(0)
 	gl.vertexAttribPointer(0, 4, gl.FLOAT, 0, 0, 0)
 	gl.bindBuffer(gl.ARRAY_BUFFER, buf)
+	if(count+6 > maxAttribs) throw 'Exceeded maximum number of shader parameters'
+	count <<= 2
+	for(let loc = 0; loc < 2; loc++){
+		gl.enableVertexAttribArray(loc+1)
+		gl.vertexAttribPointer(loc+1, 3, gl.FLOAT, false, count, loc * 12)
+		gl.vertexAttribDivisor(loc+1, 1)
+	}
 	for(let i1 = 0; i1 < attrs; i1 += 4){
 		const loc = (i1>>2)+3
 		gl.enableVertexAttribArray(loc)
-		gl.vertexAttribIPointer(loc, min(4, attrs-i1), gl.UNSIGNED_INT, count<<2, i1<<2)
+		gl.vertexAttribIPointer(loc, min(4, attrs-i1), gl.UNSIGNED_INT, count, i1+6<<2)
 		gl.vertexAttribDivisor(loc, 1)
 	}
+	sh = s
 	return s
 }
 let fdc = 0, fs = 0, fd = 0
-T.UINT = T(`void main(){color=arg0;}`, {params:$.UVEC4, outputs:$.UINT})
-T.BLACK = T(`void main(){color=vec4(0,0,0,1);}`)
-T.DEFAULT = sh = T(`void main(){color=arg0(uv)*arg1;}`, {params:[$.COLOR, $.VEC4], defaults:[void 0, $.vec4.one]})
+$.Shader.MAX_PARAMS = maxAttribs-12
+$.Shader.UINT = $.Shader(`void main(){color=arg0;}`, {params:$.UVEC4, outputs:$.UINT})
+$.Shader.BLACK = $.Shader(`void main(){color=vec4(0,0,0,1);}`)
+$.Shader.DEFAULT = $.Shader(`void main(){color=arg0(uv)*arg1;}`, {params:[$.COLOR, $.VEC4], defaults:[void 0, $.vec4.one]})
 $.flush = () => {
 	i&&draw()
 	if(pboUsed) pboUsed = false
@@ -909,6 +902,7 @@ $.flush = () => {
 		gl.bindTexture(gl.TEXTURE_2D_ARRAY, bound[i] = null)
 		t.i = -1
 	}
+	arr = new Float32Array(1024), iarr = new Int32Array(arr.buffer)
 }
 const ctx = $.ctx = new drw(curt = {_tex: null, _stencil: 0, _stenBuf: null, w: 0, h: 0, u: 0})
 $.setSize = (w = 0, h = 0) => {

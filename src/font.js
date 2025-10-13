@@ -70,7 +70,7 @@ $.Shader.font = (src, o) => {
 		for(const ch of t.sep){
 			const c = ch.codePointAt()
 			const g = cmap.get(~c) ?? cmap._default
-			const cw = g.xadv + lsb + (cmap.get(c+last*1114112) ?? 0)
+			const cw = g._xadv + lsb + (cmap.get(c+last*1114112) ?? 0)
 			w += arc ? asin(cw*arc)*ar1||cw : cw
 		}
 		cmap.then?.(() => t.sepL==cmap&&(t.sepL=null,t.sepW=0))
@@ -625,9 +625,9 @@ $.Shader.font = (src, o) => {
 							if(!g) continue
 							const ker = (cmap.get(c+last*1114112) ?? 0) * min(chw, lastCw)
 							last = c; lastCw = chw
-							const cw = (g.xadv+lsb)*chw + ker
+							const cw = (g._xadv+lsb)*chw + ker
 							w += ar ? asin(cw*ar)*ar1||cw : cw
-							if(g.tex?.waiting) g.tex.load()
+							if(g._tex?.waiting) g._tex.load()
 						}
 					}else if(typeof s == 'object'){
 						if(!s){ cmap = null; continue }
@@ -679,7 +679,7 @@ $.Shader.font = (src, o) => {
 							if(!g){ if(mask) li = i += ch.length; continue }
 							const ker = (cmap.get(c+last*1114112) ?? 0) * min(chw, lastCw)
 							last = c; lastCw = chw
-							const w = (g.xadv+lsb)*chw + ker
+							const w = (g._xadv+lsb)*chw + ker
 							const fw = ar ? asin(w*ar)*ar1||w : w
 							x -= fw
 							if(!mask) continue
@@ -741,7 +741,7 @@ $.Shader.font = (src, o) => {
 							if(!g) continue
 							const ker = (cmap.get(c+last*1114112) ?? 0) * min(lastSt, st)
 							last = c; lastSt = st
-							const w = (g.xadv+lsb+lsb)*st + ker, xr = ker-xo
+							const w = (g._xadv+lsb+lsb)*st + ker, xr = ker-xo
 							if(ar){
 								if(sk) ctx.skew(-sk,0)
 								ctx.rotate(ea+(ea=-asin(w*ar)||0))
@@ -752,8 +752,8 @@ $.Shader.font = (src, o) => {
 								if(typeof x == 'object'){
 									const ox = ar*w*(y+dsc)
 									ctx.drawRectv(xr+ox,y+dsc,w-ox-ox,v1,x)
-								}else if(g.tex){
-									v1[0] = g.tex
+								}else if(g._tex){
+									v1[0] = g._tex
 									V.x = v1.off*rf1
 									const {spr} = v1
 									V.y = spr<0?pxr:spr*rf
@@ -901,7 +901,7 @@ $.Shader.font = (src, o) => {
 									if(!g) continue
 									const ker = (cmap.get(c + last*1114112) ?? 0) * min(chw, lastCw)
 									lastCw = chw; last = c
-									const cw = (g.xadv+tlsb)*chw + ker
+									const cw = (g._xadv+tlsb)*chw + ker
 									w += tarc ? asin(cw*tarc)*ar1||cw : cw
 									if(w <= (maxW - (sepw - (cmap.get(t.sep.codePointAt() + c*1114112)??0))*chw) && canBreak){
 										ptext = true
@@ -1058,7 +1058,7 @@ ffff\ ffff\ ffff\ ffff\
 `))
 	class font extends Map{
 		rangeFactor = 0; ascend = 0; #cb = []
-		_default = {x:0.05,y:-0.0625,w:0.5,h:0.75,xadv:0.6,tex:defaultChar}
+		_default = {x:0.05,y:-0.0625,w:0.5,h:0.75,_xadv:0.6,_tex:defaultChar}
 		get then(){return this.#cb?this.#then:undefined}
 		#then(cb,rj){this.#cb?.push(cb,rj)}
 		done(){
@@ -1073,16 +1073,16 @@ ffff\ ffff\ ffff\ ffff\
 			if(typeof char == 'string') char = char.codePointAt()
 			if(char < 0){
 				const d = this._default
-				if(!tex && !adv) d.x = d.y = d.w = d.h = d.xadv = 0, d.tex = null
-				else d.x = +x, d.y = +y, d.w = +w, d.h = +h, d.xadv = +adv, d.tex = tex
+				if(!tex && !adv) d.x = d.y = d.w = d.h = d._xadv = 0, d._tex = null
+				else d.x = +x, d.y = +y, d.w = +w, d.h = +h, d._xadv = +adv, d._tex = tex
 			}else{
 				if(!tex && !adv) return super.delete(~char)
-				else super.set(~char, { x: +x, y: +y, w: +w, h: +h, xadv: +adv, tex })
+				else super.set(~char, { x: +x, y: +y, w: +w, h: +h, _xadv: +adv, _tex: tex })
 			}
 		}
 		getAdvance(char = -1){
 			if(typeof char == 'string') char = char.codePointAt()
-			return (char < 0 ? this._default : (this.get(~char) ?? this._default)).xadv
+			return (char < 0 ? this._default : (this.get(~char) ?? this._default))._xadv
 		}
 		setKerning(a, b, adv = 0){
 			let code = 0
@@ -1117,8 +1117,8 @@ ffff\ ffff\ ffff\ ffff\
 			for(const {unicode,advance,planeBounds:pb,atlasBounds:ab} of glyphs) super.set(~unicode, pb ? {
 				x: +pb.left, y: +pb.bottom,
 				w: (pb.right-pb.left), h: (pb.top-pb.bottom),
-				xadv: advance, tex: img.sub(ab.left/width,ab.bottom/height,(ab.right-ab.left)/width,(ab.top-ab.bottom)/height)
-			} : {x:0,y:0,w:0,h:0,xadv: advance, tex: null})
+				_xadv: advance, _tex: img.sub(ab.left/width,ab.bottom/height,(ab.right-ab.left)/width,(ab.top-ab.bottom)/height)
+			} : {x:0,y:0,w:0,h:0,_xadv: advance, _tex: null})
 			this.done()
 		}, this.error.bind(this)); return this}
 		bmfont(src, baselineOffset=0){ fetch(src).then(a => (src=a.url,a.json())).then(d => {
@@ -1131,8 +1131,8 @@ ffff\ ffff\ ffff\ ffff\
 			for(const {id,x,y,width,height,xoffset,yoffset,xadvance,page} of chars) super.set(id, {
 				x: xoffset*s, y: b-(yoffset-baselineOffset+height)*s,
 				w: width*s, h: height*s,
-				xadv: xadvance*s,
-				tex: width&&height?p[page].sub(x/scaleW,1-(y+height)/scaleH,width/scaleW,height/scaleH):null
+				_xadv: xadvance*s,
+				_tex: width&&height?p[page].sub(x/scaleW,1-(y+height)/scaleH,width/scaleW,height/scaleH):null
 			})
 			this.done()
 		}, this.error.bind(this)); return this}
@@ -1146,8 +1146,8 @@ ffff\ ffff\ ffff\ ffff\
 				const g = this.get(~c) ?? this._default
 				if(!g) continue
 				const ker = this.get(c+last*1114112) ?? 0; last = c
-				const w = g.xadv + lsb + lsb + ker
-				if(g.tex) V.x = off, V.y = spr, ctx.drawRect(g.x+lsb+ker,g.y,g.w,g.h,g.tex,V,...v)
+				const w = g._xadv + lsb + lsb + ker
+				if(g._tex) V.x = off, V.y = spr, ctx.drawRect(g.x+lsb+ker,g.y,g.w,g.h,g._tex,V,...v)
 				ctx.translate(w, 0)
 			}
 			return last
@@ -1160,7 +1160,7 @@ ffff\ ffff\ ffff\ ffff\
 				const g = this.get(c) ?? this._default
 				if(!g) continue
 				const ker = this.get(c+last*1114112) ?? 0; last = c
-				w += g.xadv + lsb + ker
+				w += g._xadv + lsb + ker
 			}
 			return w
 		}

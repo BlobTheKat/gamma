@@ -1293,7 +1293,7 @@ declare global{
 	 * // `COLOR`/`FCOLOR`/`UCOLOR`s are used by calling them, e.g
 	 * void main(){
 	 * ‍   // Assuming arg0 is a `COLOR`
-	 * ‍   col = arg0();
+	 * ‍   col = arg0(uv);
 	 * }
 	 * 
 	 * // All other types are used like normal
@@ -1363,6 +1363,20 @@ declare global{
 		 * Uniforms: none
 		 */
 		const BLACK: Shader
+
+		/**
+		 * Maximum number of scalar parameters for this shader
+		 * - `INT`/`UINT`/`FLOAT` count as **1** scalar
+		 * - `IVEC2`/`UVEC2`/`VEC2` count as **2** scalars
+		 * - `IVEC3`/`UVEC3`/`VEC3` count as **3** scalars
+		 * - `IVEC4`/`UVEC4`/`VEC4` count as **4** scalars
+		 * - `TEXTURE`/`FTEXTURE`/`UTEXTURE` count as **1** scalar
+		 * - `COLOR`/`FCOLOR`/`UCOLOR` count as **5** scalars
+		 *    - (This is needed to encode subtexture crop including layer)
+		 * 
+		 * Guaranteed to be at least **52**
+		 */
+		const MAX_PARAMS: number
 	}
 
 	/**
