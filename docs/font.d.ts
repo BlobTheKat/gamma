@@ -259,8 +259,8 @@ declare global{
 	}
 	/** See `RichText.break()` */
 	type MeasurementOffsets = {scale: number, letterSpacing: number, curve: number}
-
-	interface Font{
+	
+	class Font{
 		/**
 		 * The range factor (aka normalized distance range) for this font. Represents the range of the signed distance field relative the the font's height. Also used internally to calculate proper offset/spread values (see `RichText.addTextPass()`)
 		 * 
@@ -270,8 +270,6 @@ declare global{
 		/** Font ascend, i.e how much out of a font height of 1 is above the baseline. Descent would then be equal to `1-ascent`. For a normal font, a typical value would look something like 0.75 */
 		ascend: number
 
-		/** Used to make a `Font` `await`able. */
-		readonly then: ((resolve: (res: Font) => any, reject: (err: any) => any) => void) | null
 		/** Mark the font as Ready, resolving any Promises made from this font (e.g via `await`) */
 		done(): void
 		/** Mark the font as Broken, rejecting any Promises made from this font (e.g via `await`) */
@@ -368,7 +366,7 @@ declare global{
 		measure(text: string, letterSpacing?: number, lastChar?: number): number
 	}
 	/** Construct a new, empty font. See its methods for how to build your own font or import one. */
-	function Font(): Font
+	function Font(): Font & Promise<Font>
 
 	namespace Font{
 		/**
@@ -384,7 +382,7 @@ declare global{
 		 * ```
 		 * `pxrange` (The pixel range) affects the `rangeFactor` value. Higher = more blur / font weights possible
 		 */
-		function chlumsky(src: string, atlas?: string): Font
+		function chlumsky(src: string, atlas?: string): Font & Promise<Font>
 
 		/**
 		 * Load an MSDF font in the popular BMFont format (specifically JSON, such as spat out by [this tool](https://msdf-bmfont.donmccurdy.com/))
@@ -395,7 +393,7 @@ declare global{
 		 * @param src The path/url to load the `.json` file from
 		 * @param baselineOffset An offset added to correct the font's baseline value. Please, _please_, consider using the Chlumsky format.
 		 */
-		function bmfont(src: string, baselineOffset?: number): Font
+		function bmfont(src: string, baselineOffset?: number): Font & Promise<Font>
 	}
 }
 }

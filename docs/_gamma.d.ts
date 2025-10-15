@@ -1,6 +1,7 @@
 export {}
 declare global{
 	interface Float16Array{}
+	interface opaque{}
 
 	function Gamma(canvas?: HTMLCanvasElement, _?: undefined, flags?: number): GammaInstance
 	function Gamma(canvas: HTMLCanvasElement | undefined, o: object, flags?: number): asserts o is GammaInstance

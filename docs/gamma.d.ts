@@ -1,6 +1,7 @@
 export {}
 declare global{
 	interface Float16Array{}
+	interface opaque{}
 
 	function Gamma(canvas?: HTMLCanvasElement, _?: undefined, flags?: number): GammaInstance
 	function Gamma(canvas: HTMLCanvasElement | undefined, o: object, flags?: number): asserts o is GammaInstance
@@ -477,9 +478,13 @@ declare global{
 		 * @param format Texture format. See `Formats`. Cannot be changed later. Default: `Formats.RGBA`
 		 * @param mipmaps Number of mipmaps to allocate. Default: 1 (_"no mipmaps"_)
 		 */
-		function from(src: ImageSource | ImageSource[], options?: number, format?: Formats, mipmaps?: number): Texture
+		function from(src: ImageSource | ImageSource[], options?: number, format?: Formats, mipmaps?: number): Texture & Promise<Texture>
 	}
-	interface Texture{
+	class Texture{
+
+		/** An opaque object that will compare === for a `Texture` and its sub-`Texture`s, which are backed by the same underlying texture data */
+		readonly identity: opaque
+
 		/**
 		 * Whether this texture's format is an integer-type format
 		 * 
@@ -528,9 +533,6 @@ declare global{
 		 * Always false for non-image-backed textures
 		 */
 		readonly waiting: boolean
-
-		/** Used to make image-backed textures `await`able. Will trigger a load. */
-		readonly then: ((resolve: (res: Texture) => any, reject: (err: any) => any) => void) | null
 
 		/** `x` parameter used to define a sub-texture. Can be safely modified at any time */
 		x: number
@@ -583,7 +585,7 @@ declare global{
 		 * 
 		 * @performance This method is CPU-arithmetic, very fast
 		 */
-		sub(x: number, y: number, w: number, h: number, l?: number): Texture
+		sub(x: number, y: number, w: number, h: number, l?: number): typeof this
 
 		/**
 		 * Returns a "super texture" sub-texture. The underlying data pointed to by a sub-texture is the same, so that modifications to a texture are seen through all its sub-textures. A `Texture` object is then just a view into its backing data. This is analogous to `TypedArray`s, `DataView` or `Buffer` being views into an `ArrayBuffer`. Note that all textures and sub-textures are of the same class and thus the same methods and properties are available on them
@@ -594,7 +596,7 @@ declare global{
 		 * 
 		 * @performance This method is CPU-arithmetic, very fast. Slightly slower than .sub() due to the use of division
 		 */
-		super(x: number, y: number, w: number, h: number, l?: number): Texture
+		super(x: number, y: number, w: number, h: number, l?: number): typeof this
 
 		/**
 		 * Returns a sub-texture. The underlying data pointed to by a sub-texture is the same, so that modifications to a texture are seen through all its sub-textures. A `Texture` object is then just a view into its backing data. This is analogous to `TypedArray`s, `DataView` or `Buffer` being views into an `ArrayBuffer`. Note that all textures and sub-textures are of the same class and thus the same methods and properties are available on them
@@ -605,7 +607,7 @@ declare global{
 		 * 
 		 * @performance This method is CPU-arithmetic, however for image-backed textures, it will trigger a load if the texture is not yet loaded (in order to obtain the texture's width/height)
 		 */
-		crop(x: number, y: number, w: number, h: number, l?: number): Texture
+		crop(x: number, y: number, w: number, h: number, l?: number): this extends Promise<Texture> ? typeof this : Texture
 
 		/**
 		 * Returns a sub-texture. The underlying data pointed to by a sub-texture is the same, so that modifications to a texture are seen through all its sub-textures. A `Texture` object is then just a view into its backing data. This is analogous to `TypedArray`s, `DataView` or `Buffer` being views into an `ArrayBuffer`. Note that all textures and sub-textures are of the same class and thus the same methods and properties are available on them
@@ -614,7 +616,7 @@ declare global{
 		 * 
 		 * @performance This method is CPU-arithmetic, very fast
 		 */
-		layer(layer: number): Texture
+		layer(layer: number): typeof this
 
 		/**
 		 * Copy data from one texture (tex) object to another (this)
@@ -634,7 +636,7 @@ declare global{
 		 * 
 		 * @performance This method performs a GPU-GPU copy, which is faster than uploading a texture. If the texture was recently used then this will create a light draw boundary (See `Drawable.draw()` for more info)
 		 */
-		paste(tex: Texture, x?: number, y?: number, layer?: number, dstMip?: number, srcX?: number, srcY?: number, srcLayer?: number, srcWidth?: number, srcHeight?: number, srcLayers?: number, srcMip?: number): this | null
+		paste(tex: Texture, x?: number, y?: number, layer?: number, dstMip?: number, srcX?: number, srcY?: number, srcLayer?: number, srcWidth?: number, srcHeight?: number, srcLayers?: number, srcMip?: number): this extends Promise<Texture> ? this? : this
 
 		/**
 		 * Copy data from an image-like (img) object to another (this)
@@ -647,7 +649,7 @@ declare global{
 		 * 
 		 * @performance This method performs an upload to the GPU, which is primarily bandwidth-bound for typical-size textures. Extra preprocessing may be done for certain source types (e.g <img> elements), which may be CPU-bound. It is recommended to use ImageBitmap sources where possible (with the correct options provided by Gamma.bitmapOpts), as they are GPU-ready by design. It may also cause partial pipeline stalls if following draw operations depend on the texture data but have to wait for the upload to finish, however this is mostly mitigated with modern drivers. If the texture was recently used then this will create a light draw boundary (See `Drawable.draw()` for more info)
 		 */
-		paste(img: ImageSource, x?: number, y?: number, layer?: number, dstMip?: number): Promise<this> | null
+		paste(img: ImageSource, x?: number, y?: number, layer?: number, dstMip?: number): this extends Promise<Texture> ? this? : this
 
 		/**
 		 * Copy data from memory to this texture
@@ -674,7 +676,7 @@ declare global{
 		 * | R16F, RG16F, RGB16F, RGBA16F      | `Uint16Array` / `Float16Array`     | `w*h*d * channels` |
 		 * | R32F, RG32F, RGB32F, RGBA32F      | `Float32Array`                     | `w*h*d * channels` |
 		 */
-		pasteData(data: Uint8Array | Uint8ClampedArray | Uint16Array | Uint32Array | Float16Array | Float32Array, x?: number, y?: number, layer?: number, width?: number, height?: number, layers?: number, mip?: number): this | null
+		pasteData(data: Uint8Array | Uint8ClampedArray | Uint16Array | Uint32Array | Float16Array | Float32Array, x?: number, y?: number, layer?: number, width?: number, height?: number, layers?: number, mip?: number): this extends Promise<Texture> ? this? : this
 
 		/**
 		 * Copy data from this texture to CPU memory, asynchronously
@@ -705,7 +707,7 @@ declare global{
 		 * | R16F, RG16F, RGB16F, RGBA16F      | `Uint16Array` / `Float16Array`     | `w*h*d * channels` |
 		 * | R32F, RG32F, RGB32F, RGBA32F      | `Float32Array`                     | `w*h*d * channels` |
 		 */
-		readData(x?: number, y?: number, l?: number, w?: number, h?: number, d?: number, mip?: number): Promise<ArrayBufferView>
+		readData(x?: number, y?: number, l?: number, w?: number, h?: number, d?: number, mip?: number): this extends Promise<Texture> ? Promise<ArrayBufferView>? : Promise<ArrayBufferView>
 		
 		/**
 		 * Set the range of mipmaps that can be used by this texture during drawing
@@ -761,7 +763,9 @@ declare global{
 		const MAX_TARGETS: number
 	}
 
-	interface Drawable{
+	class Drawable{
+		/** An opaque object that will compare === for a `Drawable` and its sub-`Drawable`s, which always point to the same draw targets */
+		readonly identity: opaque
 		/** The backing target's whole width in pixels */
 		readonly width: number
 		/** The backing target's whole height in pixels */
@@ -1363,20 +1367,6 @@ declare global{
 		 * Uniforms: none
 		 */
 		const BLACK: Shader
-
-		/**
-		 * Maximum number of scalar parameters for this shader
-		 * - `INT`/`UINT`/`FLOAT` count as **1** scalar
-		 * - `IVEC2`/`UVEC2`/`VEC2` count as **2** scalars
-		 * - `IVEC3`/`UVEC3`/`VEC3` count as **3** scalars
-		 * - `IVEC4`/`UVEC4`/`VEC4` count as **4** scalars
-		 * - `TEXTURE`/`FTEXTURE`/`UTEXTURE` count as **1** scalar
-		 * - `COLOR`/`FCOLOR`/`UCOLOR` count as **5** scalars
-		 *    - (This is needed to encode subtexture crop including layer)
-		 * 
-		 * Guaranteed to be at least **52**
-		 */
-		const MAX_PARAMS: number
 	}
 
 	/**
@@ -1441,7 +1431,7 @@ declare global{
 	 * 
 	 * Available after calling `loop()`, calculated automatically
 	 */
-	let timeToFrame: number
+	let frameCpu: number
 	/**
 	 * Callback for when the underlying `webgl2` context is lost (possibly GPU crash)
 	 * 

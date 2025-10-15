@@ -21,7 +21,7 @@ const renames = {
 	setShp: '$h',
 	iarr: '$I',
 	arr: '$i',
-	img: '$m'
+	Tex: '$m'
 }, propRenames = {
 	_shp: 'S',
 	_mask: 'M'
@@ -114,10 +114,10 @@ for(const src of fs.readdirSync('docs')){
 	}
 	if(!src.endsWith('-global.d.ts')) continue
 	const name = src.slice(0, -12)
+	allDefs += `export type * from "./${name}.d.ts"\n`
+	allDefsGlobal += `export type * from './${name}.d.ts'\nexport type * from './${name}-global.d.ts'\n`
 	pr.push(fsa.readFile('docs/'+src).then(code => {
 		code = code.toString()
-		allDefs += `export type * from "./${name}.d.ts"\n`
-		allDefsGlobal += `export type * from './${name}.d.ts'\nexport type * from './${name}-global.d.ts'\n`
 		if(name == 'gamma'){
 			return fsa.readFile('docs/_gamma.d.ts').then(head => {
 				head = head.toString()

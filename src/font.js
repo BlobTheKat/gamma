@@ -1118,7 +1118,7 @@ ffff\ ffff\ ffff\ ffff\
 				x: +pb.left, y: +pb.bottom,
 				w: (pb.right-pb.left), h: (pb.top-pb.bottom),
 				_xadv: advance, _tex: img.sub(ab.left/width,ab.bottom/height,(ab.right-ab.left)/width,(ab.top-ab.bottom)/height)
-			} : {x:0,y:0,w:0,h:0,_xadv: advance, _tex: null})
+			} : { x: 0, y: 0, w: 0, h: 0, _xadv: advance, _tex: null })
 			this.done()
 		}, this.error.bind(this)); return this}
 		bmfont(src, baselineOffset=0){ fetch(src).then(a => (src=a.url,a.json())).then(d => {
