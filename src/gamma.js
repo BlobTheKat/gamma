@@ -674,6 +674,7 @@ Object.assign($.Blend = (src = 17, combine = 17, dst = 0, a2c = false) => src|ds
 	DEFAULT: 1135889,
 	ADD: 1118465,
 	MULTIPLY: 1122816,
+	MULTIPLY_MIX: 1136008,
 	SUBTRACT: 5574913,
 	REVERSE_SUBTRACT: 7737601,
 	MIN: 2232593, MAX: 3346705,
@@ -796,13 +797,17 @@ class Geo2D extends t2D{
 		gl.bindBuffer(gl.ARRAY_BUFFER, buf)
 	}
 }
-$.Geometry2D = ({_pack, _vcount}, type=5) => {
+$.Geometry2D = (v = null, type=5) => {
+	if(typeof v == 'number') type = v, v = null
+	const {_pack, _vcount} = v ?? $.Geometry2D.DEFAULT_VERTEX
 	const arr = new Float32Array(16)
-	return new Geo2D({arr, iarr: new Int32Array(arr.buffer), i: 0, b: gl.createBuffer(), _pack, _vcount, _size: 0, L: null, v2: null, v3: null},0,Infinity,type)
+	return new Geo2D({arr, iarr: new Int32Array(arr.buffer), i: 0, b: gl.createBuffer(), _pack, _vcount, _size: 0, L: null, v: null},0,Infinity,type)
 }
-$.Geometry3D = ({_pack, _vcount}, type=5) => {
+$.Geometry3D = (v = null, type=5) => {
+	if(typeof v == 'number') type = v, v = null
+	const {_pack, _vcount} = v ?? $.Geometry3D.DEFAULT_VERTEX
 	const arr = new Float32Array(16)
-	return new Geo3D({arr, iarr: new Int32Array(arr.buffer), i: 0, b: gl.createBuffer(), _pack, _vcount, _size: 0, L: null, v2: null, v3: null},0,Infinity,type)
+	return new Geo3D({arr, iarr: new Int32Array(arr.buffer), i: 0, b: gl.createBuffer(), _pack, _vcount, _size: 0, L: null, v: null},0,Infinity,type)
 }
 
 $.Geometry2D.Vertex = vfgen.bind(null, false)
@@ -824,7 +829,7 @@ $.Shader = (src, {params, defaults: _defaults, uniforms, uniformDefaults: _uDefa
 	outputs = typeof outputs=='number' ? [outputs] : outputs || []
 	if(outputs.length > Drawable.MAX_TARGETS) throw `Too many shader outputs (Drawable.MAX_TARGETS == ${Drawable.MAX_TARGETS})`
 	const matWidth = 3+vertex.three
-	const fnParams = [], fnBody = [''], vShaderHead = [`#version 300 es\nprecision highp float;precision highp int;layout(location=0)in mat3x${matWidth} m;layout(location=${maxAttribs-1})in uvec4 o0;out vec4 GL_v0;`], vShaderBody = [`void main(){gl_PointSize=1.;gl_Position.z=0.;gl_Position.xyw=vec${matWidth}(GL_v0.xy${vertex.three?'z':''}=uintBitsToFloat(o0.xy${vertex.three?'z':''}),1.)*m;`], fShaderHead = ['#version 300 es\nprecision highp float;precision highp int;in vec4 GL_v0;\n#define color color0\n#define pos GL_v0.xyz\n'+outputs.map((o,i) => `layout(location=${i})out ${!o?'':o==16||o==32?'u':'lowp '}vec4 color${i};`).join(';'),'']
+	const fnParams = [], fnBody = [''], vShaderHead = [`#version 300 es\nprecision highp float;precision highp int;layout(location=0)in mat3x${matWidth} m;layout(location=${maxAttribs-1})in uvec4 o0;out vec4 GL_v0;`], vShaderBody = [`void main(){gl_PointSize=1.;gl_Position.z=0.;gl_Position.xyw=vec${matWidth}(GL_v0.xy${vertex.three?'z':''}=uintBitsToFloat(o0.xy${vertex.three?'z':''}),1.)*m;gl_Position.xy=gl_Position.xy*2.-1.;`], fShaderHead = ['#version 300 es\nprecision highp float;precision highp int;in vec4 GL_v0;\n#define color color0\n#define pos GL_v0.xyz\n'+outputs.map((o,i) => `layout(location=${i})out ${!o?'':o==16||o==32?'u':'lowp '}vec4 color${i};`).join(';'),'']
 	let used = 0, fCount = 0, iCount = 0, attrs = 0
 	const texCheck = []
 	const addAttr = (sz=0) => {
@@ -938,7 +943,7 @@ vec4 fGetPixel(int u,ivec3 p,int l){${T||switcher(i=>`return texelFetch(GL_f[${i
 	fShaderHead[1] = head
 	const fMask = 32-fCount&&(-1>>>fCount)
 	uniFnBody[0] = `i&&draw(0);if(sh!=s){gl.useProgram(program);switchShader(s,${fCount},${fMask},${matWidth > 3 ? attrs+12 : `lv==shVao3?${attrs+9}:${attrs+6}`})}`
-	fnBody[0] = `sz+=${attrs};if(this._setv()){if(sh!=s||sz!=shCount){i&&draw(0);switchShader(s,${fCount},${fMask},sz);if(sh!=s){gl.useProgram(program);B()};${matWidth>3?'}if(s!=this._shp.t.L){/*TODO*/}':`gl.bindVertexArray(lv=sz>${8+attrs}?shVao3:shVao)}else if(lv!=(lv=sz>${8+attrs}?shVao3:shVao)){gl.bindVertexArray(lv)};if(lv.geo!=this._shp.B){gl.bindBuffer(34962,lv.geo=this._shp.B);`}${
+	fnBody[0] = `sz+=${attrs};if(this._setv()){const sd=sh!=s;if(sd||sz!=shCount){i&&draw(0);switchShader(s,${fCount},${fMask},sz);if(sd){gl.useProgram(program);B()};${matWidth>3?'}if(s!=this._shp.t.L){/*TODO*/}':`gl.bindVertexArray(lv=sz>${8+attrs}?shVao3:shVao)}else if(lv!=(lv=sz>${8+attrs}?shVao3:shVao)){gl.bindVertexArray(lv)};if(lv.geo!=this._shp.B){gl.bindBuffer(34962,lv.geo=this._shp.B);`}${
 		vlowest==maxAttribs-1?`gl.vertexAttribIPointer(${vlowest},${vertex._vcount&3},gl.UNSIGNED_INT,${vertex._vcount<<2},0)`:`for(let i=${maxAttribs-1},j=0;i>=${vlowest};i--,j+=16){gl.vertexAttribIPointer(i,i==${vlowest}?${vertex._vcount&3}:4,gl.UNSIGNED_INT,${vertex._vcount<<2},j)`
 	};gl.bindBuffer(34962,buf)}if(shp!=this._shp)setShp(this._shp);}let b=boundUsed^shuniBind;`+texCheck.join(';')+`;const k=grow(sz),j=k+sz-${attrs}`
 	fnBody.push('return k')
