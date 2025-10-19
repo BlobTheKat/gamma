@@ -8,12 +8,12 @@ const bg = await Texture.from(src`./mountains.jpeg`)
 
 Shader.AA_CIRCLE ??= Shader(`
 void main(){
-	float dist = 0.5 - length(uv - 0.5);
+	float dist = 0.5 - length(pos.xy - 0.5);
 
 	// Make [0, 1] the range covered by one pixel
 	float alpha = clamp(dist/fwidth(dist) + 0.5, 0.0, 1.0);
 
-	color = param0(uv) * alpha;
+	color = param0(pos.xy) * alpha;
 }
 `, {params: COLOR})
 

@@ -666,10 +666,10 @@ declare global{
 		 */
 		blend: Blend
 		/**
-		 * The geometry to be used by all drawing operations. See `Geometry()` for more info on custom sprite geometries. Can be also set to `null` to use `Geometry.DEFAULT`, however reading the property never returns null
+		 * The geometry to be used by all drawing operations. See `Geometry2D()` for more info on custom sprite geometries. Can be also set to `null` to use `Geometry2D.SQUARE`, however reading the property never returns null
 		 * @performance Changing this value will create a light-to-medium draw boundary (See `Drawable.draw()` for more info)
 		 */
-		geometry: Geometry
+		geometry: Geometry2D
 		/**
 		 * Draw a sprite at (0,0) to (1,1)
 		 * @param values Values, as required by the shader currently in use (See `Drawable.shader`, `Shader()` and `Shader.DEFAULT`)
@@ -731,32 +731,6 @@ declare global{
 		 * @performance See `Drawable.draw()` for more info
 		 */
 		drawMatv(a: number, b: number, c: number, d: number, e: number, f: number, values: any[]): void
-		/**
-		 * Draw a sprite at (0,0) to (1,1)
-		 * The shader values will be copied from the previous draw call, even if that call did not come from this `Drawable` object
-		 * 
-		 * This version of draw() is designed for performance in hot loops where the values don't / rarely change
-		 * @performance See `Drawable.draw()` for more info
-		 */
-		dup(): void
-		/**
-		 * Draw a sprite at `(x, y)` with size `(w, h)`
-		 * @param values Values, as required by the shader currently in use (See `Drawable.shader`, `Shader()` and `Shader.DEFAULT`)
-		 * 
-		 * This version of drawRect() is designed for performance in hot loops where the values don't / rarely change
-		 * @performance See `Drawable.draw()` for more info
-		 */
-		dupRect(x: number, y: number, w: number, h: number): void
-		/**
-		 * Draw a sprite within a parallelogram defined by a matrix
-		 * 
-		 * Bottom at `(e, f)` with bottom edge defined by the vector `(a, b)` and left edge defined by `(c, d)`
-		 * @param values Values, as required by the shader currently in use (See `Drawable.shader`, `Shader()` and `Shader.DEFAULT`)
-		 * 
-		 * This version of drawRect() is designed for performance in hot loops where the values don't / rarely change
-		 * @performance See `Drawable.draw()` for more info
-		 */
-		dupMat(a: number, b: number, c: number, d: number, e: number, f: number): void
 		/**
 		 * Clear the whole draw target to a solid color
 		 * 

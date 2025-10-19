@@ -1,8 +1,9 @@
 Gamma.font = $ => {
-	const vec4one = $.vec4.one, vec2l = {x:0,y:1}, msdfShader = $.Shader.MSDF = $.Shader("void main(){vec3 c=param0(uv).rgb;color=param2*clamp(param1.y*(max(min(c.r, c.g), min(max(c.r, c.g), c.b))-.5+param1.x)+.5,0.,1.);}", {params: [$.COLOR, $.VEC2, $.VEC4], defaults: [undefined, {x:0,y:1}, vec4one]})
-$.Shader.font = (src, o) => {
+	const vec4one = $.vec4.one, vec2l = {x:0,y:1}, dfgeo = $.Geometry2D.SQUARE
+	const msdfShader = $.Shader.MSDF = $.Shader("void main(){vec3 c=param0(pos.xy).rgb;color=param2*clamp(param1.y*(max(min(c.r, c.g), min(max(c.r, c.g), c.b))-.5+param1.x)+.5,0.,1.);}", {params: [$.COLOR, $.VEC2, $.VEC4], defaults: [undefined, {x:0,y:1}, vec4one]})
+$.Shader.font = (src, o={}) => {
 	let pr = 'float field(vec2 uv){vec3 c=param0(uv).rgb;return max(min(c.r, c.g), min(max(c.r, c.g), c.b)); }\n#define scale param1\n'
-	if(!Array.isArray(o.params)) O.params = typeof o.params == 'number' ? [o.params] : []
+	if(!Array.isArray(o.params)) o.params = typeof o.params == 'number' ? [o.params] : []
 	if(!Array.isArray(o.defaults)) o.defaults = o.defaults === undefined ? [] : [o.defaults]
 	for(let i = 0; i < o.params.length; i++)
 		pr += `#define value${i} param${i+2}\n`
@@ -61,7 +62,7 @@ $.Shader.font = (src, o) => {
 	const defaultToken = BreakToken(/[^]/y, BreakToken.ALWAYS_BREAK)
 	const V = {x: 0, y: 0}, O = {off:0,spr:-1,0:null,1:V}, DEFAULT_PASSES = [0,0,0,O]
 	// Advance. Shader. Scale. Y offset. Stretch. Skew. Letter spacing. Curve
-	const ADV = 1, SH = 2, SC = 3, YO = 4, ST = 5, SK = 6, LSB = 7, ARC = 8
+	const ADV = 1, SH = 2, GEO = 3, SC = 4, YO = 5, ST = 6, SK = 7, LSB = 8, ARC = 9
 	const getSepW = (t, cmap, arc, lsb = 0) => {
 		t.sepL = cmap; t.sepA = arc; t.sepS = lsb
 		if(!cmap) return t.sepW = 0
@@ -77,18 +78,21 @@ $.Shader.font = (src, o) => {
 		return t.sepW = w
 	}
 	class itxtstream extends Array{
-		#_f=null;#_sh=msdfShader;#_sc=1;#_yo=0;#_st=1;#_sk=0;#_lsb=0;#_arc=0
+		#_f=null;#_sh=msdfShader;#_geo=dfgeo;#_sc=1;#_yo=0;#_st=1;#_sk=0;#_lsb=0;#_arc=0
 		#_v=DEFAULT_PASSES;#len=0;#w=NaN;#l=null;#_m=true
 		static public = class txtstream{
 			constructor(q){ this.#q = q }
-			sub(){const s=new txtstream(this.#q);s.#f=this.#f;s.#sh=this.#sh;s.#sc=this.#sc;s.#st=this.#st;s.#sk=this.#sk;s.#lsb=this.#lsb;s.#arc=this.#arc;s.#v=this.#v;return s}
-			reset(f=null){this.#f=typeof f=='object'?f:null;this.#sh=msdfShader;this.#sc=1;this.#st=0;this.#sk=0;this.#lsb=0;this.#v=null;this.#arc=0;this.#q.#l==this&&(this.#q.#l=null)}
+			sub(){const s=new txtstream(this.#q);s.#f=this.#f;s.#sh=this.#sh;s.#geo=this.#geo;s.#sc=this.#sc;s.#st=this.#st;s.#sk=this.#sk;s.#lsb=this.#lsb;s.#arc=this.#arc;s.#v=this.#v;return s}
+			reset(f=null){this.#f=typeof f=='object'?f:null;this.#sh=msdfShader;this.#geo=dfgeo;this.#sc=1;this.#st=0;this.#sk=0;this.#lsb=0;this.#v=null;this.#arc=0;this.#q.#l==this&&(this.#q.#l=null)}
 			#q; #f = null; #m = true
 			get font(){return this.#f}
 			set font(a){if(typeof a=='object')this.#f=a;this.#q.#l==this&&(this.#q.#l=null)}
 			#sh = msdfShader
 			get shader(){return this.#sh}
 			set shader(a){if(typeof a=='function')this.#sh=a;this.#q.#l==this&&(this.#q.#l=null)}
+			#geo = dfgeo
+			get geometry(){return this.#geo}
+			set geometry(a){this.#geo=a;this.#q.#l==this&&(this.#q.#l=null)}
 			#sc = 1
 			get scale(){return this.#sc}
 			set scale(a){this.#sc=+a;this.#q.#l==this&&(this.#q.#l=null)}
@@ -373,6 +377,7 @@ $.Shader.font = (src, o) => {
 			#setv(q){
 				if(this.#f!=q.#_f)q.push(q.#_f=this.#f)
 				if(this.#sh!=q.#_sh)q.push(SH,q.#_sh=this.#sh)
+				if(this.#geo!=q.#_geo)q.push(GEO,q.#_geo=this.#geo)
 				if(this.#sc!=q.#_sc)q.push(SC,q.#_sc=this.#sc)
 				if(this.#yo!=q.#_yo)q.push(YO,q.#_yo=this.#yo)
 				if(this.#st!=q.#_st)q.push(ST,q.#_st=this.#st)
@@ -414,6 +419,7 @@ $.Shader.font = (src, o) => {
 							switch(s){
 								case ADV: idx -= 2; break
 								case SH: st.#sh = v; break
+								case GEO: st.#geo = v; break
 								case SC: st.#sc = v; break
 								case YO: st.#yo = v; break
 								case ST: st.#st = v; break
@@ -437,6 +443,7 @@ $.Shader.font = (src, o) => {
 						const v = q[idx++]
 						switch(s){
 							case SH: st.#sh = v; break
+							case GEO: st.#geo = v; break
 							case SC: st.#sc = v; break
 							case YO: st.#yo = v; break
 							case ST: st.#st = v; break
@@ -465,6 +472,7 @@ $.Shader.font = (src, o) => {
 						q2.push(v)
 						switch(s){
 							case SH: st.#sh = v; break
+							case GEO: st.#geo = v; break
 							case SC: st.#sc = v; break
 							case YO: st.#yo = v; break
 							case ST: st.#st = v; break
@@ -498,6 +506,7 @@ $.Shader.font = (src, o) => {
 							switch(s){
 								case ADV: idx -= 2; break
 								case SH: q.#_sh = v; break
+								case GEO: q.#_geo = v; break
 								case SC: q.#_sc = v; break
 								case YO: q.#_yo = v; break
 								case ST: q.#_st = v; break
@@ -516,6 +525,7 @@ $.Shader.font = (src, o) => {
 						const v = q[idx++]
 						switch(s){
 							case SH: q.#_sh = v; break
+							case GEO: q.#_geo = v; break
 							case SC: q.#_sc = v; break
 							case YO: q.#_yo = v; break
 							case ST: q.#_st = v; break
@@ -533,6 +543,7 @@ $.Shader.font = (src, o) => {
 				}
 				this.#f = q.#_f
 				this.#sh = q.#_sh
+				this.#geo = q.#_geo
 				this.#sc = q.#_sc
 				this.#yo = q.#_yo
 				this.#st = q.#_st
@@ -547,7 +558,7 @@ $.Shader.font = (src, o) => {
 				const q = this.#q, q2 = st.#q
 				q.#len += q2.#len
 				let idx = 0
-				this.#f = null; this.#sh = msdfShader; this.#sc = 1; this.#yo = 0; this.#st = 1
+				this.#f = null; this.#sh = msdfShader; this.#geo = dfgeo; this.#sc = 1; this.#yo = 0; this.#st = 1
 				this.#sk = 0; this.#lsb = 0; this.#arc = 0; this.#v = DEFAULT_PASSES
 				// If concat to ourselves, don't loop infinitely
 				const q2l = q2.length
@@ -558,6 +569,7 @@ $.Shader.font = (src, o) => {
 						switch(s){
 							case ADV: idx -= 2; break w
 							case SH: this.#sh = v; break
+							case GEO: this.#geo = v; break
 							case SC: this.#sc = v; break
 							case YO: this.#yo = v; break
 							case ST: this.#st = v; break
@@ -579,6 +591,7 @@ $.Shader.font = (src, o) => {
 						q.push(v)
 						switch(s){
 							case SH: this.#sh = v; break
+							case GEO: this.#geo = v; break
 							case SC: this.#sc = v; break
 							case YO: this.#yo = v; break
 							case ST: this.#st = v; break
@@ -699,7 +712,8 @@ $.Shader.font = (src, o) => {
 				let cmap = null
 				let idx = 0
 				let sc = 1, sc1 = 1, st = 1, lsb = 0, sk = 0, yo = 0, xo = 0, ar = 0
-				let sh = ctx.shader = msdfShader
+				ctx.shader = msdfShader
+				ctx.geometry = dfgeo
 				let vs = DEFAULT_PASSES, vlen = 3, font = null, dsc = 0
 				let last = -1, lastSt = 1
 				const pxr0 = ctx.pixelRatio()*2; let pxr = 1, rf = 1, rf1 = 1
@@ -727,7 +741,8 @@ $.Shader.font = (src, o) => {
 								last = -1
 								continue w
 							case YO: yo = v*sc1; xo = yo*sk; last = -1; continue w
-							case SH: ctx.shader = sh = v; break
+							case SH: ctx.shader = v; break
+							case GEO: ctx.geometry = v; break
 							case ST: st = v; last = -1; continue w
 							case SK: ctx.skew(v-sk, 0); sk = v; xo = yo*v; last = -1; continue w
 							case LSB: lsb = v*.5; continue w
@@ -798,7 +813,7 @@ $.Shader.font = (src, o) => {
 				let cmap = null, chw = 1, lastCw = 1, last = -1, w = 0, tainted = false
 				while(i < str.length){
 					let j = 0, t = defaultToken
-					let _i0 = q2.length, _w = w, _sh = s2.#sh, _sc = s2.#sc, _yo = s2.#yo, _st = s2.#st, _sk = s2.#sk, _lsb = s2.#lsb, _f = s2.#f, _arc = s2.#arc, _v = s2.#v, _m = q2.#_m, _len = q2.#len
+					let _i0 = q2.length, _w = w, _sh = s2.#sh, _geo = s2.#geo, _sc = s2.#sc, _yo = s2.#yo, _st = s2.#st, _sk = s2.#sk, _lsb = s2.#lsb, _f = s2.#f, _arc = s2.#arc, _v = s2.#v, _m = q2.#_m, _len = q2.#len
 					a: do{
 						if(toks) for(t of toks){
 							t.lastIndex = i
@@ -841,6 +856,7 @@ $.Shader.font = (src, o) => {
 							q2.push(s, v)
 							switch(s){
 								case SH: s2.#sh = q2.#_sh = v; break
+								case GEO: s2.#geo = q2.#_geo = v; break
 								case SC: s2.#sc = q2.#_sc = v; break
 								case YO: s2.#yo = q2.#_yo = v; break
 								case ST: s2.#st = q2.#_st = v; break
@@ -865,7 +881,7 @@ $.Shader.font = (src, o) => {
 						}
 					}
 					while(1){
-						let i0 = _i0, i1 = 0, _i1 = 0, sh = _sh, sc = _sc, yo = _yo, st = _st, sk = _sk, lsb = _lsb, f = _f, v = _v, m = _m, len = _len, arc = _arc, ar1 = 1/arc, ptext = false
+						let i0 = _i0, i1 = 0, _i1 = 0, sh = _sh, geo = _geo, sc = _sc, yo = _yo, st = _st, sk = _sk, lsb = _lsb, f = _f, v = _v, m = _m, len = _len, arc = _arc, ar1 = 1/arc, ptext = false
 						let sepw = t.sepL == f && t.sepA == arc && t.sepS == lsb ? t.sepW : getSepW(t, f, arc, lsb)
 						const canBreak = !ty ? _w*2 < maxW : (36>>ty&1)!=0
 						const {scale = 1, letterSpacing = 0, curve = 0} = offs
@@ -882,9 +898,10 @@ $.Shader.font = (src, o) => {
 										last = -1
 										if(w > (maxW - (sepw - (cmap?.get(t.sep.codePointAt() + last*1114112)??0))*chw) || !canBreak) break
 										_i0 = i0-2, _i1 = 0; ptext = true
-										_w = w, _sh = sh, _sc = sc, _yo = yo, _st = st, _sk = sk, _lsb = lsb, _f = f, _arc = arc, _v = v, _m = m, _len = len
+										_w = w, _sh = sh, _geo = geo, _sc = sc, _yo = yo, _st = st, _sk = sk, _lsb = lsb, _f = f, _arc = arc, _v = v, _m = m, _len = len
 										break
 									case SH: sh = s1; break
+									case GEO: geo = s1; break
 									case SC: sc = s1; chw=s1*st*scale; break
 									case YO: yo = s1; break
 									case ST: st = s1; chw=s1*sc*scale; break
@@ -906,7 +923,7 @@ $.Shader.font = (src, o) => {
 									if(w <= (maxW - (sepw - (cmap.get(t.sep.codePointAt() + c*1114112)??0))*chw) && canBreak){
 										ptext = true
 										_i0 = i0-1, _i1 = i1
-										_w = w, _sh = sh, _sc = sc, _yo = yo, _st = st, _sk = sk, _lsb = lsb, _f = f, _arc = arc, _v = v, _m = m, _len = len
+										_w = w, _sh = sh, _geo = geo, _sc = sc, _yo = yo, _st = st, _sk = sk, _lsb = lsb, _f = f, _arc = arc, _v = v, _m = m, _len = len
 									}
 								}else if(m) len += s.length
 							}else if(Array.isArray(s)) v = s
@@ -917,7 +934,7 @@ $.Shader.font = (src, o) => {
 						}
 						if(!_w || w <= maxW || !_i0 || ty == 3) break
 						// restore and split/break
-						i0 = _i0, i1 = _i1, sh = _sh, sc = _sc, yo = _yo, st = _st, sk = _sk, lsb = _lsb, f = _f, v = _v, m = _m, arc = _arc, len = _len
+						i0 = _i0, i1 = _i1, sh = _sh, geo = _geo, sc = _sc, yo = _yo, st = _st, sk = _sk, lsb = _lsb, f = _f, v = _v, m = _m, arc = _arc, len = _len
 						if(ty == 6 || (ty == 7 && maxW-_w >= w-maxW)){
 							// squish
 							const squish = (maxW-_w)/(w-_w), q2l = q2.length
@@ -933,7 +950,7 @@ $.Shader.font = (src, o) => {
 						}
 						w = _w
 						const q3 = new itxtstream(), s3 = new txtstream(q3), q2l = q2.length
-						s3.#sh = sh; s3.#sc = sc; s3.#yo = yo; s3.#st = st
+						s3.#sh = sh; s3.#geo = geo; s3.#sc = sc; s3.#yo = yo; s3.#st = st
 						s3.#sk = sk; s3.#lsb = lsb; s3.#v = v
 						s3.#arc = arc; s3.#m = m
 						let idx = i0 += !!i1
@@ -955,6 +972,7 @@ $.Shader.font = (src, o) => {
 									switch(s){
 										case ADV: if(appnd){ idx-=2; break w }else break
 										case SH: s3.#sh = v; break
+										case GEO: s3.#geo = v; break
 										case SC: s3.#sc = v; break
 										case YO: s3.#yo = v; break
 										case ST: s3.#st = v; break
@@ -983,10 +1001,11 @@ $.Shader.font = (src, o) => {
 						q2.#len = len
 						q2.#w = tainted ? NaN : w
 						tainted = false
-						s3.#sh = q3.#_sh = s2.#sh; s3.#sc = q3.#_sc = s2.#sc
-						s3.#yo = q3.#_yo = s2.#yo; s3.#st = q3.#_st = s2.#st
-						s3.#sk = q3.#_sk = s2.#sk; s3.#lsb = q3.#_lsb = s2.#lsb
-						s3.#arc = q3.#_arc = s2.#arc; s3.#m = q3.#_m = s2.#m; s3.#v = q3.#_v = s2.#v
+						s3.#sh = q3.#_sh = s2.#sh; s3.#geo = q3.#_geo = s2.#geo
+						s3.#sc = q3.#_sc = s2.#sc; s3.#yo = q3.#_yo = s2.#yo
+						s3.#st = q3.#_st = s2.#st; s3.#sk = q3.#_sk = s2.#sk
+						s3.#lsb = q3.#_lsb = s2.#lsb; s3.#arc = q3.#_arc = s2.#arc
+						s3.#m = q3.#_m = s2.#m; s3.#v = q3.#_v = s2.#v
 						q2.length = i0
 						if(!appnd && f2) q3.push(s3.#f = q3.#_f = f2)
 						if(ptext) q2.#_m&&q2.push(q2.#_m=false), q2.push(t.sep)
@@ -1012,6 +1031,7 @@ $.Shader.font = (src, o) => {
 						q2.push(v)
 						switch(s){
 							case SH: s2.#sh = q2.#_sh = v; break
+							case GEO: s2.#geo = q2.#_geo = v; break
 							case SC: s2.#sc = q2.#_sc = v; break
 							case YO: s2.#yo = q2.#_yo = v; break
 							case ST: s2.#st = q2.#_st = v; break

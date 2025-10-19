@@ -53,10 +53,9 @@ const scr = Scrollable(input, 40, -20)
 
 Shader.AA_CIRCLE = Shader(`
 void main(){
-	float dist = 0.5 - length(uv - 0.5), alpha = clamp(dist/fwidth(dist) + 0.5, 0.0, 1.0);
-	color = param0(uv) * alpha;
-}
-`, {params: COLOR, defaults: vec4.one})
+	float dist = 0.5 - length(pos.xy - 0.5), alpha = clamp(dist/fwidth(dist) + 0.5, 0.0, 1.0);
+	color = param0(pos.xy) * alpha;
+}`, {params: COLOR, defaults: vec4.one})
 
 let cx = 0, cxi = 0, zoom = NaN, zoomi = 0
 render = () => {

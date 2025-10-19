@@ -4,7 +4,7 @@ import fs, {promises as fsa} from 'fs'
 const renames = {
 	__proto__: null,
 	gl: '_',
-	defaultShape: '$d',
+	defaultGeo: '$d',
 	_defaults: '$D',
 	_uDefaults: '$U',
 	setv: '$S',
@@ -16,15 +16,21 @@ const renames = {
 	geo: '$g',
 	shuniBind: '$x',
 	boundUsed: '$X',
+	shCount: '$u',
 	uniLocs: '$L',
 	switchShader: '$H',
 	setShp: '$h',
 	iarr: '$I',
 	arr: '$i',
-	Tex: '$m'
+	Tex: '$m',
+	f4arr: '$C',
+	i4arr: '$c',
+	shVao: '$q',
+	shVao3: '$Q'
 }, propRenames = {
 	_shp: 'S',
-	_mask: 'M'
+	_mask: 'M',
+	_setv: 'V'
 }
 /** @type { {[x: string]: import('terser').MinifyOptions} } */
 const tersers = {
