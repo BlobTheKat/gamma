@@ -99,7 +99,9 @@ const glConstants = {
 	ZERO: 0,
 	KEEP: 7680,
 	SAMPLE_ALPHA_TO_COVERAGE: 32926,
-	TRIANGLE_STRIP: 5
+	TRIANGLE_STRIP: 5,
+	ELEMENT_ARRAY_BUFFER: 34963,
+	STATIC_DRAW: 35044
 }
 const unknownConstants = new Set()
 

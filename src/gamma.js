@@ -2,6 +2,7 @@
 {
 const $ = globalThis
 Math.PI2 ??= Math.PI*2
+Math.HALF_SQRT3 ??= .8660254037844386
 const { clz32, cos, sin, min, round } = Math
 if(!('setImmediate' in $)){
 	let base = 0, cur = 0, queue = [], m = new MessageChannel();
@@ -58,7 +59,7 @@ gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, unpackBuffer)
 let premultAlpha = true, lastPbo = null, lastPboSize = -1, pboUsed = false
 // Drawing-related global state
 let pmask = 285217039, sh = null, shfCount = 0, shfMask = 0, shCount = 0
-let curfb = null, boundUsed = 0, shuniBind = 0, shpType = 5, shpStart = 0, shpLen = 4, shp = null
+let curfb = null, boundUsed = 0, shuniBind = 0, shpType = 5, shpStart = 0, shpLen = 4, shp = null, oelb = null, shpElT = 0
 gl.bindFramebuffer(gl.READ_FRAMEBUFFER, gl.createFramebuffer())
 const drawfb = gl.createFramebuffer(), buf = gl.createBuffer()
 gl.bindBuffer(gl.ARRAY_BUFFER, buf)
@@ -258,7 +259,7 @@ class Tex{
 			i&&draw()
 			srcH = srcW || tex.height; srcW = srcL || tex.width
 			gl.framebufferRenderbuffer(gl.READ_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, tex._tex)
-			if(curfb != drawfb) gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, curfb = drawfb), curt=null
+			if(curfb != drawfb) gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, curfb = drawfb), curt=lastd=null
 			gl.framebufferTextureLayer(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, t._tex, dstMip, l)
 			gl.blitFramebuffer(srcX, srcY, srcX+srcW, srcY+srcH, x, y, x+srcW, y+srcH, gl.COLOR_BUFFER_BIT, gl.NEAREST)
 			return this
@@ -458,7 +459,7 @@ class t2D{
 		this.a=a*cs-c*sn; this.b=b*cs-d*sn
 		this.c=a*sn+c*cs; this.d=b*sn+d*cs
 	}
-	transform(a,b,c,d,e,f){
+	transform(a,b,c,d,e=0,f=0){
 		if(typeof a=='object')({a,b,c,d,e,f}=a)
 		const A=this.a,B=this.b,C=this.c,D=this.d,E=this.e,F=this.f
 		this.a = A*a+C*b; this.b = B*a+D*b
@@ -475,10 +476,54 @@ class t2D{
 		this.a=ta*x-this.c*y;this.b=tb*x-this.d*y
 		this.c=ta*y+this.c*x;this.d=tb*y+this.d*x
 	}
-	getTransform(){ return {a: this.a, b: this.b, c: this.c, d: this.d, e: this.e, f: this.f} }
-	reset(a=1,b=0,c=0,d=1,e=0,f=0){if(typeof a=='object')({a,b,c,d,e,f}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this._mask=290787599;this._sh=$.Shader.DEFAULT;this._shp=defaultGeo}
 	box(x=0,y=0,w=1,h=w){ this.e+=x*this.a+y*this.c; this.f+=x*this.b+y*this.d; this.a*=w; this.b*=w; this.c*=h; this.d*=h }
 	to(x=0, y=0){ if(typeof x=='object')({x,y}=x); return {x:this.a*x+this.c*y+this.e,y:this.b*x+this.d*y+this.f}}
+	from(x=0, y=0){
+		if(typeof x=='object')({x,y}=x)
+		const a=this.a,b=this.b,c=this.c,d=this.d, det = a*d-b*c
+		return {
+			x: (x*d - y*c + c*this.f - d*this.e)/det,
+			y: (y*a - x*b + b*this.e - a*this.f)/det
+		}
+	}
+	toDelta(dx=0, dy=0){ if(typeof dx=='object')({x:dx,y:dy}=dx); return {x: this.a*dx+this.c*dy, y: this.b*dx+this.d*dy}}
+	fromDelta(dx=0, dy=0){
+		if(typeof dx=='object')({x:dx,y:dy}=dx)
+		const a=this.a,b=this.b,c=this.c,d=this.d, det = a*d-b*c
+		return {x: (dx*d-dy*c)/det, y: (dy*a-dx*b)/det}
+	}
+	determinant(){return this.a*this.d-this.b*this.c}
+}
+class t3D{
+	constructor(a=1,b=0,c=0,d=0,e=0,f=1,g=0,h=0,i=0,j=0,k=1,l=0){this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this.i=i;this.j=j;this.k=k;this.l=l}
+	translate(x=0,y=0,z=0){
+		this.j+=x*this.a+y*this.d+z*this.g
+		this.k+=x*this.b+y*this.e+z*this.h
+		this.l+=x*this.c+y*this.f+z*this.i
+	}
+	scale(x=1,y=x,z=x){
+		this.a*=x; this.b*=x; this.c*=x
+		this.d*=y; this.e*=y; this.f*=y
+		this.g*=z; this.h*=z; this.i*=z
+	}
+	transform(a,b,c,d,e,f,g,h,i,j,k,l){
+		if(typeof a=='object')({a,b,c,d,e,f,g,h,i,j,k,l}=a)
+		const A=this.a,B=this.b,C=this.c,D=this.d,E=this.e,F=this.f
+		const G=this.g,H=this.h,I=this.i,J=this.j,K=this.k,L=this.l
+		this.a = A*a+D*b+G*c; this.b = B*a+E*b+H*c; this.c = C*a+F*b+I*c
+		this.d = A*d+D*e+G*f; this.e = B*d+E*e+H*f; this.f = C*d+F*e+I*f
+		this.g = A*g+D*h+G*i; this.h = B*g+E*h+H*i; this.i = C*g+F*h+I*i
+		this.j = A*j+D*k+G*l+J; this.k = B*j+E*k+H*l+K; this.l = C*j+F*k+I*l+L
+	}
+	box(x=0,y=0,z=0,w=1,h=w,d=w){
+		this.j+=x*this.a+y*this.d+z*this.g
+		this.k+=x*this.b+y*this.e+z*this.h
+		this.l+=x*this.c+y*this.f+z*this.i
+		this.a*=x; this.b*=x; this.c*=x
+		this.d*=y; this.e*=y; this.f*=y
+		this.g*=z; this.h*=z; this.i*=z
+	}
+	to(x=0, y=0, z=0){ if(typeof x=='object')({x,y,z}=x); return {x:this.a*x+this.d*y+this.g*z+this.j,y:this.b*x+this.e*y+this.h*z+this.k,z:this.c*x+this.f*y+this.i*z+this.l} }
 	from(x=0, y=0){
 		if(typeof x=='object')({x,y}=x)
 		const a=this.a,b=this.b,c=this.c,d=this.d, det = a*d-b*c
@@ -504,6 +549,7 @@ class Drw2D extends t2D{
 	pixelRatio(){return sqrt(abs(this.a*this.d-this.b*this.c)*this.t.w*this.t.h)}
 	sub(){ return new Drw2D(this.t,this._mask,this._shp,this._sh,this.a,this.b,this.c,this.d,this.e,this.f) }
 	resetTo(m){ this.a=m.a;this.b=m.b;this.c=m.c;this.d=m.d;this.e=m.e;this.f=m.f;this._mask=m._mask;this._sh=m._sh;this._shp=m._shp }
+	reset(a=1,b=0,c=0,d=1,e=0,f=0){if(typeof a=='object')({a,b,c,d,e,f}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this._mask=290787599;this._sh=$.Shader.DEFAULT;this._shp=defaultGeo}
 	draw(...values){
 		const i = this._sh(6,values)
 		arr[i  ] = this.a; arr[i+1] = this.c; arr[i+2] = this.e
@@ -555,7 +601,7 @@ const x = Object.getOwnPropertyDescriptors({
 		let d = pmask^m
 		if(curt!=t){
 			i&&draw()
-			if(curt&&curt._stencil!=t._stencil) d|=240
+			if(!curt||curt._stencil!=t._stencil) d|=240
 			if(curfb != t._fb) gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, curfb = t._fb)
 			gl.viewport(0,0,t.w,t.h)
 			curt = t
@@ -585,7 +631,7 @@ const x = Object.getOwnPropertyDescriptors({
 		if(!t._fb) return
 		i&&draw()
 		if(lastd == this) lastd = null
-		if(curfb != t._fb) gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, curfb = t._fb), curt=null
+		if(curfb != t._fb) gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, curfb = t._fb), curt=lastd=null
 		if(!tex){
 			if(!t.u) return
 			gl.framebufferRenderbuffer(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0 + id, gl.RENDERBUFFER, null)
@@ -624,7 +670,7 @@ const x = Object.getOwnPropertyDescriptors({
 			t._stenBuf = gl.createRenderbuffer()
 		}
 		if(!u) return
-		if(curfb != t._fb) gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, curfb = t._fb), curt=null
+		if(curfb != t._fb) gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, curfb = t._fb), curt=lastd=null
 		while(u){
 			const id = 31-clz32(u)
 			u &= ~(1<<id)
@@ -639,7 +685,7 @@ const x = Object.getOwnPropertyDescriptors({
 		if(lastd == this) lastd = null
 		t._stenBuf = b = !b ? gl.createRenderbuffer() : (gl.deleteRenderbuffer(b), null)
 		if(t.w){
-			if(curfb != t._fb) gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, curfb = t._fb), curt=null
+			if(curfb != t._fb) gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, curfb = t._fb), curt=lastd=null
 			if(b){
 				gl.bindRenderbuffer(gl.RENDERBUFFER, b)
 				gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, t.w, t.h)
@@ -685,7 +731,9 @@ let lastd = null
 function draw(b = shuniBind){
 	gl.bufferData(gl.ARRAY_BUFFER, iarr.subarray(0, i), 35040)
 	fd += i; i /= shCount; fdc++; fs += i
-	gl.drawArraysInstanced(shpType, shpStart, shpLen, i)
+	shpElT ?
+	  gl.drawElementsInstanced(shpType, shpLen, shpElT, shpStart, i)
+	: gl.drawArraysInstanced(shpType, shpStart, shpLen, i)
 	i = 0; boundUsed = b
 	if(pendingFences.length){ fencetail ??= pendingFences[0]; for(const f of pendingFences){
 		f.sync = gl.fenceSync(37143,0)
@@ -701,7 +749,6 @@ const switcher = (f,s,e) => {
 const names = ['float','vec2','vec3','vec4','int','ivec2','ivec3','ivec4','uint','uvec2','uvec3','uvec4']
 const maxAttribs = gl.getParameter(gl.MAX_VERTEX_ATTRIBS)
 function switchShader(s, fc, fm, c){ sh = s; shfCount = fc; shfMask = fm; shCount = c }
-function setShp(s){ i&&draw(); shp = s; shpType = s.type; shpStart = s.start; shpLen = min(s.length, s.t._size-s.start) }
 const f4arr = new Float32Array(4), i4arr = new Int32Array(f4arr.buffer)
 // TODO: vao on Shader
 // Maybe vao on geometry
@@ -714,12 +761,12 @@ const vfgen = (three, vparams, _defaults = []) => {
 	const vFnParams = [], vFnBody = ['']
 	let vattrs = 2+three, flatvarys = 0, lerpvarys = 2+three, _vcount = 2+three
 	for(const t of vparams){
-		const sz = (t&3)+1, n = names[t&3|(t>>4&15)<<2], flat = t>15
 		if((t&15)>=12)
 			throw 'Vertex parameter cannot be a texture'
+		const sz = (t&3)+1, n = names[t&3|(t>>4&15)<<2], flat = t>15
 		_defaults[id] ??= sz==1?0:sz==2?v2z:sz==3?v3z:v4z
 		vFnParams.push(`${id}:a${id}=_defaults[${id}]`)
-		const A = t>13?'iarr[i+':'arr[i+'
+		const A = (t&63)>13?'iarr[i+':'arr[i+'
 		if(sz==1) vFnBody.push(A+_vcount+']=a'+id)
 		else for(let j=0;j<sz;j++) fnBody.push(A+(_vcount+j)+']=a'+id+'.'+'xyzw'[j])
 		const vid = ''+(vattrs>>2)
@@ -743,16 +790,17 @@ const vfgen = (three, vparams, _defaults = []) => {
 				for(let i = oStart; i < oEnd; i++) nm += 'xyzw'[i]
 			}
 		}
-		if(t<16) nm = `uintBitsToFloat(${nm})`
-		else if(t<32) nm = `${n}(${nm})`
+		if(!flat) nm = `uintBitsToFloat(${nm})`
 		const start = `GL_${flat?'V':'v'}${vid}.`
 		if(vEnd <= vStart){
 			const name1 = (flat?'GL_V':'GL_v')+(vvarys>>2)
 			vShaderHead.push(`${flat?'flat out u':'centroid out '}vec4 ${name1};`)
-			fShaderHead.push(`${flat?'flat in u':'centroid in '}vec4 ${name1};\n#define vparam${vid} ${flat?'u':''}vec4(${start+'xyzw'.slice(vStart)},${start+'xyzw'.slice(0, vEnd)})\n`)
+			const v = `${flat?'u':''}vec${sz}(${start+'xyzw'.slice(vStart)},${start+'xyzw'.slice(0, vEnd)})`
+			fShaderHead.push(`${flat?'flat in u':'centroid in '}vec4 ${name1};\n#define vparam${vid} ${t>=64&&t<80?`uintBitsToFloat(${v})`:v}\n`)
 			vShaderBody.push(`${n} t${id}=${nm};${start+'xyzw'.slice(vStart,vEnd)}=t${id}.${'xyzw'.slice(0, 4-vStart)};${name1}.${'xyzw'.slice(0, vEnd)}=t${id}.${'xyzw'.slice(4-vStart,sz)};`)
 		}else{
-			fShaderHead.push(`\n#define vparam${vid} ${start + 'xyzw'.slice(vStart, vEnd)}\n`)
+			const v = start + 'xyzw'.slice(vStart, vEnd)
+			fShaderHead.push(`\n#define vparam${vid} ${t>=64&&t<80?`uintBitsToFloat(${v})`:v}\n`)
 			vShaderBody.push(`${start+'xyzw'.slice(vStart,vEnd)}=${nm};`)
 		}
 		_vcount += sz
@@ -760,16 +808,13 @@ const vfgen = (three, vparams, _defaults = []) => {
 	}
 	vFnBody[0] = `let{i,arr,iarr}=this;if((this.i=i+${_vcount})>arr.length){${ArrayBuffer.prototype.transfer ? `arr=this.arr=new Float32Array(arr.buffer.transfer(i+${_vcount}<<3))` : `const oa=arr;arr=this.arr=new Float32Array(i+${_vcount}<<1);arr.set(oa,0)`};iarr=this.iarr=new Int32Array(arr.buffer)}`
 	vFnBody.push('return i')
-	if(flatvarys) vShaderBody.push(`flat out uvec4 GL_V0;`), fShaderHead.push(`flat in uvec4 GL_V0;`)
+	if(flatvarys) vShaderHead.push(`flat out uvec4 GL_V0;`), fShaderHead.push(`flat in uvec4 GL_V0;`)
 	const _pack = eval(`(function({${vFnParams}}){${vFnBody.join(';')}})`)
 	return {three, _pack, _vcount, fsh: fShaderHead.join(''), vsh: vShaderHead.join(''), vshb: vShaderBody.join('')}
 }
 class Geo2D extends t2D{
-	get size(){ return this.t._size }
-	constructor(t,s=0,l=0,tp=5,a=1,b=0,c=0,d=1,e=0,f=0){ super(a,b,c,d,e,f); this.t = t; this.start = s; this.length = l; this.type = tp; this.B = this.t.b }
-	get end(){ return this.start + this.length }
-	set end(a){ a >>>= 0; if(a >= this.start) this.length = a - this.start; else this.length = this.start - a, this.start = a }
-	sub(type = this.type, start = this.t._size, length = 0){ return new Geo2D(this.t, start, length, type, this.a, this.b, this.c, this.d, this.e, this.f) }
+	constructor(t,s=0,L=0,tp=5,a=1,b=0,c=0,d=1,e=0,f=0){ super(a,b,c,d,e,f); this.t = t; this._s = s; this._l = L; this._t = tp; this.B = this.t.b }
+	sub(start = this.t._size, length = 0, type = this._t){ return new Geo2D(this.t, start>>>0, length>>>0, type&7, this.a, this.b, this.c, this.d, this.e, this.f) }
 	addPoint(x, y, ...v){
 		const {t} = this, i = t._pack(v), {arr} = t
 		arr[i] = x*this.a+y*this.c+this.e; arr[i+1] = x*this.b+y*this.d+this.f
@@ -790,24 +835,103 @@ class Geo2D extends t2D{
 		arr[i] = this.e; arr[i+1] = this.f
 		return t._size++
 	}
-	upload(){
+}
+class Geo3D extends t3D{
+	constructor(t,s=0,L=0,tp=5,a=1,b=0,c=0,d=0,e=0,f=1,g=0,h=0,i=0,j=0,k=1,l=0){ super(a,b,c,d,e,f,g,h,i,j,k,l); this.t = t; this._s = s; this._l = L; this._t = tp; this.B = this.t.b }
+	sub(start = this.t._size, length = 0, type = this._t){ return new Geo2D(this.t, start>>>0, length>>>0, type&7, this.a, this.b, this.c, this.d, this.e, this.f, this.g, this.h, this.i, this.j, this.k, this.l) }
+	addPoint(x, y, z, ...v){
+		const {t} = this, i = t._pack(v), {arr} = t
+		arr[i] = x*this.a+y*this.d+z*this.g+this.j
+		arr[i+1] = x*this.b+y*this.e+z*this.h+this.k
+		arr[i+2] = x*this.c+y*this.f+z*this.i+this.l
+		return t._size++
+	}
+	add(...v){
+		const {t} = this, i = t._pack(v), {arr} = t
+		arr[i] = this.j; arr[i+1] = this.k; arr[i+2] = this.l
+		return t._size++
+	}
+	addPointv(x, y, z, v){
+		const {t} = this, i = t._pack(v), {arr} = t
+		arr[i] = x*this.a+y*this.d+z*this.g+this.j
+		arr[i+1] = x*this.b+y*this.e+z*this.h+this.k
+		arr[i+2] = x*this.c+y*this.f+z*this.i+this.l
+		return t._size++
+	}
+	addv(v){
+		const {t} = this, i = t._pack(v), {arr} = t
+		arr[i] = this.j; arr[i+1] = this.k; arr[i+2] = this.l
+		return t._size++
+	}
+}
+const y = Object.getOwnPropertyDescriptors({
+	get vertexCount(){ return this.t._size },
+	_setShp(){
 		const {t} = this
+		i&&draw(); shp = this; shpType = this._t
+		shpStart = this._s; shpLen = this._l
+		shpElT = t.elT
+		if(t.elB != oelb) gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, oelb = t.elB)
+	},
+	get end(){ return this._s + this._l },
+	set end(a){ a >>>= 0; if(a >= this._s) this._l = a - this._s; else this._l = this._s - a, this._s = a; if(shp == this) this._setShp() },
+	get start(){ return this._s },
+	set start(a){ this._s = a>>>0; if(shp == this) i&&draw(), shpStart = this._s },
+	get length(){ return this._l },
+	set length(a){ this._l = a>>>0; if(shp == this) i&&draw(), shpLen = this._l },
+	get type(){ return this._t },
+	set type(a){ this._t = a&7; if(shp == this) i&&draw(), shpType = this._t },
+	get identity(){ return this.t },
+	upload(order = null){
+		const {t} = this
+		if(!order){ if(t.elB){
+			if(shp&&shp.t==t){
+				i&&draw(), shpElT = 0
+				gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null)
+			}
+			t.elT = 0
+			t.elB.delete()
+			t.elB = null
+		} }else{
+			let typ = 0
+			if(Array.isArray(order)){
+				let max = 0
+				for(const n of order) if(n>max) max=n
+				const buf = max>254 ? max>65534 ? new Uint32Array(order.length) : new Uint16Array(order.length) : new Uint8Array(order.length)
+				buf.set(order, 0)
+				order = buf
+			}
+			typ = gl.UNSIGNED_BYTE + (0x40200>>(order.BYTES_PER_ELEMENT<<2)&15)
+			if(shp&&shp.t==t) i&&draw(), shpElT = typ
+			t.elT = typ
+			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, t.elB ??= gl.createBuffer())
+			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, order, gl.STATIC_DRAW)
+			if(!shp||shp.t!=t) gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, oelb)
+			else oelb = t.elB
+		}
 		gl.bindBuffer(gl.ARRAY_BUFFER, t.b)
 		gl.bufferData(gl.ARRAY_BUFFER, t.iarr.subarray(0, t.i), gl.STATIC_DRAW)
 		gl.bindBuffer(gl.ARRAY_BUFFER, buf)
+		t.arr = empty
+		t.iarr = iempty
+		t.i = 0
+		this._l = order ? order.length : t._size
 	}
-}
+})
+const empty = new Float32Array(), iempty = new Int32Array(empty.buffer)
+Object.defineProperties(Geo2D.prototype, y)
+Object.defineProperties(Geo3D.prototype, y)
 $.Geometry2D = (v = null, type=5) => {
 	if(typeof v == 'number') type = v, v = null
 	const {_pack, _vcount} = v ?? $.Geometry2D.DEFAULT_VERTEX
 	const arr = new Float32Array(16)
-	return new Geo2D({arr, iarr: new Int32Array(arr.buffer), i: 0, b: gl.createBuffer(), _pack, _vcount, _size: 0, L: null, v: null},0,Infinity,type)
+	return new Geo2D({arr, iarr: new Int32Array(arr.buffer), i: 0, b: gl.createBuffer(), _pack, _vcount, _size: 0, L: null, v: null, elB: null, elT: 0},0,4294967295,type)
 }
 $.Geometry3D = (v = null, type=5) => {
 	if(typeof v == 'number') type = v, v = null
 	const {_pack, _vcount} = v ?? $.Geometry3D.DEFAULT_VERTEX
 	const arr = new Float32Array(16)
-	return new Geo3D({arr, iarr: new Int32Array(arr.buffer), i: 0, b: gl.createBuffer(), _pack, _vcount, _size: 0, L: null, v: null},0,Infinity,type)
+	return new Geo3D({arr, iarr: new Int32Array(arr.buffer), i: 0, b: gl.createBuffer(), _pack, _vcount, _size: 0, L: null, v: null, elB: null, elT: 0},0,4294967295,type)
 }
 
 $.Geometry2D.Vertex = vfgen.bind(null, false)
@@ -945,7 +1069,7 @@ vec4 fGetPixel(int u,ivec3 p,int l){${T||switcher(i=>`return texelFetch(GL_f[${i
 	uniFnBody[0] = `i&&draw(0);if(sh!=s){gl.useProgram(program);switchShader(s,${fCount},${fMask},${matWidth > 3 ? attrs+12 : `lv==shVao3?${attrs+9}:${attrs+6}`})}`
 	fnBody[0] = `sz+=${attrs};if(this._setv()){const sd=sh!=s;if(sd||sz!=shCount){i&&draw(0);switchShader(s,${fCount},${fMask},sz);if(sd){gl.useProgram(program);B()};${matWidth>3?'}if(s!=this._shp.t.L){/*TODO*/}':`gl.bindVertexArray(lv=sz>${8+attrs}?shVao3:shVao)}else if(lv!=(lv=sz>${8+attrs}?shVao3:shVao)){gl.bindVertexArray(lv)};if(lv.geo!=this._shp.B){gl.bindBuffer(34962,lv.geo=this._shp.B);`}${
 		vlowest==maxAttribs-1?`gl.vertexAttribIPointer(${vlowest},${vertex._vcount&3},gl.UNSIGNED_INT,${vertex._vcount<<2},0)`:`for(let i=${maxAttribs-1},j=0;i>=${vlowest};i--,j+=16){gl.vertexAttribIPointer(i,i==${vlowest}?${vertex._vcount&3}:4,gl.UNSIGNED_INT,${vertex._vcount<<2},j)`
-	};gl.bindBuffer(34962,buf)}if(shp!=this._shp)setShp(this._shp);}let b=boundUsed^shuniBind;`+texCheck.join(';')+`;const k=grow(sz),j=k+sz-${attrs}`
+	};gl.bindBuffer(34962,buf)}if(shp!=this._shp)this._shp._setShp();}let b=boundUsed^shuniBind;`+texCheck.join(';')+`;const k=grow(sz),j=k+sz-${attrs}`
 	fnBody.push('return k')
 	const setVao = (proj, off=0) => {
 		const base = matWidth*(2+proj)
@@ -988,8 +1112,8 @@ vec4 fGetPixel(int u,ivec3 p,int l){${T||switcher(i=>`return texelFetch(GL_f[${i
 	gl.compileShader(f)
 	gl.attachShader(program, v)
 	gl.attachShader(program, f)
-	if(T=gl.getShaderInfoLog(f)) console.warn('GLSL Error:\n'+T)
-	else gl.linkProgram(program)
+	if(T=gl.getShaderInfoLog(f)) throw 'GLSL Error:\n'+T
+	gl.linkProgram(program)
 	gl.useProgram(program)
 	const uniLocs = uniNames.map(n => gl.getUniformLocation(program, n))
 	for(let i = 0; i < maxTex; i++)
@@ -1029,7 +1153,7 @@ const ctx = $.ctx = new Drw2D(curt = {_fb: null, _stencil: 0, _stenBuf: null, w:
 $.setSize = (w = 0, h = 0) => {
 	gl.canvas.width = w; gl.canvas.height = h
 	ctx.t.w = gl.drawingBufferWidth, ctx.t.h = gl.drawingBufferHeight
-	if(curt==ctx.t) curt = null
+	if(curt == ctx.t) curt = lastd = null
 	ctx.t._stencil = 0
 }
 const intvCb = () => {
@@ -1068,7 +1192,7 @@ $.loop = render => {
 		requestAnimationFrame(f)
 		if(gl.isContextLost()) return $.glLost?.(), $.glLost = fencetail = fencehead = null
 		i&&draw()
-		gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, curfb = curt = null)
+		gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, curfb = curt = lastd = null)
 		ctx.t._stencil = 0
 		dt = max(.001, min(-($.t-($.t=performance.now()*.001)), .5))
 		ctx.reset()

@@ -38,6 +38,10 @@ declare global{
 		 * This is the ratio of the circumference of a circle to its radius.
 		 */
 		readonly PI2: number
+		/**
+		 * `HALF_SQRT3 == Math.sqrt(3)/2`, i.e cos(30deg)
+		 */
+		readonly HALF_SQRT3: number
 	}
 	/**
 	 * Polyfill of `setImmediate`
@@ -70,6 +74,10 @@ declare global{
 	 * This is the ratio of the circumference of a circle to its radius.
 	 */
 	const PI2: number
+	/**
+	 * `HALF_SQRT3 == Math.sqrt(3)/2`, i.e cos(30deg)
+	 */
+	const HALF_SQRT3: number
 	/** The square root of 0.5, or, equivalently, one divided by the square root of 2. */
 	const SQRT1_2: number
 	/** The square root of 2. */
@@ -763,49 +771,17 @@ declare global{
 		const MAX_TARGETS: number
 	}
 
-	class Drawable{
-		/** An opaque object that will compare === for a `Drawable` and its sub-`Drawable`s, which always point to the same draw targets */
-		readonly identity: opaque
-		/** The backing target's whole width in pixels */
-		readonly width: number
-		/** The backing target's whole height in pixels */
-		readonly height: number
-		/**
-		 * Whether this drawable has a stencil buffer, allowing for IF_SET/IF_UNSET/SET/UNSET functionality. This value can be changed for all drawables except the main context
-		 * @performance Changing this value may create a heavy draw boundary if it causes a draw target change (See `Drawable.draw()` for more info). Allocating a stencil buffer may be slightly expensive for large targets, removing it is relatively fast. If you assign without changing (e.g `ctx.hasStencil = true` when it was already true), then no work is actually done. This may be preferable to a check-and-assign
-		 */
-		hasStencil: boolean
-
-		/**
-		 * Set a drawable target for this drawable context
-		 * 
-		 * This method is not valid on the main context. Additionally, all targets added to a single `Drawable` must have the same width and height
-		 * @param id The slot ID to set the target on. See `Drawable()` and `Drawable.MAX_TARGETS`
-		 * @param target A texture or MSAA to which draw operations should go to, or null to remove the current target at that slot. Note that sub-texture layer/crop are ignored, the drawable always draws to the entire layer
-		 * @param layer Draw to a specific layer of the texture (Default: 0)
-		 * @param mip Draw to a specific mipmap of the texture (Default: 0)
-		 */
-		setTarget(id: number, target: Texture, layer?: number, mip?: number): void
-		setTarget(id: number, target: Texture.MSAA): void
-		setTarget(id: number, target?: null): void
-
-		/**
-		 * Clear all currently bound targets (see `Drawable.setTarget`)
-		 * 
-		 * Additionally, any stencil buffer's memory is freed (beware, manually unsetting every target via `.setTarget(id, null)` will not do this!)
-		 */
-		clearTargets(): void
-
+	class Transformable2D{
 		/**
 		 * Translate (move) all following draw operations, x+ corresponds to right and y+ corresponds to up
 		 * @performance This method is CPU-arithmetic, very fast and usually inlined
 		 */
 		translate(x: number, y: number): void
 		/**
-		 * Scale all following draw operations, x+ corresponds to right and y+ corresponds to up
+		 * Scale all following draw operations
 		 * @performance This method is CPU-arithmetic, very fast and usually inlined
 		 */
-		scale(x: number, y: number): void
+		scale(x: number, y?: number): void
 		/**
 		 * Rotate all following draw operations, clockwise (or negative for anticlockwise)
 		 * @performance This method is CPU-arithmetic, fast and usually inlined, however it uses `sin()` and `cos()`
@@ -824,7 +800,7 @@ declare global{
 		 * 
 		 * @performance This method is CPU-arithmetic, very fast and usually inlined
 		 */
-		transform(a: number, b: number, c: number, d: number, e: number, f: number): void
+		transform(a: number, b: number, c: number, d: number, e?: number, f?: number): void
 		/**
 		 * Skew all following draw operations by the ratios x and y
 		 * 
@@ -842,25 +818,10 @@ declare global{
 		 */
 		multiply(r: number, i: number): void
 		/**
-		 * Get the current transformation matrix as an object with properties `a,b,c,d,e,f` corresponding to the 2D affine transformation matrix:
-		 * ```
-		 * | a c e |
-		 * | b d f |
-		 * | 0 0 1 |
-		 * ```
-		 * 
-		 * This matrix transforms points `(x, y)` to `(a*x + c*y + e, b*x + d*y + f)`
-		 * 
-		 * After-transform points `(0, 0)` and `(1,1)` represent the bottom-left and top-right corners of the drawable target respectively
-		 * 
-		 * @performance This method is CPU-arithmetic, very fast and usually inlined
-		 */
-		getTransform(): {a: number, b: number, c: number, d: number, e: number, f: number}
-		/**
 		 * Reset the transformation matrix to the identity matrix, or to one defined by the transform values a,b,c,d,e,f respectively
 		 * @performance This method is CPU-arithmetic, very fast and usually inlined
 		 */
-		reset(a: number, b: number, c: number, d: number, e: number, f: number): void
+		reset(a?: number, b?: number, c?: number, d?: number, e?: number, f?: number): void
 		/**
 		 * Simultaneous translates and scales such that the new origin is at `(x, y)` with basis vectors (w,0) and (0,h). A square drawn at `(0, 0)` with size `(1, 1)` after the transform would be drawn at `(x, y)` with size `(w, h)`
 		 * @performance This method is CPU-arithmetic, very fast and usually inlined
@@ -895,6 +856,41 @@ declare global{
 		 * @performance This method is CPU-arithmetic, very fast and usually inlined
 		 */
 		determinant(): number
+	}
+
+	class Drawable extends Transformable2D{
+		/** An opaque object that will compare === for a `Drawable` and its sub-`Drawable`s, which always point to the same draw targets */
+		readonly identity: opaque
+		/** The backing target's whole width in pixels */
+		readonly width: number
+		/** The backing target's whole height in pixels */
+		readonly height: number
+		/**
+		 * Whether this drawable has a stencil buffer, allowing for IF_SET/IF_UNSET/SET/UNSET functionality. This value can be changed for all drawables except the main context
+		 * @performance Changing this value may create a heavy draw boundary if it causes a draw target change (See `Drawable.draw()` for more info). Allocating a stencil buffer may be slightly expensive for large targets, removing it is relatively fast. If you assign without changing (e.g `ctx.hasStencil = true` when it was already true), then no work is actually done. This may be preferable to a check-and-assign
+		 */
+		hasStencil: boolean
+
+		/**
+		 * Set a drawable target for this drawable context
+		 * 
+		 * This method is not valid on the main context. Additionally, all targets added to a single `Drawable` must have the same width and height
+		 * @param id The slot ID to set the target on. See `Drawable()` and `Drawable.MAX_TARGETS`
+		 * @param target A texture or MSAA to which draw operations should go to, or null to remove the current target at that slot. Note that sub-texture layer/crop are ignored, the drawable always draws to the entire layer
+		 * @param layer Draw to a specific layer of the texture (Default: 0)
+		 * @param mip Draw to a specific mipmap of the texture (Default: 0)
+		 */
+		setTarget(id: number, target: Texture, layer?: number, mip?: number): void
+		setTarget(id: number, target: Texture.MSAA): void
+		setTarget(id: number, target?: null): void
+
+		/**
+		 * Clear all currently bound targets (see `Drawable.setTarget`)
+		 * 
+		 * Additionally, any stencil buffer's memory is freed (beware, manually unsetting every target via `.setTarget(id, null)` will not do this!)
+		 */
+		clearTargets(): void
+
 		/**
 		 * The pixel ratio of the current transformation matrix. This is the geometric mean of the absolute values of the eigenvalues, or, in other words, sqrt(determinant), multiplied by the drawable's width and height. It can be used to determine appropriate mipmap levels for textures, and represents how many pixels one unit in the current transform space corresponds to on average on the draw target
 		 * @performance This method is CPU-arithmetic, fast and usually inlined, however it uses a square root
@@ -911,6 +907,11 @@ declare global{
 		 * @performance This method is CPU-logic, very fast and usually inlined
 		 */
 		resetTo(ctx: Drawable): void
+
+		/**
+		 * Reset the 2D transform to a matrix defined by the 6 values, or the default matrix (where (0,0) is the bottom-left and (1,1) is the top right)
+		 */
+		reset(a?: number, b?: number, c?: number, d?: number, e?: number, f?: number): void
 
 		/**
 		 * The shader to be used by all drawing operations. See `Shader()` for more info on custom shaders. Can be also set to `null` to use `Shader.DEFAULT`, however reading the property never returns null
@@ -946,10 +947,10 @@ declare global{
 		 */
 		blend: Blend
 		/**
-		 * The geometry to be used by all drawing operations. See `Geometry()` for more info on custom sprite geometries. Can be also set to `null` to use `Geometry.DEFAULT`, however reading the property never returns null
+		 * The geometry to be used by all drawing operations. See `Geometry2D()` for more info on custom sprite geometries. Can be also set to `null` to use `Geometry2D.SQUARE`, however reading the property never returns null
 		 * @performance Changing this value will create a light-to-medium draw boundary (See `Drawable.draw()` for more info)
 		 */
-		geometry: Geometry
+		geometry: Geometry2D
 		/**
 		 * Draw a sprite at (0,0) to (1,1)
 		 * @param values Values, as required by the shader currently in use (See `Drawable.shader`, `Shader()` and `Shader.DEFAULT`)
@@ -1012,32 +1013,6 @@ declare global{
 		 */
 		drawMatv(a: number, b: number, c: number, d: number, e: number, f: number, values: any[]): void
 		/**
-		 * Draw a sprite at (0,0) to (1,1)
-		 * The shader values will be copied from the previous draw call, even if that call did not come from this `Drawable` object
-		 * 
-		 * This version of draw() is designed for performance in hot loops where the values don't / rarely change
-		 * @performance See `Drawable.draw()` for more info
-		 */
-		dup(): void
-		/**
-		 * Draw a sprite at `(x, y)` with size `(w, h)`
-		 * @param values Values, as required by the shader currently in use (See `Drawable.shader`, `Shader()` and `Shader.DEFAULT`)
-		 * 
-		 * This version of drawRect() is designed for performance in hot loops where the values don't / rarely change
-		 * @performance See `Drawable.draw()` for more info
-		 */
-		dupRect(x: number, y: number, w: number, h: number): void
-		/**
-		 * Draw a sprite within a parallelogram defined by a matrix
-		 * 
-		 * Bottom at `(e, f)` with bottom edge defined by the vector `(a, b)` and left edge defined by `(c, d)`
-		 * @param values Values, as required by the shader currently in use (See `Drawable.shader`, `Shader()` and `Shader.DEFAULT`)
-		 * 
-		 * This version of drawRect() is designed for performance in hot loops where the values don't / rarely change
-		 * @performance See `Drawable.draw()` for more info
-		 */
-		dupMat(a: number, b: number, c: number, d: number, e: number, f: number): void
-		/**
 		 * Clear the whole draw target to a solid color
 		 * 
 		 * @performance Will create a light draw boundary (See `Drawable.draw()` for more info)
@@ -1051,6 +1026,7 @@ declare global{
 		 */
 		clearStencil(): void
 	}
+
 	/** See `Drawable.mask` */ const R = 1
 	/** See `Drawable.mask` */ const G = 2
 	/** See `Drawable.mask` */ const B = 4
@@ -1066,7 +1042,7 @@ declare global{
 
 	type Blend = number
 	/**
-	 * Construct a blend mode OpenGL-style
+	 * Construct a GPU blend mode
 	 * 
 	 * All colors are expected to be premultiplied by their alpha channel, by convention
 	 * @param sfac The source factor (`sfac`)
@@ -1187,6 +1163,7 @@ declare global{
 	 * By default (the default geometry), a sprite drawn in a box at `(x, y)` and size `(w, h)` will take the shape of a square (i.e from `(x, y)` to `(x+w, y)` to `(x, y+h)` to `(x+w, y+h)`), however, this can be changed with geometries
 	 * 
 	 * Geometries are created in the same way as meshes using lower level graphics APIs. You provide a list of vertices (points), and a method of connecting them to draw triangles (or lines/points). Quads do not exist, but can be made of 2 triangles
+	 * @param vertexParameters Additional per-vertex parameters (See `Geometry2D.Vertex()`)
 	 * @param type The primitive type, which determines how to connect vertices (points). Can be one of
 	 * - `POINTS` Do not connect the vertices, and instead draw them as 1-pixel points
 	 * - `LINES` Connect each standalone pair of vertices by a 1-pixel-wide line (i.e vertices are connected like 0-1 2-3 4-5 with gaps between pairs)
@@ -1195,25 +1172,58 @@ declare global{
 	 * - `TRIANGLES` Connect all triplets of vertices into a triangle (i.e vertices are connected like 0-1-2 3-4-5 6-7-8 with gaps between triplets)
 	 * - `TRIANGLE_STRIP` Connect all 3 adjacent vertices into a triangle (i.e triangles are made from 0-1-2, 1-2-3, 2-3-4, 3-4-5, ...). This means every new vertex after the second forms a new triangle along with the previous 2 vertices
 	 * - `TRIANGLE_FAN` Connect all 2 adjacent vertices with the first one in the list (i.e triangles are made from 0-1-2, 0-2-3, 0-3-4, 0-4-5, ...) This makes a 'fan'-like shape when the first point is placed in the center and all other points in a circle around it, hence the name
-	 * @param vertices An array of vertices (points), in the format `[x, y, uvx, uvy, x, y, uvx, uvy, ...]` (four elements define one point). uvx/uvy are passed to the shader and used to calculate where to sample from textures, or how to shade certain features (a simple geometry will use the same values for x/y as uvx/uvy). Default geometry uses both x/y and uvx/uvy values within (0,0) to (1,1), and so does the `draw*()` family of functions, therefore you should center your geometry around that range in order to make it intuitive to use
 	 */
-	function Geometry(type: number, vertices: Float32Array | number[]): Geometry
-	interface Geometry{
-		/** Primitive type, see `Geometry()` */
+	function Geometry2D(type: number): Geometry2D
+	function Geometry2D(vertexParameters: Geometry2D.Vertex, type: number): Geometry2D
+	class Geometry2D extends Transformable2D{
+		/** Primitive type, see `Geometry2D()` */
 		type: number
 		/** Start vertex index of subgeometry (see `Geometry.sub()`) */
 		start: number
 		/** Length in vertices of geometry/subgeometry */
 		length: number
+		/** End in vertices of geometry/subgeometry (see `Geometry.sub()`) */
+		end: number
+		/** Size of the entire geometry in vertices */
+		readonly size: number
 		/**
 		 * Create a subgeometry, i.e a geometry containing only a subset of the points of this geometry, optionally with a different type
 		 * @performance This method is CPU-arithmetic, very fast. Using many subgeometries of the same geometry is also faster than using many different geometries. For many related geometries, consider building one large geometry and taking subgeometries of it
 		 */
-		sub(start: number, length?: number, type?: number): Geometry
+		sub(start?: number, length?: number, type?: number): Geometry
+
+		/** Add a point to the geometry at (x,y) with the current transform, and additional vertex values (see `Geometry2D.Vertex()`) */
+		addPoint(x, y, ...values): void
+		/** Add a point to the geometry at (0,0) with the current transform, and additional vertex values (see `Geometry2D.Vertex()`) */
+		add(...values): void
+		/** Add a point to the geometry at (x,y) with the current transform, and additional vertex values (see `Geometry2D.Vertex()`) */
+		addPointv(x, y, values): void
+		/** Add a point to the geometry at (0,0) with the current transform, and additional vertex values (see `Geometry2D.Vertex()`) */
+		addv(values): void
+		/**
+		 * Upload all points added so far to the GPU, clearing any previously uploaded geometry. This method must be called prior to using the geometry
+		 * This method also clears all points on the CPU, so that you can use the same object to start constructing a new shape, without having to hold on to or manually clear the memory used by the last geometry
+		 * @param order Set the order of vertices, an array of vertex indices. Useful to create multiple orderings of a geometry without duplicating the entire geometry, or to reuse a lot of vertices without excessive memory usage. Omit this parameter to use the default order. When specifying a custom order, the `start` and `length` properties of any subgeometry apply to the array of indices and not the pool of vertices. This array may also include -1 (or the respective maximum unsigned integer) to indicate a "primitive restart", which breaks apart triangle strips, fans, line strips and loops without needing to use multiple separate geometries
+		 */
+		upload(order?: number[] | Uint32Array): void
 	}
-	namespace Geometry{
-		/** The default geometry, constructing a square from (0,0) to (1,1), with corresponding uv values */
-		const DEFAULT: Geometry
+	namespace Geometry2D{
+		/**
+		 * Define a vertex type with additional per-vertex parameters that can be accessed from within the shader. The types accepted are
+		 * - FLOAT/VEC2/VEC3/VEC4
+		 * - INT/IVEC2/IVEC3/IVEC4
+		 * - UINT/UVEC2/UVEC3/UVEC4
+		 * 
+		 * Texture types are not allowed here.
+		 * 
+		 * You can also combine any of the floating point types with `FLAT` (e.g `VEC2 | FLAT`) to disable interpolation. Interpolation is always disabled for integer types.
+		 * - When interpolation is enabled, pixels within a triangle/line will read values as a mix of the values at the triangle's 3 vertices (or 2 vertices for a line)
+		 * - When interpolation is disabled, pixels within a triangle/line will read the value supplied to the last vertex of the triangle/line (based on the order which they are supplied)
+		 * - When rendering points, interpolation has no effect
+		 */
+		function Vertex(values: number[]): Geometry2D.Vertex
+		/** The default geometry, with no additional per-vertex parameters, constructing a square from (0,0) to (1,1) */
+		const SQUARE: Geometry2D
 	}
 	/** See `Geometry()` */ const TRIANGLE_STRIP = 5
 	/** See `Geometry()` */ const TRIANGLES = 4
@@ -1328,6 +1338,7 @@ declare global{
 	/** See `Shader()` */ const UVEC2 = 33
 	/** See `Shader()` */ const UVEC3 = 34
 	/** See `Shader()` */ const UVEC4 = 35
+	/** See `Geometry2D.Vertex() / Geometry3D.Vertex()` */ const FLAT = 64
 	/** See `Shader()` */ const TEXTURE = 20
 	/** See `Shader()` */ const UTEXTURE = 24
 	/** See `Shader()` */ const FTEXTURE = 28

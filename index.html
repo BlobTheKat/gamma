@@ -18,12 +18,10 @@
 	let ow = 0, oh = 0
 	$.render = null
 	Gamma(undefined, $).loop(() => {
-		const px = devicePixelRatio
+		const px = $.pixelRatio = devicePixelRatio
 		const w = innerWidth, h = innerHeight
-		$.pixelRatio = px
 		if(ow!=(ow=round(w*px))|oh!=(oh=round(h*px))) $.setSize(ow, oh)
 		$.canvas.style.transform = `scale(${1/px})`
-		$.canvas.style.imageRendering = $.pixelRatio>px ? 'auto' : 'pixelated'
 		$.cursorType = 'default'
 		$.render?.()
 		$.rawMouse.x = $.rawMouse.y = 0
@@ -33,7 +31,7 @@
 	})
 	$.pixelRatio = 1
 	const unint = `user-select:none;-webkit-user-select:none;touch-action: none;`
-	$.canvas.style = `position: fixed; inset: 0; transform-origin: top left; `+unint
+	$.canvas.style = `image-rendering: pixelated; position: fixed; inset: 0; transform-origin: top left; `+unint
 	$.glLost = () => {
 		$.canvas.replaceWith(document.body = document.createElement('body'))
 		document.body.textContent = 'WebGL2 context lost :('
@@ -67,6 +65,6 @@
 		[Symbol.toStringTag]: {value: 'Global', writable: false}
 	})
 	$.icon = null
-	import('./examples/text_spiral.js')
+	import('./examples/3d.js')
 }</script></body>
 </html>

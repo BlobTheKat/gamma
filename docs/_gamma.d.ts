@@ -38,6 +38,10 @@ declare global{
 		 * This is the ratio of the circumference of a circle to its radius.
 		 */
 		readonly PI2: number
+		/**
+		 * `HALF_SQRT3 == Math.sqrt(3)/2`, i.e cos(30deg)
+		 */
+		readonly HALF_SQRT3: number
 	}
 	/**
 	 * Polyfill of `setImmediate`
@@ -70,6 +74,10 @@ declare global{
 	 * This is the ratio of the circumference of a circle to its radius.
 	 */
 	const PI2: number
+	/**
+	 * `HALF_SQRT3 == Math.sqrt(3)/2`, i.e cos(30deg)
+	 */
+	const HALF_SQRT3: number
 	/** The square root of 0.5, or, equivalently, one divided by the square root of 2. */
 	const SQRT1_2: number
 	/** The square root of 2. */
