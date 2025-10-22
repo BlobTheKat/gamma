@@ -3,6 +3,7 @@
 const $ = globalThis
 Math.PI2 ??= Math.PI*2
 Math.HALF_SQRT3 ??= .8660254037844386
+Math.clamp ??= (v, m, M) => v<m?m:v>M?M:v
 const { clz32, cos, sin, min, round } = Math
 if(!('setImmediate' in $)){
 	let base = 0, cur = 0, queue = [], m = new MessageChannel();
@@ -156,14 +157,20 @@ $.vec2 = (x=0,y=x) => ({x,y})
 $.vec2.one = $.vec2(1); const v2z = $.vec2.zero = $.vec2(0)
 $.vec2.add = (a,b) => typeof b=='number'?{x:a.x+b,y:a.y+b}:{x:a.x+b.x,y:a.y+b.y}
 $.vec2.multiply = (a,b) => typeof b=='number'?{x:a.x*b,y:a.y*b}:{x:a.x*b.x,y:a.y*b.y}
+$.vec2.magnitude = a => sqrt(a.x*a.x+a.y*a.y)
+$.vec2.normalize = a => { const d = 1/sqrt(a.x*a.x+a.y*a.y); return {x:a.x*d, y: a.y*d} }
 $.vec3 = (x=0,y=x,z=x) => ({x,y,z})
 $.vec3.one = $.vec3(1); const v3z = $.vec3.zero = $.vec3(0)
 $.vec3.add = (a,b) => typeof b=='number'?{x:a.x+b,y:a.y+b,z:a.z+b}:{x:a.x+b.x,y:a.y+b.y,z:a.z+b.z}
 $.vec3.multiply = (a,b) => typeof b=='number'?{x:a.x*b,y:a.y*b,z:a.z*b}:{x:a.x*b.x,y:a.y*b.y,z:a.z*b.z}
+$.vec3.magnitude = a => sqrt(a.x*a.x+a.y*a.y+a.z*a.z)
+$.vec3.normalize = a => { const d = 1/sqrt(a.x*a.x+a.y*a.y+a.z*a.z); return {x:a.x*d, y: a.y*d, z: a.z*d} }
 $.vec4 = (x=0,y=x,z=x,w=x) => ({x,y,z,w})
 $.vec4.one = $.vec4(1); const v4z = $.vec4.zero = $.vec4(0)
 $.vec4.add = (a,b) => typeof b=='number'?{x:a.x+b,y:a.y+b,z:a.z+b,w:a.w+b}:{x:a.x+b.x,y:a.y+b.y,z:a.z+b.z,w:a.w+b.w}
 $.vec4.multiply = (a,b) => typeof b=='number'?{x:a.x*b,y:a.y*b,z:a.z*b,w:a.w*b}:{x:a.x*b.x,y:a.y*b.y,z:a.z*b.z,w:a.w*b.w}
+$.vec4.magnitude = a => sqrt(a.x*a.x+a.y*a.y+a.z*a.z+a.w*a.w)
+$.vec4.normalize = a => { const d = 1/sqrt(a.x*a.x+a.y*a.y+a.z*a.z+a.w*a.w); return {x:a.x*d, y: a.y*d, z: a.z*d, w: a.w*d} }
 
 class Tex{
 	get isInteger(){ return this.t.f.length>3 }
@@ -450,52 +457,132 @@ $.Texture.from = (src, o = 0, fmt = Formats.RGBA, mips = 0) => new Tex({
 	w: 0, h: 0, d: src ? Array.isArray(src) ? src.length : 1 : 0, m: mips||1
 })
 
+// 3x2 matrix, maps R2 -> R2
+// x y 1
+// v v v
+// a c e > x
+// b d f > y
 class t2D{
 	constructor(a=1,b=0,c=0,d=1,e=0,f=0){this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f}
 	translate(x=0,y=0){ this.e+=x*this.a+y*this.c;this.f+=x*this.b+y*this.d }
 	scale(x=1,y=x){ this.a*=x; this.b*=x; this.c*=y; this.d*=y }
 	rotate(r=0){
-		const cs = cos(r), sn = sin(r), a=this.a,b=this.b,c=this.c,d=this.d
+		const cs = cos(r), sn = sin(r), {a,b,c,d} = this
 		this.a=a*cs-c*sn; this.b=b*cs-d*sn
 		this.c=a*sn+c*cs; this.d=b*sn+d*cs
 	}
 	transform(a,b,c,d,e=0,f=0){
 		if(typeof a=='object')({a,b,c,d,e,f}=a)
-		const A=this.a,B=this.b,C=this.c,D=this.d,E=this.e,F=this.f
+		const A=this.a,B=this.b,C=this.c,D=this.d
 		this.a = A*a+C*b; this.b = B*a+D*b
 		this.c = A*c+C*d; this.d = B*c+D*d
-		this.e = A*e+C*f+E; this.f = B*e+D*f+F
+		this.e += A*e+C*f; this.f += B*e+D*f
 	}
 	skew(x=0, y=0){
-		const ta=this.a,tb=this.b
-		this.a+=this.c*y; this.b+=this.d*y
-		this.c+=ta*x; this.d+=tb*x
+		const {a,b,c,d} = this
+		this.a=a+c*y; this.b=b+d*y
+		this.c=c+a*x; this.d=d+b*x
 	}
 	multiply(x=1, y=0){
-		const ta=this.a,tb=this.b
-		this.a=ta*x-this.c*y;this.b=tb*x-this.d*y
-		this.c=ta*y+this.c*x;this.d=tb*y+this.d*x
+		const {a,b,c,d} = this
+		this.a=a*x-c*y;this.b=b*x-d*y
+		this.c=a*y+c*x;this.d=b*y+d*x
 	}
 	box(x=0,y=0,w=1,h=w){ this.e+=x*this.a+y*this.c; this.f+=x*this.b+y*this.d; this.a*=w; this.b*=w; this.c*=h; this.d*=h }
 	to(x=0, y=0){ if(typeof x=='object')({x,y}=x); return {x:this.a*x+this.c*y+this.e,y:this.b*x+this.d*y+this.f}}
 	from(x=0, y=0){
 		if(typeof x=='object')({x,y}=x)
-		const a=this.a,b=this.b,c=this.c,d=this.d, det = a*d-b*c
+		const {a,b,c,d} = this, i_det = 1/(a*d-b*c)
+		x -= this.e; y -= this.f
 		return {
-			x: (x*d - y*c + c*this.f - d*this.e)/det,
-			y: (y*a - x*b + b*this.e - a*this.f)/det
+			x: (x*d - y*c)*i_det,
+			y: (y*a - x*b)*i_det
 		}
 	}
 	toDelta(dx=0, dy=0){ if(typeof dx=='object')({x:dx,y:dy}=dx); return {x: this.a*dx+this.c*dy, y: this.b*dx+this.d*dy}}
-	fromDelta(dx=0, dy=0){
-		if(typeof dx=='object')({x:dx,y:dy}=dx)
-		const a=this.a,b=this.b,c=this.c,d=this.d, det = a*d-b*c
-		return {x: (dx*d-dy*c)/det, y: (dy*a-dx*b)/det}
+	fromDelta(x=0, y=0){
+		if(typeof x=='object')({x,y}=x)
+		const {a,b,c,d} = this, i_det = 1/(a*d-b*c)
+		return {x: (x*d-y*c)*i_det, y: (y*a-x*b)*i_det}
 	}
-	determinant(){return this.a*this.d-this.b*this.c}
+	determinant(){ return this.a*this.d-this.b*this.c }
 }
+
+// 3x3 matrix, maps R2 -> R3
+// x y 1
+// v v v
+// a d g > x
+// b e h > y
+// c f i > z
+class t2t3D{
+	constructor(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=0){this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this.i=i}
+	translate(x=0,y=0){ this.g+=x*this.a+y*this.d;this.h+=x*this.b+y*this.e;this.i+=x*this.c+y*this.f }
+	scale(x=1,y=x){ this.a*=x; this.b*=x; this.c*=x; this.d*=y; this.e*=y; this.f*=y }
+	rotate(r=0){
+		const cs = cos(r), sn = sin(r), {a,b,c,d,e,f} = this
+		this.a=a*cs-d*sn; this.b=b*cs-e*sn; this.c=c*cs-f*sn
+		this.d=a*sn+d*cs; this.e=b*sn+e*cs; this.f=c*sn+f*cs
+	}
+	transform(a,b,c,d,e=0,f=0){
+		if(typeof a=='object')({a,b,c,d,e,f}=a)
+		const A=this.a,B=this.b,C=this.c,D=this.d,E=this.e,F=this.f
+		this.a = A*a+D*b; this.b = B*a+E*b; this.c = C*a+F*b
+		this.d = A*c+D*d; this.e = B*c+E*d; this.f = C*c+F*d
+		this.g += A*e+D*f; this.h += B*e+E*f; this.i += C*e+F*f
+	}
+	skew(x=0, y=0){
+		const {a,b,c,d,e,f} = this
+		this.a=a+d*y; this.b=b+e*y; this.c=c+f*y
+		this.d=d+a*x; this.e=e+b*x; this.f=f+c*x
+	}
+	multiply(x=1, y=0){
+		const {a,b,c,d,e,f} = this
+		this.a=a*x-d*y;this.b=b*x-e*y;this.c=c*x-f*y
+		this.d=a*y+d*x;this.d=b*y+e*x;this.f=c*y+f*x
+	}
+	box(x=0,y=0,w=1,h=w){
+		this.g+=x*this.a+y*this.d
+		this.h+=x*this.b+y*this.e
+		this.i+=x*this.c+y*this.f
+		this.a*=w; this.b*=w; this.c*=w
+		this.d*=h; this.e*=h; this.f*=h
+	}
+	to(x=0, y=0){
+		if(typeof x=='object')({x,y}=x)
+		let p = this.c*x+this.f*y+this.i
+		if(p<=0) return {x:NaN,y:NaN}
+		p = 1/p
+		return {x:(this.a*x+this.d*y+this.g)*p,y:(this.b*x+this.e*y+this.h)*p}
+	}
+	from(x=0, y=0){
+		if(typeof x=='object')({x,y}=x)
+		const {a,b,c,d,e,f} = this
+		// todo
+		return {x:NaN,y:NaN}
+	}
+	toDelta(x=0, y=0){
+		if(typeof x=='object')({x,y}=x)
+		let p = this.c*x+this.f*y+this.i
+		if(p<=0) return {x:NaN,y:NaN}
+		p = 1/p
+		return {x:(this.a*x+this.d*y)*p,y:(this.b*x+this.e*y)*p}
+	}
+	fromDelta(x=0, y=0){
+		if(typeof x=='object')({x,y}=x)
+		const {a,b,c,d,e,f} = this
+		// todo
+		return {x:NaN,y:NaN}
+	}
+}
+
+// 4x3 matrix, maps R3 -> R3
+// x y z 1
+// v v v v
+// a d g j > x
+// b e h k > y
+// c f i l > z
 class t3D{
-	constructor(a=1,b=0,c=0,d=0,e=0,f=1,g=0,h=0,i=0,j=0,k=1,l=0){this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this.i=i;this.j=j;this.k=k;this.l=l}
+	constructor(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1,j=0,k=0,l=0){this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this.i=i;this.j=j;this.k=k;this.l=l}
 	translate(x=0,y=0,z=0){
 		this.j+=x*this.a+y*this.d+z*this.g
 		this.k+=x*this.b+y*this.e+z*this.h
@@ -506,50 +593,122 @@ class t3D{
 		this.d*=y; this.e*=y; this.f*=y
 		this.g*=z; this.h*=z; this.i*=z
 	}
-	transform(a,b,c,d,e,f,g,h,i,j,k,l){
+	rotateXZ(by){
+		let sy = sin(by), cy = cos(by)
+		const {a,b,c,g,h,i} = this
+		this.a = cy*a-sy*g; this.g = cy*g+sy*a
+		this.b = cy*b-sy*h; this.h = cy*h+sy*b
+		this.c = cy*c-sy*i; this.i = cy*i+sy*c
+	}
+	rotateXY(by){
+		let sy = sin(by), cy = cos(by)
+		const {a,b,c,d,e,f} = this
+		this.a = cy*a-sy*d; this.d = cy*d+sy*a
+		this.b = cy*b-sy*e; this.e = cy*e+sy*b
+		this.c = cy*c-sy*f; this.f = cy*f+sy*c
+	}
+	rotateZY(by){
+		let sy = sin(by), cy = cos(by)
+		const {d,e,f,g,h,i} = this
+		this.g = cy*g-sy*d; this.d = cy*d+sy*g
+		this.h = cy*h-sy*e; this.e = cy*e+sy*h
+		this.i = cy*i-sy*f; this.f = cy*f+sy*i
+	}
+	transform(a,b,c,d,e,f,g,h,i,j=0,k=0,l=0){
 		if(typeof a=='object')({a,b,c,d,e,f,g,h,i,j,k,l}=a)
-		const A=this.a,B=this.b,C=this.c,D=this.d,E=this.e,F=this.f
-		const G=this.g,H=this.h,I=this.i,J=this.j,K=this.k,L=this.l
+		const A=this.a,B=this.b,C=this.c,D=this.d,E=this.e,F=this.f,G=this.g,H=this.h,I=this.i
 		this.a = A*a+D*b+G*c; this.b = B*a+E*b+H*c; this.c = C*a+F*b+I*c
 		this.d = A*d+D*e+G*f; this.e = B*d+E*e+H*f; this.f = C*d+F*e+I*f
 		this.g = A*g+D*h+G*i; this.h = B*g+E*h+H*i; this.i = C*g+F*h+I*i
-		this.j = A*j+D*k+G*l+J; this.k = B*j+E*k+H*l+K; this.l = C*j+F*k+I*l+L
+		this.j += A*j+D*k+G*l; this.k += B*j+E*k+H*l; this.l += C*j+F*k+I*l
 	}
 	box(x=0,y=0,z=0,w=1,h=w,d=w){
 		this.j+=x*this.a+y*this.d+z*this.g
 		this.k+=x*this.b+y*this.e+z*this.h
 		this.l+=x*this.c+y*this.f+z*this.i
-		this.a*=x; this.b*=x; this.c*=x
-		this.d*=y; this.e*=y; this.f*=y
-		this.g*=z; this.h*=z; this.i*=z
+		this.a*=w; this.b*=w; this.c*=w
+		this.d*=h; this.e*=h; this.f*=h
+		this.g*=d; this.h*=d; this.i*=d
 	}
-	to(x=0, y=0, z=0){ if(typeof x=='object')({x,y,z}=x); return {x:this.a*x+this.d*y+this.g*z+this.j,y:this.b*x+this.e*y+this.h*z+this.k,z:this.c*x+this.f*y+this.i*z+this.l} }
+	to(x=0, y=0, z=0){
+		if(typeof x=='object')({x,y,z=0}=x)
+		let p = this.c*x+this.f*y+this.i*z+this.l
+		if(p <= 0) return {x:NaN,y:NaN}
+		p = 1/p
+		return { x: (this.a*x+this.d*y+this.g*z+this.j)*p, y: (this.b*x+this.e*y+this.h*z+this.k)*p }
+	}
 	from(x=0, y=0){
 		if(typeof x=='object')({x,y}=x)
-		const a=this.a,b=this.b,c=this.c,d=this.d, det = a*d-b*c
+		const {a,b,c,d,e,f,g,h,i} = this
+		x -= this.j; y -= this.k
+		const z = 1-this.l
+		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e, i_det = 1./(a*m + d*n + g*o)
 		return {
-			x: (x*d - y*c + c*this.f - d*this.e)/det,
-			y: (y*a - x*b + b*this.e - a*this.f)/det
+			x: (m * x + (g*f - i*d) * y + (d*h - e*g) * z) * i_det,
+			y: (n * x + (a*i - c*g) * y + (g*b - h*a) * z) * i_det,
+			z: (o * x + (d*c - f*a) * y + (a*e - b*d) * z) * i_det,
 		}
 	}
-	toDelta(dx=0, dy=0){ if(typeof dx=='object')({x:dx,y:dy}=dx); return {x: this.a*dx+this.c*dy, y: this.b*dx+this.d*dy}}
-	fromDelta(dx=0, dy=0){
-		if(typeof dx=='object')({x:dx,y:dy}=dx)
-		const a=this.a,b=this.b,c=this.c,d=this.d, det = a*d-b*c
-		return {x: (dx*d-dy*c)/det, y: (dy*a-dx*b)/det}
+	toDelta(x=0, y=0, z=0){
+		if(typeof x=='object')({x,y,z=0}=x)
+		let p = this.c*x+this.f*y+this.i*z+this.l
+		if(p <= 0) return {x:NaN,y:NaN}
+		p = 1/p
+		return { x: (this.a*x+this.d*y+this.g*z)*p, y: (this.b*x+this.e*y+this.h*z)*p }
 	}
-	determinant(){return this.a*this.d-this.b*this.c}
+	fromDelta(x=0, y=0){
+		if(typeof x=='object')({x,y}=x)
+		const {a,b,c,d,e,f,g,h,i} = this
+		const z = 1-this.l
+		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e, i_det = 1./(a*m + d*n + g*o)
+		return {
+			x: (m * x + (g*f - i*d) * y + (d*h - e*g) * z) * i_det,
+			y: (n * x + (a*i - c*g) * y + (g*b - h*a) * z) * i_det,
+			z: (o * x + (d*c - f*a) * y + (a*e - b*d) * z) * i_det,
+		}
+	}
+	determinant(){ const {a,b,c,d,e,f,g,h,i} = this; return a*(e*i-f*h)-d*(h*c-i*b)+g*(b*f-c*e)}
+	origin(){
+		const {a,b,c,d,e,f,g,h,i,j,k,l} = this
+		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e, i_det = -1./(a*m + d*n + g*o);
+		return {
+			x: (m*j + (g*f - i*d)*k + (d*h - e*g)*l) * i_det,
+			y: (n*j + (a*i - c*g)*k + (g*b - h*a)*l) * i_det,
+			z: (o*j + (d*c - f*a)*k + (a*e - b*d)*l) * i_det,
+		}
+	}
+	ray(x=0, y=0){
+		if(typeof x=='object')({x,y}=x)
+		const {a,b,c,d,e,f,g,h,i,j,k,l} = this
+		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e, i_det = 1./(a*m + d*n + g*o)
+		const p = g*f - i*d, q = a*i - c*g, r = d*c - f*a
+		const s = d*h - e*g, t = g*b - h*a, u = a*e - b*d
+		const xo = -(m*j + p*k + s*l) * i_det
+		const yo = -(n*j + q*k + t*l) * i_det
+		const zo = -(o*j + r*k + u*l) * i_det
+		const z = 1-this.l
+		const dx = (m*x + p*y + s*z) * i_det
+		const dy = (m*x + p*y + s*z) * i_det
+		const dz = (m*x + p*y + s*z) * i_det
+		const i_dst = 1/sqrt(dx*dx+dy*dy+dz*dz)
+		return {origin: {x: xo, y: yo, z: zo}, direction: {x: dx*i_dst, y: dy*i_dst, z: dz*i_dst}}
+	}
 }
 
 const grow = ArrayBuffer.prototype.transfer ?
 	by=>{const j=i;if((i=j+by)>arr.length){arr=new Float32Array(arr.buffer.transfer(i*8)),iarr=new Int32Array(arr.buffer)}return j}
 	: by=>{const j=i;if((i=j+by)>arr.length){const oa=arr;(arr=new Float32Array(i*2)).set(oa,0);iarr=new Int32Array(arr.buffer)}return j}
 class Drw2D extends t2D{
-	constructor(t,m=290787599,sp=defaultGeo,s=$.Shader.DEFAULT,a,b,c,d,e,f){ super(a,b,c,d,e,f); this.t = t; this._mask = m; this._shp = sp; this._sh = s }
+	set shader(sh){ this._sh=typeof sh=='function'&&sh.three===false?sh:$.Shader.DEFAULT }
+	get shader(){ return this._sh }
+	get geometry(){ return this._shp }
+	set geometry(a){ this._shp = a||geo2; if(lastd == this) lastd = null }
+	constructor(t,m=290787599,sp=geo2,s=$.Shader.DEFAULT,a=1,b=0,c=0,d=1,e=0,f=0){ super(a,b,c,d,e,f); this.t = t; this._mask = m; this._shp = sp; this._sh = s }
 	pixelRatio(){return sqrt(abs(this.a*this.d-this.b*this.c)*this.t.w*this.t.h)}
 	sub(){ return new Drw2D(this.t,this._mask,this._shp,this._sh,this.a,this.b,this.c,this.d,this.e,this.f) }
+	sub3DProj(z0=0,zsc=1){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D,this.a,this.b,0,this.c,this.d,0,this.e*zsc,this.f*zsc,zsc,this.e*z0,this.f*z0,z0)}
 	resetTo(m){ this.a=m.a;this.b=m.b;this.c=m.c;this.d=m.d;this.e=m.e;this.f=m.f;this._mask=m._mask;this._sh=m._sh;this._shp=m._shp }
-	reset(a=1,b=0,c=0,d=1,e=0,f=0){if(typeof a=='object')({a,b,c,d,e,f}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this._mask=290787599;this._sh=$.Shader.DEFAULT;this._shp=defaultGeo}
+	reset(a=1,b=0,c=0,d=1,e=0,f=0){if(typeof a=='object')({a,b,c,d,e,f}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this._mask=290787599;this._sh=$.Shader.DEFAULT;this._shp=geo2}
 	draw(...values){
 		const i = this._sh(6,values)
 		arr[i  ] = this.a; arr[i+1] = this.c; arr[i+2] = this.e
@@ -583,9 +742,118 @@ class Drw2D extends t2D{
 		arr[i+3] = tb*a+td*b; arr[i+4] = tb*c+td*d; arr[i+5] = tb*e+td*f+tf
 	}
 }
+class Drw2t3D extends t2t3D{
+	set shader(sh){ this._sh=typeof sh=='function'&&sh.three===false?sh:$.Shader.DEFAULT }
+	get shader(){ return this._sh }
+	get geometry(){ return this._shp }
+	set geometry(a){ this._shp = a||geo2; if(lastd == this) lastd = null }
+	constructor(t,m=290787599,sp=geo2,s=$.Shader.DEFAULT,a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=0){ super(a,b,c,d,e,f,g,h,i); this.t = t; this._mask = m; this._shp = sp; this._sh = s }
+	/*TODO*/pixelRatio(){return sqrt(abs(this.a*this.e-this.b*this.d)*this.t.w*this.t.h)}
+	sub(){ return new Drw2D(this.t,this._mask,this._shp,this._sh,this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h,this.i) }
+	/*TODO*/sub3DProj(z0=0,zsc=1){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D,this.a,this.b,0,this.c,this.d,0,this.e*zsc,this.f*zsc,zsc,this.e*z0,this.f*z0,z0)}
+	resetTo(m){ this.a=m.a;this.b=m.b;this.c=m.c;this.d=m.d;this.e=m.e;this.f=m.f;this.g=m.g;this.h=m.h;this.i=m.i;this._mask=m._mask;this._sh=m._sh;this._shp=m._shp }
+	reset(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=0){if(typeof a=='object')({a,b,c,d,e,f}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this._mask=290787599;this._sh=$.Shader.DEFAULT;this._shp=geo2}
+	draw(...values){
+		const i = this._sh(9,values)
+		arr[i  ] = this.a; arr[i+1] = this.d; arr[i+2] = this.g
+		arr[i+3] = this.b; arr[i+4] = this.e; arr[i+5] = this.h
+		arr[i+6] = this.c; arr[i+7] = this.f; arr[i+8] = this.i
+	}
+	drawRect(x=0, y=0, w=1, h=1, ...values){
+		const i = this._sh(9,values)
+		arr[i  ] = this.a*w; arr[i+1] = this.d*h; arr[i+2] = this.g+x*this.a+y*this.d
+		arr[i+3] = this.b*w; arr[i+4] = this.e*h; arr[i+5] = this.h+x*this.b+y*this.e
+		arr[i+6] = this.c*w; arr[i+7] = this.f*h; arr[i+8] = this.i+x*this.c+y*this.f
+	}
+	drawMat(a=1, b=0, c=0, d=1, e=0, f=0, ...values){
+		const i = this._sh(9,values)
+		const ta=this.a,tb=this.b,tc=this.c,td=this.d,te=this.e,tf=this.f,tg=this.g,th=this.h,ti=this.i
+		arr[i  ] = ta*a+td*b; arr[i+1] = ta*c+td*d; arr[i+2] = ta*e+td*f+tg
+		arr[i+3] = tb*a+te*b; arr[i+4] = tb*c+te*d; arr[i+5] = tb*e+te*f+th
+		arr[i+6] = tc*a+tf*b; arr[i+7] = tc*c+tf*d; arr[i+8] = tc*e+tf*f+ti
+	}
+	drawv(values){
+		const i = this._sh(9,values)
+		arr[i  ] = this.a; arr[i+1] = this.d; arr[i+2] = this.g
+		arr[i+3] = this.b; arr[i+4] = this.e; arr[i+5] = this.h
+		arr[i+6] = this.c; arr[i+7] = this.f; arr[i+8] = this.i
+	}
+	drawRectv(x=0, y=0, w=1, h=1, values){
+		const i = this._sh(9,values)
+		arr[i  ] = this.a*w; arr[i+1] = this.d*h; arr[i+2] = this.g+x*this.a+y*this.d
+		arr[i+3] = this.b*w; arr[i+4] = this.e*h; arr[i+5] = this.h+x*this.b+y*this.e
+		arr[i+6] = this.c*w; arr[i+7] = this.f*h; arr[i+8] = this.i+x*this.c+y*this.f
+	}
+	drawMatv(a=1, b=0, c=0, d=1, e=0, f=0, values){
+		const i = this._sh(9,values)
+		const ta=this.a,tb=this.b,tc=this.c,td=this.d,te=this.e,tf=this.f,tg=this.g,th=this.h,ti=this.i
+		arr[i  ] = ta*a+td*b; arr[i+1] = ta*c+td*d; arr[i+2] = ta*e+td*f+tg
+		arr[i+3] = tb*a+te*b; arr[i+4] = tb*c+te*d; arr[i+5] = tb*e+te*f+th
+		arr[i+6] = tc*a+tf*b; arr[i+7] = tc*c+tf*d; arr[i+8] = tc*e+tf*f+ti
+	}
+}
+class Drw3D extends t3D{
+	set shader(sh){ this._sh=typeof sh=='function'&&sh.three===true?sh:$.Shader.COLOR_3D }
+	get shader(){ return this._sh }
+	get geometry(){ return this._shp }
+	set geometry(a){ this._shp = a||geo3; if(lastd == this) lastd = null }
+	constructor(t,m=290787599,sp=geo3,s=$.Shader.COLOR_3D,a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1,j=0,k=0,l=0){ super(a,b,c,d,e,f,g,h,i,j,k,l); this.t = t; this._mask = m; this._shp = sp; this._sh = s }
+	sub(){ return new Drw3D(this.t,this._mask,this._shp,this._sh,this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h,this.i,this.j,this.k,this.l) }
+	sub2D(xx=NaN,xy=0,xz=0,yx=0,yy=1,yz=0){
+		if(xx!==xx) return new Drw2t3D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.a,this.b,this.c,this.d,this.e,this.f,this.j,this.k,this.l)
+		const A=this.a,B=this.b,C=this.c,D=this.d,E=this.e,F=this.f,G=this.g,H=this.h,I=this.i
+		return new Drw2t3D(this.t,this._mask,this._shp,this._sh,A*xx+D*xy+G*xz, B*xx+E*xy+H*xz, C*xx+F*xy+I*xz,A*yx+D*yy+G*yz, B*yx+E*yy+H*yz, C*yx+F*yy+I*yz,this.j,this.k,this.l)
+	}
+	resetTo(m){ this.a=m.a;this.b=m.b;this.c=m.c;this.d=m.d;this.e=m.e;this.f=m.f;this.g=m.g;this.h=m.h;this.i=m.i;this.j=m.j;this.k=m.k;this.l=m.l;this._mask=m._mask;this._sh=m._sh;this._shp=m._shp }
+	reset(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1,j=0,k=0,l=0){if(typeof a=='object')({a,b,c,d,e,f,g,h,i,j,k,l}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this.i=i;this.j=j;this.k=k;this.l=l;this._mask=290787599;this._sh=$.Shader.COLOR_3D;this._shp=geo3}
+	draw(...values){
+		const v = this._sh(12,values)
+		arr[v  ] = this.a; arr[v+1] = this.d; arr[v+2] = this.g; arr[v+3] = this.j
+		arr[v+4] = this.b; arr[v+5] = this.e; arr[v+6] = this.h; arr[v+7] = this.k
+		arr[v+8] = this.c; arr[v+9] = this.f; arr[v+10] = this.i; arr[v+11] = this.l
+	}
+	drawCube(x=0, y=0, z=0, xs=1, ys=1, zs=1, ...values){
+		const v = this._sh(12,values)
+		const {a,b,c,d,e,f,g,h,i} = this
+		arr[v  ] = a*xs; arr[v+1] = d*ys; arr[v+2] = g*zs; arr[v+3] = this.j+x*a+y*d+z*g
+		arr[v+4] = b*xs; arr[v+5] = e*ys; arr[v+6] = h*zs; arr[v+7] = this.k+x*b+y*e+z*h
+		arr[v+8] = c*xs; arr[v+9] = f*ys; arr[v+10] = i*zs; arr[v+11] = this.l+x*c+y*f+z*i
+	}
+	drawMat(a=1, b=0, c=0, d=0, e=1, f=0, g=0, h=0, i=1, j=0, k=0, l=0, ...values){
+		const v = this._sh(12,values)
+		const A=this.a,B=this.b,C=this.c,D=this.d,E=this.e,F=this.f,G=this.g,H=this.h,I=this.i
+		arr[v  ] = A*a+D*b+G*c; arr[v+1] = A*d+D*e+G*f
+		arr[v+2] = A*g+D*h+G*i; arr[v+3] = this.j+A*j+D*k+G*l
+		arr[v+4] = B*a+E*b+H*c; arr[v+5] = B*d+E*e+H*f
+		arr[v+6] = B*g+E*h+H*i; arr[v+7] = this.k+B*j+E*k+H*l
+		arr[v+8] = C*a+F*b+I*c; arr[v+9] = C*d+F*e+I*f
+		arr[v+10] = C*g+F*h+I*i; arr[v+11] = this.l+C*j+F*k+I*l
+	}
+	drawv(values){
+		const v = this._sh(12,values)
+		arr[v  ] = this.a; arr[v+1] = this.d; arr[v+2] = this.g; arr[v+3] = this.j
+		arr[v+4] = this.b; arr[v+5] = this.e; arr[v+6] = this.h; arr[v+7] = this.k
+		arr[v+8] = this.c; arr[v+9] = this.f; arr[v+10] = this.i; arr[v+11] = this.l
+	}
+	drawCubev(x=0, y=0, z=0, xs=1, ys=1, zs=1, values){
+		const v = this._sh(12,values)
+		const {a,b,c,d,e,f,g,h,i} = this
+		arr[v  ] = a*xs; arr[v+1] = d*ys; arr[v+2] = g*zs; arr[v+3] = this.j+x*a+y*d+z*g
+		arr[v+4] = b*xs; arr[v+5] = e*ys; arr[v+6] = h*zs; arr[v+7] = this.k+x*b+y*e+z*h
+		arr[v+8] = c*xs; arr[v+9] = f*ys; arr[v+10] = i*zs; arr[v+11] = this.l+x*c+y*f+z*i
+	}
+	drawMatv(a=1, b=0, c=0, d=0, e=1, f=0, g=0, h=0, i=1, j=0, k=0, l=0, values){
+		const v = this._sh(12,values)
+		const A=this.a,B=this.b,C=this.c,D=this.d,E=this.e,F=this.f,G=this.g,H=this.h,I=this.i
+		arr[v  ] = A*a+D*b+G*c; arr[v+1] = A*d+D*e+G*f
+		arr[v+2] = A*g+D*h+G*i; arr[v+3] = this.j+A*j+D*k+G*l
+		arr[v+4] = B*a+E*b+H*c; arr[v+5] = B*d+E*e+H*f
+		arr[v+6] = B*g+E*h+H*i; arr[v+7] = this.k+B*j+E*k+H*l
+		arr[v+8] = C*a+F*b+I*c; arr[v+9] = C*d+F*e+I*f
+		arr[v+10] = C*g+F*h+I*i; arr[v+11] = this.l+C*j+F*k+I*l
+	}
+}
 const x = Object.getOwnPropertyDescriptors({
-	set shader(sh){ this._sh=typeof sh=='function'?sh:$.Shader.DEFAULT },
-	get shader(){ return this._sh },
 	get width(){ return this.t.w },
 	get height(){ return this.t.h },
 	get identity(){ return this.t },
@@ -593,8 +861,6 @@ const x = Object.getOwnPropertyDescriptors({
 	get mask(){ return this._mask&255 },
 	set blend(b){ this._mask=this._mask&255|(b||1135889)<<8; if(lastd == this) lastd = null },
 	get blend(){ return this._mask>>8 },
-	get geometry(){ return this._shp },
-	set geometry(a){ this._shp = a||defaultGeo; if(lastd == this) lastd = null },
 	_setv(){
 		if(lastd == this) return false
 		const {t, _mask: m} = this, s = t._stencil
@@ -714,6 +980,9 @@ const x = Object.getOwnPropertyDescriptors({
 	}
 })
 Object.defineProperties(Drw2D.prototype, x)
+Object.defineProperties(Drw3D.prototype, x)
+Object.defineProperties(Drw2t3D.prototype, x)
+//Object.defineProperties(Drw3t2D.prototype, x)
 
 Object.assign($.Blend = (src = 17, combine = 17, dst = 0, a2c = false) => src|dst<<8|combine<<16|a2c<<23, {
 	REPLACE: 1114129,
@@ -732,8 +1001,8 @@ function draw(b = shuniBind){
 	gl.bufferData(gl.ARRAY_BUFFER, iarr.subarray(0, i), 35040)
 	fd += i; i /= shCount; fdc++; fs += i
 	shpElT ?
-	  gl.drawElementsInstanced(shpType, shpLen, shpElT, shpStart, i)
-	: gl.drawArraysInstanced(shpType, shpStart, shpLen, i)
+	  gl.drawElementsInstanced(shpType&7, shpLen, shpElT, shpStart, i)
+	: gl.drawArraysInstanced(shpType&7, shpStart, shpLen, i)
 	i = 0; boundUsed = b
 	if(pendingFences.length){ fencetail ??= pendingFences[0]; for(const f of pendingFences){
 		f.sync = gl.fenceSync(37143,0)
@@ -775,26 +1044,22 @@ const vfgen = (three, vparams, _defaults = []) => {
 		const vStart = vvarys&3, vEnd = ((vvarys += sz)&3)||4
 		if(flat) flatvarys = vvarys; else lerpvarys = vvarys
 		let nm = ''
+		if(oEnd <= (oStart||4)){
+			const pos = (vattrs>>2)-(sz==4+oStart)
+			vShaderHead.push(`layout(location=${maxAttribs-1-pos})in uvec4 o${pos};`)
+		}
 		if(oEnd <= oStart){
-			const id1 = ''+(vattrs>>2)
-			vShaderHead.push(`layout(location=${maxAttribs-1-(vattrs>>2)})in uvec4 o${id1};`)
-			nm = `uvec${sz}(o${vid}.`
-			for(let i = oStart; i < 4; i++) nm += 'xyzw'[i]
-			nm += `,o${id1}.`
-			for(let i = 0; i < oEnd; i++) nm += 'xyzw'[i]
-			nm += ')'
+			nm = `uvec${sz}(o${vid}.${'xyzw'.slice(oStart,4)},o${vattrs>>2}.${'xyzw'.slice(0, oEnd)})`
 		}else{
 			if(oEnd==4&&oStart==0) nm = 'v' + vid
-			else{
-				nm = `o${vid}.`
-				for(let i = oStart; i < oEnd; i++) nm += 'xyzw'[i]
-			}
+			else nm = `o${vid}.` + 'xyzw'.slice(oStart, oEnd)
 		}
 		if(!flat) nm = `uintBitsToFloat(${nm})`
 		const start = `GL_${flat?'V':'v'}${vid}.`
+		if(vEnd <= (vStart||4))
+			vShaderHead.push(`${flat?'flat out u':'centroid out '}vec4 ${(flat?'GL_V':'GL_v')+((vvarys>>2)-!((sz==4+vStart)))};`)
 		if(vEnd <= vStart){
 			const name1 = (flat?'GL_V':'GL_v')+(vvarys>>2)
-			vShaderHead.push(`${flat?'flat out u':'centroid out '}vec4 ${name1};`)
 			const v = `${flat?'u':''}vec${sz}(${start+'xyzw'.slice(vStart)},${start+'xyzw'.slice(0, vEnd)})`
 			fShaderHead.push(`${flat?'flat in u':'centroid in '}vec4 ${name1};\n#define vparam${vid} ${t>=64&&t<80?`uintBitsToFloat(${v})`:v}\n`)
 			vShaderBody.push(`${n} t${id}=${nm};${start+'xyzw'.slice(vStart,vEnd)}=t${id}.${'xyzw'.slice(0, 4-vStart)};${name1}.${'xyzw'.slice(0, vEnd)}=t${id}.${'xyzw'.slice(4-vStart,sz)};`)
@@ -814,7 +1079,7 @@ const vfgen = (three, vparams, _defaults = []) => {
 }
 class Geo2D extends t2D{
 	constructor(t,s=0,L=0,tp=5,a=1,b=0,c=0,d=1,e=0,f=0){ super(a,b,c,d,e,f); this.t = t; this._s = s; this._l = L; this._t = tp; this.B = this.t.b }
-	sub(start = this.t._size, length = 0, type = this._t){ return new Geo2D(this.t, start>>>0, length>>>0, type&7, this.a, this.b, this.c, this.d, this.e, this.f) }
+	sub(start = this.t._size, length = 0, type = this._t){ return new Geo2D(this.t, start>>>0, length>>>0, type&63, this.a, this.b, this.c, this.d, this.e, this.f) }
 	addPoint(x, y, ...v){
 		const {t} = this, i = t._pack(v), {arr} = t
 		arr[i] = x*this.a+y*this.c+this.e; arr[i+1] = x*this.b+y*this.d+this.f
@@ -837,8 +1102,8 @@ class Geo2D extends t2D{
 	}
 }
 class Geo3D extends t3D{
-	constructor(t,s=0,L=0,tp=5,a=1,b=0,c=0,d=0,e=0,f=1,g=0,h=0,i=0,j=0,k=1,l=0){ super(a,b,c,d,e,f,g,h,i,j,k,l); this.t = t; this._s = s; this._l = L; this._t = tp; this.B = this.t.b }
-	sub(start = this.t._size, length = 0, type = this._t){ return new Geo2D(this.t, start>>>0, length>>>0, type&7, this.a, this.b, this.c, this.d, this.e, this.f, this.g, this.h, this.i, this.j, this.k, this.l) }
+	constructor(t,s=0,L=0,tp=5,a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1,j=0,k=0,l=0){ super(a,b,c,d,e,f,g,h,i,j,k,l); this.t = t; this._s = s; this._l = L; this._t = tp; this.B = this.t.b }
+	sub(start = this.t._size, length = 0, type = this._t){ return new Geo2D(this.t, start>>>0, length>>>0, type&63, this.a, this.b, this.c, this.d, this.e, this.f, this.g, this.h, this.i, this.j, this.k, this.l) }
 	addPoint(x, y, z, ...v){
 		const {t} = this, i = t._pack(v), {arr} = t
 		arr[i] = x*this.a+y*this.d+z*this.g+this.j
@@ -868,7 +1133,15 @@ const y = Object.getOwnPropertyDescriptors({
 	get vertexCount(){ return this.t._size },
 	_setShp(){
 		const {t} = this
-		i&&draw(); shp = this; shpType = this._t
+		i&&draw(); shp = this
+		const ot4 = shpType>>4, t4 = (shpType = this._t)>>4
+		if(ot4 != t4){
+			if(!t4) gl.disable(gl.CULL_FACE)
+			else{
+				if(!ot4) gl.enable(gl.CULL_FACE)
+				gl.cullFace(1027+t4+(t4&t4<<1))
+			}
+		}
 		shpStart = this._s; shpLen = this._l
 		shpElT = t.elT
 		if(t.elB != oelb) gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, oelb = t.elB)
@@ -880,7 +1153,7 @@ const y = Object.getOwnPropertyDescriptors({
 	get length(){ return this._l },
 	set length(a){ this._l = a>>>0; if(shp == this) i&&draw(), shpLen = this._l },
 	get type(){ return this._t },
-	set type(a){ this._t = a&7; if(shp == this) i&&draw(), shpType = this._t },
+	set type(a){ this._t = a&63; if(shp == this) this._setShp() },
 	get identity(){ return this.t },
 	upload(order = null){
 		const {t} = this
@@ -925,25 +1198,23 @@ $.Geometry2D = (v = null, type=5) => {
 	if(typeof v == 'number') type = v, v = null
 	const {_pack, _vcount} = v ?? $.Geometry2D.DEFAULT_VERTEX
 	const arr = new Float32Array(16)
-	return new Geo2D({arr, iarr: new Int32Array(arr.buffer), i: 0, b: gl.createBuffer(), _pack, _vcount, _size: 0, L: null, v: null, elB: null, elT: 0},0,4294967295,type)
+	return new Geo2D({arr, iarr: new Int32Array(arr.buffer), i: 0, b: gl.createBuffer(), _pack, _vcount, _size: 0, elB: null, elT: 0},0,4294967295,type)
 }
 $.Geometry3D = (v = null, type=5) => {
 	if(typeof v == 'number') type = v, v = null
 	const {_pack, _vcount} = v ?? $.Geometry3D.DEFAULT_VERTEX
 	const arr = new Float32Array(16)
-	return new Geo3D({arr, iarr: new Int32Array(arr.buffer), i: 0, b: gl.createBuffer(), _pack, _vcount, _size: 0, L: null, v: null, elB: null, elT: 0},0,4294967295,type)
+	return new Geo3D({arr, iarr: new Int32Array(arr.buffer), i: 0, b: gl.createBuffer(), _pack, _vcount, _size: 0, L: null, v: gl.createVertexArray(), Ls: 0, elB: null, elT: 0},0,4294967295,type)
 }
 
 $.Geometry2D.Vertex = vfgen.bind(null, false)
 $.Geometry3D.Vertex = vfgen.bind(null, true)
-$.Geometry3D.DEFAULT_VERTEX = vfgen(true, [])
-const defaultGeo = $.Geometry2D.SQUARE = $.Geometry2D($.Geometry2D.DEFAULT_VERTEX = vfgen(false, []))
-defaultGeo.type = 5
-defaultGeo.addPoint(0, 0)
-defaultGeo.addPoint(0, 1)
-defaultGeo.addPoint(1, 0)
-defaultGeo.addPoint(1, 1)
-defaultGeo.upload()
+const geo2 = $.Geometry2D.SQUARE = $.Geometry2D($.Geometry2D.DEFAULT_VERTEX = vfgen(false, []), 5)
+const geo3 = $.Geometry3D.CUBE = $.Geometry3D($.Geometry3D.DEFAULT_VERTEX = vfgen(true, []), 21)
+for(let i=0;i<4;i++) geo2.addPoint(i&1,i>>1&1), geo3.addPoint(i&1,i>>1&1, 0), geo3.addPoint(i&1,i>>1&1, 1)
+geo2.upload()
+geo3.upload(new Uint8Array([4, 6, 0, 2, 3, 6, 7, 4, 5, 0, 1, 3, 5, 7]))
+$.Geometry3D.INSIDE_CUBE = geo3.sub(0, 14, 37)
 
 $.Shader = (src, {params, defaults: _defaults, uniforms, uniformDefaults: _uDefaults, outputs=4, vertex = $.Geometry2D.DEFAULT_VERTEX, intFrac=0.5}={}) => {
 	params = typeof params=='number' ? [params] : params || []
@@ -953,20 +1224,22 @@ $.Shader = (src, {params, defaults: _defaults, uniforms, uniformDefaults: _uDefa
 	outputs = typeof outputs=='number' ? [outputs] : outputs || []
 	if(outputs.length > Drawable.MAX_TARGETS) throw `Too many shader outputs (Drawable.MAX_TARGETS == ${Drawable.MAX_TARGETS})`
 	const matWidth = 3+vertex.three
-	const fnParams = [], fnBody = [''], vShaderHead = [`#version 300 es\nprecision highp float;precision highp int;layout(location=0)in mat3x${matWidth} m;layout(location=${maxAttribs-1})in uvec4 o0;out vec4 GL_v0;`], vShaderBody = [`void main(){gl_PointSize=1.;gl_Position.z=0.;gl_Position.xyw=vec${matWidth}(GL_v0.xy${vertex.three?'z':''}=uintBitsToFloat(o0.xy${vertex.three?'z':''}),1.)*m;gl_Position.xy=gl_Position.xy*2.-1.;`], fShaderHead = ['#version 300 es\nprecision highp float;precision highp int;in vec4 GL_v0;\n#define color color0\n#define pos GL_v0.xyz\n'+outputs.map((o,i) => `layout(location=${i})out ${!o?'':o==16||o==32?'u':'lowp '}vec4 color${i};`).join(';'),'']
+	const fnParams = [], fnBody = [''], vShaderHead = [`#version 300 es\nprecision highp float;precision highp int;layout(location=0)in mat3x${matWidth} m;layout(location=${maxAttribs-1})in uvec4 o0;out vec4 GL_v0;`], vShaderBody = [`void main(){gl_PointSize=1.;gl_Position.z=0.;gl_Position.xyw=vec${matWidth}(GL_v0.xy${vertex.three?'z':''}=uintBitsToFloat(o0.xy${vertex.three?'z':''}),1.)*m;gl_Position.xy=gl_Position.xy*2.-gl_Position.w;`], fShaderHead = [`#version 300 es\nprecision highp float;precision highp int;in vec4 GL_v0;\n#define color color0\n#define pos GL_v0.xy${matWidth>3?'z':''}\n`+outputs.map((o,i) => `layout(location=${i})out ${!o?'':o==16||o==32?'u':'lowp '}vec4 color${i};`).join(';'),'']
 	let used = 0, fCount = 0, iCount = 0, attrs = 0
 	const texCheck = []
 	const addAttr = (sz=0) => {
 		const id = ''+(attrs>>2)
 		const oStart = attrs&3, oEnd = ((attrs += sz)&3)||4
-		if(oEnd <= oStart){
-			const id1 = ''+(attrs>>2)
-			vShaderHead.push(`layout(location=${(attrs>>2)+3})in uvec4 a${id1};flat out uvec4 GL_a${id1};`)
+		if(oEnd <= (oStart||4)){
+			const id = ((attrs>>2) - (sz==4+oStart)), id1 = ''+id
+			vShaderHead.push(`layout(location=${id+3})in uvec4 a${id1};flat out uvec4 GL_a${id1};`)
 			fShaderHead.push(`flat in uvec4 GL_a${id1};`)
 			vShaderBody.push(`GL_a${id1}=a${id1};`)
+		}
+		if(oEnd <= oStart){
 			let nm = `uvec${sz}(GL_a${id}.`
 			for(let i = oStart; i < 4; i++) nm += 'xyzw'[i]
-			nm += `,GL_a${id1}.`
+			nm += `,GL_a${attrs>>2}.`
 			for(let i = 0; i < oEnd; i++) nm += 'xyzw'[i]
 			return nm+')'
 		}
@@ -1036,10 +1309,10 @@ $.Shader = (src, {params, defaults: _defaults, uniforms, uniformDefaults: _uDefa
 			states.push(`,s${states.length}=null,s${states.length+1}=0`)
 		}else{
 			fShaderHead.push(`uniform ${names[t&3|t>>4<<2]} uni${id};`)
-			let args = `gl.uniform${c+(t<16?'f':t<32?'i':'ui')}(uniLocs[${uniNames.length}]`
+			let args = `gl.uniform${sz+(t<16?'f':t<32?'i':'ui')}(uniLocs[${uniNames.length}]`
 			uniNames.push('uni'+id)
-			if(c==1) args += ',a'+id
-			else for(let j=0;j<c;j++) args += ',a'+id+'.'+'xyzw'[j]
+			if(sz==1) args += ',a'+id
+			else for(let j=0;j<sz;j++) args += ',a'+id+'.'+'xyzw'[j]
 			uniFnBody.push(args+')')
 		}
 		id++
@@ -1067,9 +1340,9 @@ vec4 fGetPixel(int u,ivec3 p,int l){${T||switcher(i=>`return texelFetch(GL_f[${i
 	fShaderHead[1] = head
 	const fMask = 32-fCount&&(-1>>>fCount)
 	uniFnBody[0] = `i&&draw(0);if(sh!=s){gl.useProgram(program);switchShader(s,${fCount},${fMask},${matWidth > 3 ? attrs+12 : `lv==shVao3?${attrs+9}:${attrs+6}`})}`
-	fnBody[0] = `sz+=${attrs};if(this._setv()){const sd=sh!=s;if(sd||sz!=shCount){i&&draw(0);switchShader(s,${fCount},${fMask},sz);if(sd){gl.useProgram(program);B()};${matWidth>3?'}if(s!=this._shp.t.L){/*TODO*/}':`gl.bindVertexArray(lv=sz>${8+attrs}?shVao3:shVao)}else if(lv!=(lv=sz>${8+attrs}?shVao3:shVao)){gl.bindVertexArray(lv)};if(lv.geo!=this._shp.B){gl.bindBuffer(34962,lv.geo=this._shp.B);`}${
+	fnBody[0] = `sz+=${attrs};if(this._setv()){const sd=sh!=s,{_shp}=this;;if(sd||sz!=shCount){i&&draw(0);switchShader(s,${fCount},${fMask},sz);if(sd){gl.useProgram(program);B()}${matWidth>3?'}if(s!=_shp.t.L||sz!=_shp.Ls){_shp.L=s;_shp.Ls=sz;gl.bindVertexArray(_shp.v);setVao(sz>8);gl.bindBuffer(34962,_shp.B);':`gl.bindVertexArray(lv=sz>${8+attrs}?shVao3:shVao)}else if(lv!=(lv=sz>${8+attrs}?shVao3:shVao)){gl.bindVertexArray(lv)};if(lv.geo!=_shp.B){gl.bindBuffer(34962,lv.geo=_shp.B);`}${
 		vlowest==maxAttribs-1?`gl.vertexAttribIPointer(${vlowest},${vertex._vcount&3},gl.UNSIGNED_INT,${vertex._vcount<<2},0)`:`for(let i=${maxAttribs-1},j=0;i>=${vlowest};i--,j+=16){gl.vertexAttribIPointer(i,i==${vlowest}?${vertex._vcount&3}:4,gl.UNSIGNED_INT,${vertex._vcount<<2},j)`
-	};gl.bindBuffer(34962,buf)}if(shp!=this._shp)this._shp._setShp();}let b=boundUsed^shuniBind;`+texCheck.join(';')+`;const k=grow(sz),j=k+sz-${attrs}`
+	};gl.bindBuffer(34962,buf)}if(shp!=_shp)_shp._setShp();}let b=boundUsed^shuniBind;`+texCheck.join(';')+`;const k=grow(sz),j=k+sz-${attrs}`
 	fnBody.push('return k')
 	const setVao = (proj, off=0) => {
 		const base = matWidth*(2+proj)
@@ -1105,7 +1378,6 @@ vec4 fGetPixel(int u,ivec3 p,int l){${T||switcher(i=>`return texelFetch(GL_f[${i
 	const s = eval(`let ${matWidth<4?`lv=shVao3`:'_'}${states.length?states.join(''):''};const B=function(){${bindUniTexBody.join(';')};shuniBind=boundUsed},s=function(sz,{${fnParams}}){${fnBody.join(';')}};s.uniforms=(function(${uniFnParams}){${uniFnBody.join(';')};B()});s`), program = gl.createProgram()
 	const v=gl.createShader(35633), f=gl.createShader(35632)
 	vShaderBody.push('}')
-	if(attrs) vShaderHead[0]+='layout(location=3)in uvec4 a0;flat out uvec4 GL_a0;', vShaderBody[0]+='GL_a0=a0;', fShaderHead[0]+='flat in uvec4 GL_a0;'
 	gl.shaderSource(v, vShaderHead.join('')+vShaderBody.join(''))
 	gl.compileShader(v)
 	gl.shaderSource(f, fShaderHead.join('')+'\n'+src)
@@ -1127,7 +1399,9 @@ vec4 fGetPixel(int u,ivec3 p,int l){${T||switcher(i=>`return texelFetch(GL_f[${i
 let fdc = 0, fs = 0, fd = 0
 $.Shader.UINT = $.Shader(`void main(){color=param0;}`, {params:$.UVEC4, outputs:$.UINT})
 $.Shader.BLACK = $.Shader(`void main(){color=vec4(0,0,0,1);}`)
-$.Shader.DEFAULT = $.Shader(`void main(){color=param0(pos.xy)*param1;}`, {params:[$.COLOR, $.VEC4], defaults:[void 0, $.vec4.one]})
+$.Shader.DEFAULT = $.Shader(`void main(){color=param0(pos)*param1;}`, {params:[$.COLOR, $.VEC4], defaults:[void 0, $.vec4.one]})
+$.Shader.COLOR_3D = $.Shader(`void main(){color=param0;}`, {params:[$.VEC4], defaults:[void 0, $.vec4.one],vertex:Geometry3D.DEFAULT_VERTEX})
+$.Shader.SHADED_3D = $.Shader(`void main(){float a=(1.-dot(normalize(cross(dFdx(pos),dFdy(pos))),param1));color.rgb=param0.rgb*a;color.a=param0.a;}`, {params:[$.VEC4,$.VEC3], defaults:[$.vec4.one,vec3(.15,.3,0)],vertex:Geometry3D.DEFAULT_VERTEX})
 let lastClr = 0
 $.flush = () => {
 	i&&draw()

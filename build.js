@@ -4,7 +4,6 @@ import fs, {promises as fsa} from 'fs'
 const renames = {
 	__proto__: null,
 	gl: '_',
-	defaultGeo: '$d',
 	_defaults: '$D',
 	_uDefaults: '$U',
 	setv: '$S',
@@ -101,7 +100,8 @@ const glConstants = {
 	SAMPLE_ALPHA_TO_COVERAGE: 32926,
 	TRIANGLE_STRIP: 5,
 	ELEMENT_ARRAY_BUFFER: 34963,
-	STATIC_DRAW: 35044
+	STATIC_DRAW: 35044,
+	CULL_FACE: 2884
 }
 const unknownConstants = new Set()
 

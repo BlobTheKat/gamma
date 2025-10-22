@@ -42,6 +42,10 @@ declare global{
 		 * `HALF_SQRT3 == Math.sqrt(3)/2`, i.e cos(30deg)
 		 */
 		readonly HALF_SQRT3: number
+		/**
+		 * Returns `value` clamped to the inclusive range of `min` and `max`
+		 */
+		clamp(value: number, min: number, max: number): number
 	}
 	/**
 	 * Polyfill of `setImmediate`
@@ -144,6 +148,10 @@ declare global{
 	 * @param values Numeric expressions to be evaluated.
 	 */
 	function min(...values: number[]): number
+	/**
+	 * Returns `value` clamped to the inclusive range of `min` and `max`
+	 */
+	function clamp(value: number, min: number, max: number): number
 	/**
 	 * Returns the value of a base expression taken to a specified power.
 	 * @param x The base value of the expression.

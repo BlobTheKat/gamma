@@ -1,6 +1,6 @@
 Gamma.font = $ => {
 	const vec4one = $.vec4.one, vec2l = {x:0,y:1}, dfgeo = $.Geometry2D.SQUARE
-	const msdfShader = $.Shader.MSDF = $.Shader("void main(){vec3 c=param0(pos.xy).rgb;color=param2*clamp(param1.y*(max(min(c.r,c.g),min(max(c.r,c.g),c.b))-.5+param1.x)+.5,0.,1.);}", {params: [$.COLOR, $.VEC2, $.VEC4], defaults: [null, {x:0,y:1}, vec4one]})
+	const msdfShader = $.Shader.MSDF = $.Shader("void main(){vec3 c=param0(pos).rgb;color=param2*clamp(param1.y*(max(min(c.r,c.g),min(max(c.r,c.g),c.b))-.5+param1.x)+.5,0.,1.);}", {params: [$.COLOR, $.VEC2, $.VEC4], defaults: [null, {x:0,y:1}, vec4one]})
 $.Shader.font = (src, o={}) => {
 	let pr = 'float field(vec2 uv){vec3 c=param0(uv).rgb;return max(min(c.r, c.g), min(max(c.r, c.g), c.b)); }\n#define scale param1\n'
 	if(!Array.isArray(o.params)) o.params = typeof o.params == 'number' ? [o.params] : []
