@@ -42,6 +42,10 @@ declare global{
 		 * `HALF_SQRT3 == Math.sqrt(3)/2`, i.e cos(30deg)
 		 */
 		readonly HALF_SQRT3: number
+		/**
+		 * Returns `value` clamped to the inclusive range of `min` and `max`
+		 */
+		clamp(value: number, min: number, max: number): number
 	}
 	/**
 	 * Polyfill of `setImmediate`
@@ -144,6 +148,10 @@ declare global{
 	 * @param values Numeric expressions to be evaluated.
 	 */
 	function min(...values: number[]): number
+	/**
+	 * Returns `value` clamped to the inclusive range of `min` and `max`
+	 */
+	function clamp(value: number, min: number, max: number): number
 	/**
 	 * Returns the value of a base expression taken to a specified power.
 	 * @param x The base value of the expression.
@@ -286,10 +294,6 @@ declare global{
 
 	type GammaInstance = typeof GammaInstance
 namespace GammaInstance{
-// © 2025 Matthew Reiner. https://github.com/BlobTheKat/gamma
-/// <reference path="./gamma.d.ts" />
-export {}
-declare global{
 	/**
 	 * The canvas element passed to Gamma(), or a new canvas element if none was provided
 	 */
@@ -306,6 +310,8 @@ declare global{
 	 */
 	function vec2(x?: number, y?: number): vec2
 	namespace vec2{
+		const zero: vec2
+		const one: vec2
 		function add(a: vec2, b: vec2 | number): vec2
 		function multiply(a: vec2, b: vec2 | number): vec2
 	}
@@ -316,6 +322,8 @@ declare global{
 	 */
 	function vec3(x?: number, y?: number, z?: number): vec3
 	namespace vec3{
+		const zero: vec3
+		const one: vec3
 		function add(a: vec3, b: vec3 | number): vec3
 		function multiply(a: vec3, b: vec3 | number): vec3
 	}
@@ -326,6 +334,8 @@ declare global{
 	 */
 	function vec4(x?: number, y?: number, z?: number, w?: number): vec4
 	namespace vec4{
+		const zero: vec4
+		const one: vec4
 		function add(a: vec4, b: vec4 | number): vec4
 		function multiply(a: vec4, b: vec4 | number): vec4
 	}
@@ -556,17 +566,19 @@ declare global{
 		/**
 		 * Texture options bitfield. One or more of the following options OR'd together
 		 * 
-		 * `UPSCALE_SMOOTH`: Perform linear sampling when the texture is upscaled. This makes the texture look blurry or "smoother", rather than pixelated
+		 * - `UPSCALE_SMOOTH`: Perform linear sampling when the texture is upscaled. This makes the texture look blurry or "smoother", rather than pixelated
 		 * 
-		 * `DOWNSCALE_SMOOTH`: Perform linear sampling when the texture is downscaled. This is mainly to reduce moiré effects
+		 * - `DOWNSCALE_SMOOTH`: Perform linear sampling when the texture is downscaled. This is mainly to reduce moiré effects
 		 * 
-		 * `MIPMAP_SMOOTH`: Perform blending between multiple mipmaps to further reduce moiré effects and reduce visible seams with animations involving scaling. This has no effect on textures without mipmaps
+		 * - `MIPMAP_SMOOTH`: Perform blending between multiple mipmaps to further reduce moiré effects and reduce visible seams with animations involving scaling. This has no effect on textures without mipmaps
 		 * 
-		 * `REPEAT`: Coordinates outside [0,1] will repeat (tile) the texture infinitely
-		 * `REPEAT_X`, `REPEAT_Y`: Same as `REPEAT` but for the X or Y axis only. These values can be OR'd, i.e `(REPEAT_X | REPEAT_Y) == REPEAT`
+		 * - `REPEAT`: Coordinates outside [0,1] will repeat (tile) the texture infinitely
+		 * - `REPEAT_X`, `REPEAT_Y`: Same as `REPEAT` but for the X or Y axis only. These values can be OR'd, i.e `(REPEAT_X | REPEAT_Y) == REPEAT`
 		 * 
-		 * `REPEAT_MIRRORED`: Coordinates outside [0,1] will repeat (tile) the texture infinitely
-		 * `REPEAT_MIRRORED_X`, `REPEAT_MIRRORED_Y`: Same as `REPEAT` but for the X or Y axis only. These values can be OR'd appropriately, e.g `REPEAT_X | REPEAT_MIRRORED_Y`
+		 * - `REPEAT_MIRRORED`: Coordinates outside [0,1] will repeat (tile) the texture infinitely
+		 * - `REPEAT_MIRRORED_X`, `REPEAT_MIRRORED_Y`: Same as `REPEAT` but for the X or Y axis only. These values can be OR'd appropriately, e.g `REPEAT_X | REPEAT_MIRRORED_Y`
+		 * 
+		 * - `ANISOTROPY`: Enables anisotropic filtering, which performs more samples, especially utilizing mipmaps, to create a sample that is mathematically much closer to ideal sampling, one that blends the entire portion of the texture that a rendered pixel covers. This gives much nicer visuals especially for stretched faces, without the hard transitions or blurs of using mipmaps alone. This flag enables anisotropic filtering whenever it is available in hardware or an sufficiently fast method is available in software (this is decided by the browser). If it is not available, this flag does nothing.
 		 * 
 		 * @example
 		 * ```js
@@ -753,6 +765,7 @@ declare global{
 	/** See `Texture.options` */ const REPEAT_MIRRORED_Y = 64
 	/** See `Texture.options` */ const REPEAT = 40
 	/** See `Texture.options` */ const REPEAT_MIRRORED = 80
+	/** See `Texture.options` */ const ANISOTROPY = 128
 
 	/**
 	 * Create a drawable context optionally with a stencil buffer
@@ -857,8 +870,8 @@ declare global{
 		 */
 		determinant(): number
 	}
-
-	class Drawable extends Transformable2D{
+	type Drawable = Drawable2D
+	interface Drawable2D extends Transformable2D{
 		/** An opaque object that will compare === for a `Drawable` and its sub-`Drawable`s, which always point to the same draw targets */
 		readonly identity: opaque
 		/** The backing target's whole width in pixels */
@@ -900,13 +913,13 @@ declare global{
 		 * Create a sub-context, which points to the same target, stencil buffer, etc... as this one, much like `Texture.sub()`, however it keeps its own state such as transform, blend, mask, shader, geometry, making it ideal for passing to other functions that may modify their drawable context arbitrarily without us needing to revert it afterwards
 		 * @performance This method is CPU-logic, fast and usually inlined
 		 **/
-		sub(): Drawable
+		sub(): Drawable2D
 		/**
 		 * Reset all sub-context state (transform, shader, blend, mask, geometry) to match another drawable
 		 * @param ctx The drawable to copy state from
 		 * @performance This method is CPU-logic, very fast and usually inlined
 		 */
-		resetTo(ctx: Drawable): void
+		resetTo(ctx: Drawable2D): void
 
 		/**
 		 * Reset the 2D transform to a matrix defined by the 6 values, or the default matrix (where (0,0) is the bottom-left and (1,1) is the top right)
@@ -1172,10 +1185,14 @@ declare global{
 	 * - `TRIANGLES` Connect all triplets of vertices into a triangle (i.e vertices are connected like 0-1-2 3-4-5 6-7-8 with gaps between triplets)
 	 * - `TRIANGLE_STRIP` Connect all 3 adjacent vertices into a triangle (i.e triangles are made from 0-1-2, 1-2-3, 2-3-4, 3-4-5, ...). This means every new vertex after the second forms a new triangle along with the previous 2 vertices
 	 * - `TRIANGLE_FAN` Connect all 2 adjacent vertices with the first one in the list (i.e triangles are made from 0-1-2, 0-2-3, 0-3-4, 0-4-5, ...) This makes a 'fan'-like shape when the first point is placed in the center and all other points in a circle around it, hence the name
+	 * 
+	 * Can also be OR'd with
+	 * - `CW_ONLY` Only render triangles whose vertices appear to go clockwise. This means the triangle is only visible from one side. For the specific case of TRIANGLE_STRIP, since the spin of each triangle alternates in normal geometry, this rule is essentially flipped for each triangle: the first triangle must be winding clockwise to be rendered, the second counterclockwise, the third clockwise, and so on...
+	 * - `CCW_ONLY` Ditto but the faces must appear to be going counterclockwise instead of clockwise. The same alternating behavior occurs for TRIANGLE_STRIP
 	 */
-	function Geometry2D(type: number): Geometry2D
-	function Geometry2D(vertexParameters: Geometry2D.Vertex, type: number): Geometry2D
-	class Geometry2D extends Transformable2D{
+	function Geometry2D(type: number): Geometry2D & Transformable2D
+	function Geometry2D(vertexParameters: Geometry2D.Vertex, type: number): Geometry2D & Transformable2D
+	class Geometry2D{
 		/** Primitive type, see `Geometry2D()` */
 		type: number
 		/** Start vertex index of subgeometry (see `Geometry.sub()`) */
@@ -1203,7 +1220,7 @@ declare global{
 		/**
 		 * Upload all points added so far to the GPU, clearing any previously uploaded geometry. This method must be called prior to using the geometry
 		 * This method also clears all points on the CPU, so that you can use the same object to start constructing a new shape, without having to hold on to or manually clear the memory used by the last geometry
-		 * @param order Set the order of vertices, an array of vertex indices. Useful to create multiple orderings of a geometry without duplicating the entire geometry, or to reuse a lot of vertices without excessive memory usage. Omit this parameter to use the default order. When specifying a custom order, the `start` and `length` properties of any subgeometry apply to the array of indices and not the pool of vertices. This array may also include -1 (or the respective maximum unsigned integer) to indicate a "primitive restart", which breaks apart triangle strips, fans, line strips and loops without needing to use multiple separate geometries
+		 * @param order Set the order of vertices, an array of vertex indices. Useful to create multiple orderings of a geometry without duplicating the entire geometry, or to reuse a lot of vertices without excessive memory usage. Omit this parameter to use the default order. When specifying a custom order, the `start` and `length` properties of any subgeometry apply to the array of indices and not the pool of vertices. This array may also include -1 (or the respective maximum unsigned integer) to indicate a "primitive restart", which breaks apart triangle strips, fans, line strips and loops without needing to draw multiple separate geometries. It essentially prevents any unwanted primitives (triangles/lines) from being formed across that boundary.
 		 */
 		upload(order?: number[] | Uint32Array): void
 	}
@@ -1222,8 +1239,90 @@ declare global{
 		 * - When rendering points, interpolation has no effect
 		 */
 		function Vertex(values: number[]): Geometry2D.Vertex
+		interface Vertex{
+			/** Boolean indicating that this is a 2D Vertex format */
+			readonly three: false
+		}
 		/** The default geometry, with no additional per-vertex parameters, constructing a square from (0,0) to (1,1) */
 		const SQUARE: Geometry2D
+	}
+	/**
+	 * Construct a 3D geometry
+	 * 
+	 * The default 3D geometry is the cube, which draws in a box (x,y,z)-(x+w,y+h,z+d), much like Geometry2D.SQUARE
+	 * 
+	 * Geometries are created in the same way as meshes using lower level graphics APIs. You provide a list of vertices (points), and a method of connecting them to draw triangles (or lines/points). Quads do not exist, but can be made of 2 triangles
+	 * @param vertexParameters Additional per-vertex parameters (See `Geometry2D.Vertex()`)
+	 * @param type The primitive type, which determines how to connect vertices (points). Can be one of
+	 * - `POINTS` Do not connect the vertices, and instead draw them as 1-pixel points
+	 * - `LINES` Connect each standalone pair of vertices by a 1-pixel-wide line (i.e vertices are connected like 0-1 2-3 4-5 with gaps between pairs)
+	 * - `LINE_STRIP` Connect all adjacent vertices by a 1-pixel-wide line (i.e vertices are connected like 0-1-2-3-4-5 with no gaps between pairs)
+	 * * - `LINE_LOOP` Connect all adjacent vertices by a 1-pixel-wide line (i.e vertices are connected like 0-1-2-3-4-5 with no gaps between pairs), and also connect the last vertex to the first, to close the loop
+	 * - `TRIANGLES` Connect all triplets of vertices into a triangle (i.e vertices are connected like 0-1-2 3-4-5 6-7-8 with gaps between triplets)
+	 * - `TRIANGLE_STRIP` Connect all 3 adjacent vertices into a triangle (i.e triangles are made from 0-1-2, 1-2-3, 2-3-4, 3-4-5, ...). This means every new vertex after the second forms a new triangle along with the previous 2 vertices
+	 * - `TRIANGLE_FAN` Connect all 2 adjacent vertices with the first one in the list (i.e triangles are made from 0-1-2, 0-2-3, 0-3-4, 0-4-5, ...) This makes a 'fan'-like shape when the first point is placed in the center and all other points in a circle around it, hence the name
+	 * 
+	 * Can also be OR'd with
+	 * - `CW_ONLY` Only render triangles whose vertices appear to go clockwise. This means the triangle is only visible from one side. For the specific case of TRIANGLE_STRIP, since the spin of each triangle alternates in normal geometry, this rule is essentially flipped for each triangle: the first triangle must be winding clockwise to be rendered, the second counterclockwise, the third clockwise, and so on...
+	 * - `CCW_ONLY` Ditto but the faces must appear to be going counterclockwise instead of clockwise. The same alternating behavior occurs for TRIANGLE_STRIP
+	 */
+	function Geometry3D(type: number): Geometry3D & Transformable3D
+	function Geometry3D(vertexParameters: Geometry3D.Vertex, type: number): Geometry3D & Transformable3D
+	class Geometry3D{
+		/** Primitive type, see `Geometry3D()` */
+		type: number
+		/** Start vertex index of subgeometry (see `Geometry.sub()`) */
+		start: number
+		/** Length in vertices of geometry/subgeometry */
+		length: number
+		/** End in vertices of geometry/subgeometry (see `Geometry.sub()`) */
+		end: number
+		/** Size of the entire geometry in vertices */
+		readonly size: number
+		/**
+		 * Create a subgeometry, i.e a geometry containing only a subset of the points of this geometry, optionally with a different type
+		 * @performance This method is CPU-arithmetic, very fast. Using many subgeometries of the same geometry is also faster than using many different geometries. For many related geometries, consider building one large geometry and taking subgeometries of it
+		 */
+		sub(start?: number, length?: number, type?: number): Geometry
+
+		/** Add a point to the geometry at (x,y,z) with the current transform, and additional vertex values (see `Geometry3D.Vertex()`) */
+		addPoint(x, y, z, ...values): void
+		/** Add a point to the geometry at (0,0,0) with the current transform, and additional vertex values (see `Geometry3D.Vertex()`) */
+		add(...values): void
+		/** Add a point to the geometry at (x,y,z) with the current transform, and additional vertex values (see `Geometry3D.Vertex()`) */
+		addPointv(x, y, z, values): void
+		/** Add a point to the geometry at (0,0,0) with the current transform, and additional vertex values (see `Geometry3D.Vertex()`) */
+		addv(values): void
+		/**
+		 * Upload all points added so far to the GPU, clearing any previously uploaded geometry. This method must be called prior to using the geometry
+		 * This method also clears all points on the CPU, so that you can use the same object to start constructing a new shape, without having to hold on to or manually clear the memory used by the last geometry
+		 * @param order Set the order of vertices, an array of vertex indices. Useful to create multiple orderings of a geometry without duplicating the entire geometry, or to reuse a lot of vertices without excessive memory usage. Omit this parameter to use the default order. When specifying a custom order, the `start` and `length` properties of any subgeometry apply to the array of indices and not the pool of vertices. This array may also include -1 (or the respective maximum unsigned integer) to indicate a "primitive restart", which breaks apart triangle strips, fans, line strips and loops without needing to draw multiple separate geometries. It essentially prevents any unwanted primitives (triangles/lines) from being formed across that boundary.
+		 */
+		upload(order?: number[] | Uint32Array): void
+	}
+	namespace Geometry3D{
+		/**
+		 * Define a vertex type with additional per-vertex parameters that can be accessed from within the shader. The types accepted are
+		 * - FLOAT/VEC2/VEC3/VEC4
+		 * - INT/IVEC2/IVEC3/IVEC4
+		 * - UINT/UVEC2/UVEC3/UVEC4
+		 * 
+		 * Texture types are not allowed here.
+		 * 
+		 * You can also combine any of the floating point types with `FLAT` (e.g `VEC2 | FLAT`) to disable interpolation. Interpolation is always disabled for integer types.
+		 * - When interpolation is enabled, pixels within a triangle/line will read values as a mix of the values at the triangle's 3 vertices (or 2 vertices for a line)
+		 * - When interpolation is disabled, pixels within a triangle/line will read the value supplied to the last vertex of the triangle/line (based on the order which they are supplied)
+		 * - When rendering points, interpolation has no effect
+		 */
+		function Vertex(values: number[]): Geometry3D.Vertex
+		interface Vertex{
+			/** Boolean indicating that this is a 3D Vertex format */
+			readonly three: true
+		}
+		/** The default geometry, with no additional per-vertex parameters, constructing a cube from (0,0,0) to (1,1,1), with the faces only visible from the outside */
+		const CUBE: Geometry3D
+		/** Much like the default geometry, with no additional per-vertex parameters, constructing a cube from (0,0,0) to (1,1,1), but the faces are inverted and only visible from the inside */
+		const INNER_CUBE: Geometry3D
 	}
 	/** See `Geometry()` */ const TRIANGLE_STRIP = 5
 	/** See `Geometry()` */ const TRIANGLES = 4
@@ -1232,6 +1331,9 @@ declare global{
 	/** See `Geometry()` */ const LINE_STRIP = 3
 	/** See `Geometry()` */ const LINES = 1
 	/** See `Geometry()` */ const POINTS = 0
+	/** See `Geometry()` */ const CW_ONLY = 16
+	/** See `Geometry()` */ const CCW_ONLY = 32
+
 
 	/**
 	 * Construct a shader using GLSL
@@ -1450,4 +1552,4 @@ declare global{
 	 */
 	let glLost: (() => any) | null
 }
-}}
+}

@@ -110,7 +110,7 @@ Object.assign($, {
 	UINT: 32, UVEC2: 33, UVEC3: 34, UVEC4: 35,
 	TEXTURE: 28, FTEXTURE: 29, ITEXTURE: 30, UTEXTURE: 31,
 	COLOR: 12, FCOLOR: 13, ICOLOR: 14, UCOLOR: 15,
-	FLAT: 64, CW_ONLY: 16, CCW_ONLY: 32,
+	FLAT: 64, CW_ONLY: 16, CCW_ONLY: 32, ANISOTROPY: 128,
 	TRIANGLE_STRIP: 5, TRIANGLES: 4, TRIANGLE_FAN: 6,
 	LINE_LOOP: 2, LINE_STRIP: 3, LINES: 1, POINTS: 0
 })
@@ -172,6 +172,7 @@ $.vec4.multiply = (a,b) => typeof b=='number'?{x:a.x*b,y:a.y*b,z:a.z*b,w:a.w*b}:
 $.vec4.magnitude = a => sqrt(a.x*a.x+a.y*a.y+a.z*a.z+a.w*a.w)
 $.vec4.normalize = a => { const d = 1/sqrt(a.x*a.x+a.y*a.y+a.z*a.z+a.w*a.w); return {x:a.x*d, y: a.y*d, z: a.z*d, w: a.w*d} }
 
+const maxAniso = gl.getExtension('EXT_texture_filter_anisotropic')?gl.getParameter(34047):0
 class Tex{
 	get isInteger(){ return this.t.f.length>3 }
 	get format(){ return this.t.f }
@@ -225,7 +226,7 @@ class Tex{
 		const reject = () => {
 			loaded = -1
 			Tex.setOptions(t)
-			gl.texStorage3D(gl.TEXTURE_2D_ARRAY, t.m, t.f[0], t.w = w = 1, t.h = h = 1, t.d)
+			gl.texStorage3D(gl.TEXTURE_2D_ARRAY, t.m = 1, t.f[0], t.w = w = 1, t.h = h = 1, t.d)
 			if(!premultAlpha){
 				gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1)
 				gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 1)
@@ -243,7 +244,7 @@ class Tex{
 			src[i] = data
 			if(++loaded < src.length) return
 			Tex.setOptions(t)
-			gl.texStorage3D(gl.TEXTURE_2D_ARRAY, t.m, t.f[0], t.w = w, t.h = h, t.d)
+			gl.texStorage3D(gl.TEXTURE_2D_ARRAY, t.m = min(t.m, floor(log2(max(w, h)))+1), t.f[0], t.w = w, t.h = h, t.d)
 			if(!premultAlpha){
 				gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1)
 				gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 1)
@@ -405,6 +406,7 @@ class Tex{
 			gl.texParameterf(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, t.m>1?9984+(o>>1&3):9728+(o>>1&1))
 		gl.texParameterf(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, o&8?10497:o&16?33648:33071)
 		gl.texParameterf(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, o&32?10497:o&64?33648:33071)
+		if(maxAniso) gl.texParameterf(gl.TEXTURE_2D_ARRAY, 34046, o&128?maxAniso:1)
 	}
 	set options(o){
 		const {t} = this
@@ -432,12 +434,14 @@ class Tex{
 $.Drawable = (stencil = false) => new Drw2D({ _fb: gl.createFramebuffer(), _stencil: 0, _stenBuf: stencil ? gl.createRenderbuffer() : null, w: 0, h: 0, u: 0 })
 $.Drawable.MAX_TARGETS = gl.getParameter(gl.MAX_COLOR_ATTACHMENTS)
 let arr = new Float32Array(1024), iarr = new Int32Array(arr.buffer), i = 0
-$.Texture = (w = 0, h = 0, d = 0, o = 0, f = Formats.RGBA, mips = 0) => {
-	const t = { _tex: gl.createTexture(), i: -1, o, f, src: null, w, h, d: +d||1, m: mips = mips || 1 }
+$.Texture = (w = 0, h = 0, d = 1, o = 0, f = Formats.RGBA, mips = 0) => {
+	mips = min((mips>>>0)||1, floor(log2(max(w, h)))+1)
+	w >>>= 0; h >>>= 0
+	const t = { _tex: gl.createTexture(), i: -1, o, f, src: null, w, h, d: d = (d>>>0)||1, m: mips }
 	const tx = new Tex(t)
 	Tex.setOptions(t)
-	if(w && h) gl.texStorage3D(gl.TEXTURE_2D_ARRAY, mips, t.f[0], w, h, t.d)
-	else gl.texStorage3D(gl.TEXTURE_2D_ARRAY, mips, t.f[0], t.w = 1, t.h = 1, t.d)
+	if(w && h) gl.texStorage3D(gl.TEXTURE_2D_ARRAY, mips, t.f[0], w, h, d)
+	else gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 1, t.f[0], t.w = 1, t.h = 1, d)
 	gl.bindTexture(gl.TEXTURE_2D_ARRAY, null)
 	return tx
 }
@@ -680,7 +684,7 @@ class Drw2D extends t2D{
 	constructor(t,m=290787599,sp=geo2,s=$.Shader.DEFAULT,a=1,b=0,c=0,d=1,e=0,f=0){ super(a,b,c,d,e,f); this.t = t; this._mask = m; this._shp = sp; this._sh = s }
 	pixelRatio(){return sqrt(abs(this.a*this.d-this.b*this.c)*this.t.w*this.t.h)}
 	sub(){ return new Drw2D(this.t,this._mask,this._shp,this._sh,this.a,this.b,this.c,this.d,this.e,this.f) }
-	sub3dProj(z0=0,zsc=1){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D,this.a,this.b,0,this.c,this.d,0,this.e*zsc,this.f*zsc,zsc,this.e*z0,this.f*z0,z0)}
+	sub3dProj(z0=0,zsc=1){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,0,this.c,this.d,0,this.e*zsc,this.f*zsc,zsc,this.e*z0,this.f*z0,z0)}
 	resetTo(m){ this.a=m.a;this.b=m.b;this.c=m.c;this.d=m.d;this.e=m.e;this.f=m.f;this._mask=m._mask;this._sh=m._sh;this._shp=m._shp }
 	reset(a=1,b=0,c=0,d=1,e=0,f=0){if(typeof a=='object')({a,b,c,d,e,f}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this._mask=290787599;this._sh=$.Shader.DEFAULT;this._shp=geo2}
 	draw(...values){
@@ -755,7 +759,7 @@ class Drw2t3D extends t2t3D{
 		return {x:NaN,y:NaN}
 	}
 	sub(){ return new Drw2t3D(this.t,this._mask,this._shp,this._sh,this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h,this.i) }
-	/*TODO*/sub3dProj(z0=0,zsc=1){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D,this.a,this.b,this.c,this.d,this.e,this.f,this.g*zsc,this.h*zsc,this.i*zsc,this.g*z0,this.h*z0,this.i*z0)}
+	/*TODO*/sub3dProj(z0=0,zsc=1){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,this.c,this.d,this.e,this.f,this.g*zsc,this.h*zsc,this.i*zsc,this.g*z0,this.h*z0,this.i*z0)}
 	resetTo(m){ this.a=m.a;this.b=m.b;this.c=m.c;this.d=m.d;this.e=m.e;this.f=m.f;this.g=m.g;this.h=m.h;this.i=m.i;this._mask=m._mask;this._sh=m._sh;this._shp=m._shp }
 	reset(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=0){if(typeof a=='object')({a,b,c,d,e,f}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this._mask=290787599;this._sh=$.Shader.DEFAULT;this._shp=geo2}
 	draw(...values){
@@ -798,17 +802,17 @@ class Drw2t3D extends t2t3D{
 	}
 }
 class Drw3D extends t3D{
-	set shader(sh){ this._sh=typeof sh=='function'&&sh.three===true?sh:$.Shader.COLOR_3D; if(lastd == this) lastd = null }
+	set shader(sh){ this._sh=typeof sh=='function'&&sh.three===true?sh:$.Shader.COLOR_3D_XZ; if(lastd == this) lastd = null }
 	get shader(){ return this._sh }
 	get geometry(){ return this._shp }
 	set geometry(a){ this._shp = a||geo3; if(lastd == this) lastd = null }
-	constructor(t,m=290787599,sp=geo3,s=$.Shader.COLOR_3D,a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1,j=0,k=0,l=0){ super(a,b,c,d,e,f,g,h,i,j,k,l); this.t = t; this._mask = m; this._shp = sp; this._sh = s }
+	constructor(t,m=290787599,sp=geo3,s=$.Shader.COLOR_3D_XZ,a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1,j=0,k=0,l=0){ super(a,b,c,d,e,f,g,h,i,j,k,l); this.t = t; this._mask = m; this._shp = sp; this._sh = s }
 	sub(){ return new Drw3D(this.t,this._mask,this._shp,this._sh,this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h,this.i,this.j,this.k,this.l) }
 	sub2dXY(){ return new Drw2t3D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.a,this.b,this.c,this.d,this.e,this.f,this.j,this.k,this.l) }
 	sub2dZY(){ return new Drw2t3D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.g,this.h,this.i,this.d,this.e,this.f,this.j,this.k,this.l) }
 	sub2dXZ(){ return new Drw2t3D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.a,this.b,this.c,this.g,this.h,this.i,this.j,this.k,this.l) }
 	resetTo(m){ this.a=m.a;this.b=m.b;this.c=m.c;this.d=m.d;this.e=m.e;this.f=m.f;this.g=m.g;this.h=m.h;this.i=m.i;this.j=m.j;this.k=m.k;this.l=m.l;this._mask=m._mask;this._sh=m._sh;this._shp=m._shp }
-	reset(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1,j=0,k=0,l=0){if(typeof a=='object')({a,b,c,d,e,f,g,h,i,j,k,l}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this.i=i;this.j=j;this.k=k;this.l=l;this._mask=290787599;this._sh=$.Shader.COLOR_3D;this._shp=geo3}
+	reset(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1,j=0,k=0,l=0){if(typeof a=='object')({a,b,c,d,e,f,g,h,i,j,k,l}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this.i=i;this.j=j;this.k=k;this.l=l;this._mask=290787599;this._sh=$.Shader.COLOR_3D_XZ;this._shp=geo3}
 	draw(...values){
 		const v = this._sh(12,values)
 		arr[v  ] = this.a; arr[v+1] = this.d; arr[v+2] = this.g; arr[v+3] = this.j
@@ -1258,10 +1262,11 @@ $.Geometry2D.Vertex = vfgen.bind(null, false)
 $.Geometry3D.Vertex = vfgen.bind(null, true)
 const geo2 = $.Geometry2D.SQUARE = $.Geometry2D($.Geometry2D.DEFAULT_VERTEX = vfgen(false, []), 5)
 const geo3 = $.Geometry3D.CUBE = $.Geometry3D($.Geometry3D.DEFAULT_VERTEX = vfgen(true, []), 21)
-for(let i=0;i<4;i++) geo2.addPoint(i&1,i>>1&1), geo3.addPoint(i&1,i>>1&1, 0), geo3.addPoint(i&1,i>>1&1, 1)
+for(let i=0;i<4;i++) geo2.addPoint(i&1,i>>1&1), geo3.addPoint(0,i&1,i>>1&1), geo3.addPoint(1,i&1,i>>1&1)
 geo2.upload()
 geo3.upload(new Uint8Array([4, 6, 0, 2, 3, 6, 7, 4, 5, 0, 1, 3, 5, 7]))
 $.Geometry3D.INSIDE_CUBE = geo3.sub(0, 14, 37)
+$.Geometry3D.XZ_FACE = geo3.sub(7, 4, 21)
 
 $.Shader = (src, {params, defaults: _defaults, uniforms, uniformDefaults: _uDefaults, outputs=4, vertex = $.Geometry2D.DEFAULT_VERTEX, intFrac=0.5}={}) => {
 	params = typeof params=='number' ? [params] : params || []
@@ -1421,7 +1426,7 @@ vec4 fGetPixel(int u,ivec3 p,int l){${T||switcher(i=>`return texelFetch(GL_f[${i
 		shVao3.geo = null
 		setVao(true)
 	}
-	const s = eval(`let ${matWidth<4?`lv=shVao3`:'_'}${states.length?states.join(''):''};const B=function(){${bindUniTexBody.join(';')};shuniBind=boundUsed},s=function(sz,{${fnParams}}){${fnBody.join(';')}};s.uniforms=(function(${uniFnParams}){${uniFnBody.join(';')};B()});s`), program = gl.createProgram()
+	const s = eval(`let ${matWidth<4?`lv=shVao3`:'__'}${states.length?states.join(''):''};const B=function(){${bindUniTexBody.join(';')};shuniBind=boundUsed},s=function(sz,{${fnParams}}){${fnBody.join(';')}};s.uniforms=(function(${uniFnParams}){${uniFnBody.join(';')};B()});s`), program = gl.createProgram()
 	const v=gl.createShader(35633), f=gl.createShader(35632)
 	vShaderBody.push('}')
 	gl.shaderSource(v, vShaderHead.join('')+vShaderBody.join(''))
@@ -1444,7 +1449,7 @@ let fdc = 0, fs = 0, fd = 0
 $.Shader.UINT = $.Shader(`void main(){color=param0;}`, {params:$.UVEC4, outputs:$.UINT})
 $.Shader.BLACK = $.Shader(`void main(){color=vec4(0,0,0,1);}`)
 $.Shader.DEFAULT = $.Shader(`void main(){color=param0(pos)*param1;}`, {params:[$.COLOR, $.VEC4], defaults:[void 0, $.vec4.one]})
-$.Shader.COLOR_3D = $.Shader(`void main(){color=param0;}`, {params:[$.VEC4], defaults:[void 0, $.vec4.one],vertex:Geometry3D.DEFAULT_VERTEX})
+$.Shader.COLOR_3D_XZ = $.Shader(`void main(){color=param0(pos.xz);}`, {params:[$.COLOR], defaults:[void 0, $.vec4.one],vertex:Geometry3D.DEFAULT_VERTEX})
 $.Shader.SHADED_3D = $.Shader(`void main(){float a=(1.-dot(normalize(cross(dFdx(pos),dFdy(pos))),param1));color.rgb=param0.rgb*a;color.a=param0.a;}`, {params:[$.VEC4,$.VEC3], defaults:[$.vec4.one,vec3(.15,.3,0)],vertex:Geometry3D.DEFAULT_VERTEX})
 let lastClr = 0
 $.flush = () => {

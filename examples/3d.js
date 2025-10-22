@@ -12,7 +12,8 @@ label.add('Gamma is ')
 label.addTextPass(0, [vec4(1,0,0,.4)], 0, 0, 0, -1)
 label.add('peak')
 
-const cat = Texture.from('./examples/catpheus.png')
+const ground = Texture(2, 2, 1, ANISOTROPY | DOWNSCALE_SMOOTH | REPEAT, Formats.RGB5_A1, 2)
+	.pasteData(Uint16Array.fromHex('A529 C631 C631 A529')).super(0,0,.01,.01)
 
 const cyl = Geometry3D()
 cyl.type = TRIANGLE_STRIP | CW_ONLY
@@ -130,10 +131,14 @@ render = () => {
 	ctx3.shader = skyShader
 	ctx3.geometry = Geometry3D.INSIDE_CUBE
 	ctx3.drawCube(-1, -1, -1, 2, 2, 2)
+	ctx3.translate(-pos.x, -pos.y, -pos.z)
 
+	ctx3.geometry = Geometry3D.XZ_FACE
+	ctx3.shader = Shader.COLOR_3D_XZ
+	ctx3.drawCube(-250, -2, -250, 500, 10, 500, ground)
+	
 	ctx3.geometry = cyl
 	ctx3.shader = Shader.SHADED_3D
-	ctx3.translate(-pos.x, -pos.y, -pos.z)
 	
 	const cubeCtx = ctx3.sub()
 		cubeCtx.rotateXZ(t*.1)

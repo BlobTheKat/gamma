@@ -38,6 +38,18 @@ Uint8Array.fromHex = function(hex){
 	}
 	return res.slice(0, i)
 }
+Uint16Array.fromHex = function(hex){
+	const res = new Uint16Array(hex.length>>>2)
+	let r = 1, i = 0
+	for(let j = 0; j < hex.length; j++){
+		const c = hex.charCodeAt(j)
+		if(c>47&&c<58) r = r<<4|c-48
+		else if(c>64&&c<71) r = r<<4|c-55
+		else if(c>96&&c<103) r = r<<4|c-87
+		if(r&65536) res[i++] = r, r = 1
+	}
+	return res.slice(0, i)
+}
 const h = '0123456789abcdef'
 Number.prototype.toHex = function(){return h[this>>>28]+h[this>>24&15]+h[this>>20&15]+h[this>>16&15]+h[this>>12&15]+h[this>>8&15]+h[this>>4&15]+h[this&15]}
 Number.formatData = bytes => bytes < 512 ? bytes.toFixed(0)+'B' : bytes < 524288 ? (bytes/1024).toFixed(1)+'KiB' : bytes < 536870912 ? (bytes/1048576).toFixed(1)+'MiB' : bytes < 549755813888 ? (bytes/1073741824).toFixed(1)+'GiB' : (bytes/1099511627776).toFixed(1)+'TiB'

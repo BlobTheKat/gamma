@@ -1,3 +1,5 @@
+/// <reference path="../docs/gamma.d.ts" />
+/** @param $ {GammaInstance} */
 Gamma.font = $ => {
 	const vec4one = $.vec4.one, vec2l = {x:0,y:1}, dfgeo = $.Geometry2D.SQUARE
 	const msdfShader = $.Shader.MSDF = $.Shader("void main(){vec3 c=param0(pos).rgb;color=param2*clamp(param1.y*(max(min(c.r,c.g),min(max(c.r,c.g),c.b))-.5+param1.x)+.5,0.,1.);}", {params: [$.COLOR, $.VEC2, $.VEC4], defaults: [null, {x:0,y:1}, vec4one]})
@@ -1096,7 +1098,7 @@ ffff\ ffff\ ffff\ ffff\
 		chlumsky(src, atlas = 'atlas.png'){ if(src.endsWith('/')) src += 'index.json'; fetch(src).then(a => (src=a.url,a.json())).then(d => {
 			const {atlas:{type,distanceRange,size,width,height},metrics:{ascender,descender},glyphs,kerning} = d
 			this.rangeFactor = distanceRange/size
-			const img = $.Texture.from(new URL(atlas, src).href,$.SMOOTH, type.toLowerCase().endsWith('msdf') ? $.Formats.RGB : $.Formats.RGBA4)
+			const img = $.Texture.from(new URL(atlas, src).href,$.SMOOTH | $.ANISOTROPY, type.toLowerCase().endsWith('msdf') ? $.Formats.RGB : $.Formats.RGBA4)
 			this.ascend = ascender/(ascender-descender)
 			for(const {unicode1,unicode2,advance} of kerning) super.set(unicode2+unicode1*1114112, advance)
 			for(const {unicode,advance,planeBounds:pb,atlasBounds:ab} of glyphs) super.set(~unicode, pb ? {

@@ -18,6 +18,8 @@ declare global{
 	 */
 	function vec2(x?: number, y?: number): vec2
 	namespace vec2{
+		const zero: vec2
+		const one: vec2
 		function add(a: vec2, b: vec2 | number): vec2
 		function multiply(a: vec2, b: vec2 | number): vec2
 	}
@@ -28,6 +30,8 @@ declare global{
 	 */
 	function vec3(x?: number, y?: number, z?: number): vec3
 	namespace vec3{
+		const zero: vec3
+		const one: vec3
 		function add(a: vec3, b: vec3 | number): vec3
 		function multiply(a: vec3, b: vec3 | number): vec3
 	}
@@ -38,6 +42,8 @@ declare global{
 	 */
 	function vec4(x?: number, y?: number, z?: number, w?: number): vec4
 	namespace vec4{
+		const zero: vec4
+		const one: vec4
 		function add(a: vec4, b: vec4 | number): vec4
 		function multiply(a: vec4, b: vec4 | number): vec4
 	}
@@ -268,17 +274,19 @@ declare global{
 		/**
 		 * Texture options bitfield. One or more of the following options OR'd together
 		 * 
-		 * `UPSCALE_SMOOTH`: Perform linear sampling when the texture is upscaled. This makes the texture look blurry or "smoother", rather than pixelated
+		 * - `UPSCALE_SMOOTH`: Perform linear sampling when the texture is upscaled. This makes the texture look blurry or "smoother", rather than pixelated
 		 * 
-		 * `DOWNSCALE_SMOOTH`: Perform linear sampling when the texture is downscaled. This is mainly to reduce moiré effects
+		 * - `DOWNSCALE_SMOOTH`: Perform linear sampling when the texture is downscaled. This is mainly to reduce moiré effects
 		 * 
-		 * `MIPMAP_SMOOTH`: Perform blending between multiple mipmaps to further reduce moiré effects and reduce visible seams with animations involving scaling. This has no effect on textures without mipmaps
+		 * - `MIPMAP_SMOOTH`: Perform blending between multiple mipmaps to further reduce moiré effects and reduce visible seams with animations involving scaling. This has no effect on textures without mipmaps
 		 * 
-		 * `REPEAT`: Coordinates outside [0,1] will repeat (tile) the texture infinitely
-		 * `REPEAT_X`, `REPEAT_Y`: Same as `REPEAT` but for the X or Y axis only. These values can be OR'd, i.e `(REPEAT_X | REPEAT_Y) == REPEAT`
+		 * - `REPEAT`: Coordinates outside [0,1] will repeat (tile) the texture infinitely
+		 * - `REPEAT_X`, `REPEAT_Y`: Same as `REPEAT` but for the X or Y axis only. These values can be OR'd, i.e `(REPEAT_X | REPEAT_Y) == REPEAT`
 		 * 
-		 * `REPEAT_MIRRORED`: Coordinates outside [0,1] will repeat (tile) the texture infinitely
-		 * `REPEAT_MIRRORED_X`, `REPEAT_MIRRORED_Y`: Same as `REPEAT` but for the X or Y axis only. These values can be OR'd appropriately, e.g `REPEAT_X | REPEAT_MIRRORED_Y`
+		 * - `REPEAT_MIRRORED`: Coordinates outside [0,1] will repeat (tile) the texture infinitely
+		 * - `REPEAT_MIRRORED_X`, `REPEAT_MIRRORED_Y`: Same as `REPEAT` but for the X or Y axis only. These values can be OR'd appropriately, e.g `REPEAT_X | REPEAT_MIRRORED_Y`
+		 * 
+		 * - `ANISOTROPY`: Enables anisotropic filtering, which performs more samples, especially utilizing mipmaps, to create a sample that is mathematically much closer to ideal sampling, one that blends the entire portion of the texture that a rendered pixel covers. This gives much nicer visuals especially for stretched faces, without the hard transitions or blurs of using mipmaps alone. This flag enables anisotropic filtering whenever it is available in hardware or an sufficiently fast method is available in software (this is decided by the browser). If it is not available, this flag does nothing.
 		 * 
 		 * @example
 		 * ```js
@@ -465,6 +473,7 @@ declare global{
 	/** See `Texture.options` */ const REPEAT_MIRRORED_Y = 64
 	/** See `Texture.options` */ const REPEAT = 40
 	/** See `Texture.options` */ const REPEAT_MIRRORED = 80
+	/** See `Texture.options` */ const ANISOTROPY = 128
 
 	/**
 	 * Create a drawable context optionally with a stencil buffer
@@ -569,8 +578,8 @@ declare global{
 		 */
 		determinant(): number
 	}
-
-	class Drawable extends Transformable2D{
+	type Drawable = Drawable2D
+	interface Drawable2D extends Transformable2D{
 		/** An opaque object that will compare === for a `Drawable` and its sub-`Drawable`s, which always point to the same draw targets */
 		readonly identity: opaque
 		/** The backing target's whole width in pixels */
@@ -612,13 +621,13 @@ declare global{
 		 * Create a sub-context, which points to the same target, stencil buffer, etc... as this one, much like `Texture.sub()`, however it keeps its own state such as transform, blend, mask, shader, geometry, making it ideal for passing to other functions that may modify their drawable context arbitrarily without us needing to revert it afterwards
 		 * @performance This method is CPU-logic, fast and usually inlined
 		 **/
-		sub(): Drawable
+		sub(): Drawable2D
 		/**
 		 * Reset all sub-context state (transform, shader, blend, mask, geometry) to match another drawable
 		 * @param ctx The drawable to copy state from
 		 * @performance This method is CPU-logic, very fast and usually inlined
 		 */
-		resetTo(ctx: Drawable): void
+		resetTo(ctx: Drawable2D): void
 
 		/**
 		 * Reset the 2D transform to a matrix defined by the 6 values, or the default matrix (where (0,0) is the bottom-left and (1,1) is the top right)

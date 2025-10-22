@@ -25,11 +25,20 @@ const renames = {
 	f4arr: '$C',
 	i4arr: '$c',
 	shVao: '$q',
-	shVao3: '$Q'
+	shVao3: '$Q',
+	setVao: '$d',
+	switchVao: '$l',
+	sv: '$v',
+	buf: '$M',
 }, propRenames = {
+	__proto__: null,
 	_shp: 'S',
+	_setShp: 'S',
 	_mask: 'M',
-	_setv: 'V'
+	_setv: 'V',
+	arr: '$i',
+	iarr: '$I',
+	_elB: 'E'
 }
 /** @type { {[x: string]: import('terser').MinifyOptions} } */
 const tersers = {
@@ -111,7 +120,7 @@ const postprocessors = {
 	'gamma.js': code =>
 		code.replace(/gl\.([A-Z]\w*)/g, (str, name) => glConstants[name] ?? (unknownConstants.size != unknownConstants.add(name).size && console.warn('Unminified GL constant: gl.'+name), str))
 		.replace(/(?<![\w$]|[^\.]\.)[\w$]{1,}/g, v => renames[v] ?? v)
-		.replace(/(?<![\w$])_[\w$]+(?![\w$])/g, v => propRenames[v] ?? v)
+		.replace(/(?<![\w$])[\w$]+(?![\w$])/g, v => propRenames[v] ?? v)
 }
 
 const pr = []
@@ -130,7 +139,7 @@ for(const src of fs.readdirSync('docs')){
 		if(name == 'gamma'){
 			return fsa.readFile('docs/_gamma.d.ts').then(head => {
 				head = head.toString()
-				code = head.slice(0, head.lastIndexOf('\n')+1) + code + '\n}}'
+				code = head.slice(0, head.lastIndexOf('\n')+1) + code.split('\n').slice(4).join('\n') + '\n}'
 				return fsa.writeFile('docs/' + name + '.d.ts', code)
 			})
 		}
