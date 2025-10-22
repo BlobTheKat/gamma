@@ -9,10 +9,22 @@ label.add('peak')
 
 const cat = Texture.from('./examples/catpheus.png')
 
-const cubeGeo = Geometry3D()
-cubeGeo.type = LINE_LOOP
-for(let i = 0; i < 8; i++) cubeGeo.addPoint((i<<1&2)-1, (i&2)-1, (i>>1&2)-1)
-cubeGeo.upload(new Uint8Array([1, 2, 3, 6, 7, 4, 5, 0, 3, 7, 2, 6, 5, 1, 4, 0, 2, 4, 6, 0, 1, 3, 5, 7]))
+const cyl = Geometry3D()
+cyl.type = TRIANGLE_STRIP | CW_ONLY
+const top = [], bottom = [], ring = [], ring2 = []
+for(let i = PI/32; i < PI; i += PI/16){
+	const dx = sin(i), dz = cos(i)
+	const a = cyl.addPoint(dx, 1, dz)
+	cyl.addPoint(-dx, 1, dz)
+	cyl.addPoint(dx, -1, dz)
+	cyl.addPoint(-dx, -1, dz)
+	top.push(a+1, a)
+	bottom.push(a+2, a+3)
+	ring.push(a, a+2)
+	ring2.push(a+3, a+1)
+}
+ring2.reverse()
+cyl.upload(new Uint8Array([...top, top[top.length-1], bottom[0], ...bottom, bottom[bottom.length-1], ring[0], ...ring, ...ring2, 0, 2]))
 
 onKey(MOUSE.LEFT, () => {
 	pointerLock = true
@@ -99,15 +111,14 @@ render = () => {
 	ctx3.geometry = Geometry3D.INSIDE_CUBE
 	ctx3.drawCube(-1, -1, -1, 2, 2, 2)
 
-	ctx3.geometry = Geometry3D.CUBE
+	ctx3.geometry = cyl
 	ctx3.shader = Shader.SHADED_3D
 	ctx3.translate(-pos.x, -pos.y, -pos.z)
 	
 	const cubeCtx = ctx3.sub()
-		const col = vec4(cos(t*.1)*.5+.5, sin(t*.1)*.5+.5, 0, 1)
 		cubeCtx.rotateXZ(t*.1)
 		cubeCtx.rotateXY(t*.1)
-		cubeCtx.drawCube(-1, -1, -1, 2, 2, 2, col)
+		cubeCtx.draw(vec4(.85,.1,.2,1))
 	
 	ctx3.translate(0, 3, 0)
 	const textCtx = ctx3.sub2D()
