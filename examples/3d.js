@@ -1,5 +1,7 @@
 /// <reference path="../docs/monolith-global.d.ts" />
 
+title = '3D demo'
+
 const font = await Font.chlumsky('fonts/marker/')
 
 const label = RichText(font)
@@ -87,6 +89,20 @@ void main(){
 }
 `, {uniforms: [FLOAT, FLOAT], uniformDefaults: [0, .05], vertex: Geometry3D.DEFAULT_VERTEX})
 
+function drawText(ctx){
+	ctx.translate(label.width*-.5, 0)
+	ctx.drawRect(-1.5, -.75, label.width+2, 1.5, vec4(0,0,0,.5))
+	let ctx3 = ctx.sub(); ctx3.translate(-.75, 0)
+	ctx3 = ctx3.sub3dProj()
+		ctx3.shader = Shader.SHADED_3D
+		ctx3.geometry = Geometry3D.CUBE
+		ctx3.translate(0, 0, 4)
+		ctx3.rotateXZ(t)
+		ctx3.rotateXY(t)
+		ctx3.drawCube(-1, -1, -1, 2, 2, 2, vec4(.8,0,0,1))
+	label.draw(ctx)
+}
+
 const FOV = 90
 render = () => {
 	skyShader.uniforms(t)
@@ -120,26 +136,23 @@ render = () => {
 	ctx3.translate(-pos.x, -pos.y, -pos.z)
 	
 	const cubeCtx = ctx3.sub()
-		cubeCtx.mask = RGBA
 		cubeCtx.rotateXZ(t*.1)
 		cubeCtx.rotateXY(t*.1)
 	
 	ctx3.translate(0, 0, -3)
-	const textCtx = ctx3.sub2dXY()
+	
 	if(pos.z > -3){
-		textCtx.scale(-1,1)
-		textCtx.translate(label.width*-.5, 0)
-		label.draw(textCtx)
+		const ct2 = ctx3.sub2dXY()
+		ct2.scale(-1,1)
+		drawText(ct2)
 	}
 	cubeCtx.draw(vec4(.2,.85,.1,1))
-	if(!(pos.z > -3)){
-		textCtx.translate(label.width*-.5, 0)
-		label.draw(textCtx)
-	}
+	if(!(pos.z > -3))
+		drawText(ctx3.sub2dXY())
 	
 	if(!pointerLock){
 		ctx.scale(0.5)
-		ctx.translate(font.measure('Click anywhere to lock pointer')*-.5, -7)
+		ctx.translate(font.measure('Click anywhere to lock pointer')*-.5, -18)
 		ctx.shader = Shader.MSDF
 		font.draw(ctx, 'Click anywhere to lock pointer', [vec4(.3+sin(t*PI)*.2)])
 	}

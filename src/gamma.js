@@ -59,8 +59,8 @@ gl.bindBuffer(gl.PIXEL_UNPACK_BUFFER, unpackBuffer)
 // Texture-function-related global state
 let premultAlpha = true, lastPbo = null, lastPboSize = -1, pboUsed = false
 // Drawing-related global state
-let pmask = 285217039, sh = null, shfCount = 0, shfMask = 0, shCount = 0
-let curfb = null, boundUsed = 0, shuniBind = 0, shpType = 5, shpStart = 0, shpLen = 4, shp = null, oelb = null, shpElT = 0
+let pmask = 285217039, sh = null, sv = null, shfCount = 0, shfMask = 0, shCount = 0
+let curfb = null, boundUsed = 0, shuniBind = 0, shpType = 5, shpStart = 0, shpLen = 4, shp = null, shpElT = 0
 gl.bindFramebuffer(gl.READ_FRAMEBUFFER, gl.createFramebuffer())
 const drawfb = gl.createFramebuffer(), buf = gl.createBuffer()
 gl.bindBuffer(gl.ARRAY_BUFFER, buf)
@@ -754,8 +754,8 @@ class Drw2t3D extends t2t3D{
 		// todo
 		return {x:NaN,y:NaN}
 	}
-	sub(){ return new Drw2D(this.t,this._mask,this._shp,this._sh,this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h,this.i) }
-	/*TODO*/sub3DProj(z0=0,zsc=1){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D,this.a,this.b,0,this.c,this.d,0,this.e*zsc,this.f*zsc,zsc,this.e*z0,this.f*z0,z0)}
+	sub(){ return new Drw2t3D(this.t,this._mask,this._shp,this._sh,this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h,this.i) }
+	/*TODO*/sub3dProj(z0=0,zsc=1){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D,this.a,this.b,this.c,this.d,this.e,this.f,this.g*zsc,this.h*zsc,this.i*zsc,this.g*z0,this.h*z0,this.i*z0)}
 	resetTo(m){ this.a=m.a;this.b=m.b;this.c=m.c;this.d=m.d;this.e=m.e;this.f=m.f;this.g=m.g;this.h=m.h;this.i=m.i;this._mask=m._mask;this._sh=m._sh;this._shp=m._shp }
 	reset(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=0){if(typeof a=='object')({a,b,c,d,e,f}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this._mask=290787599;this._sh=$.Shader.DEFAULT;this._shp=geo2}
 	draw(...values){
@@ -805,12 +805,8 @@ class Drw3D extends t3D{
 	constructor(t,m=290787599,sp=geo3,s=$.Shader.COLOR_3D,a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1,j=0,k=0,l=0){ super(a,b,c,d,e,f,g,h,i,j,k,l); this.t = t; this._mask = m; this._shp = sp; this._sh = s }
 	sub(){ return new Drw3D(this.t,this._mask,this._shp,this._sh,this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h,this.i,this.j,this.k,this.l) }
 	sub2dXY(){ return new Drw2t3D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.a,this.b,this.c,this.d,this.e,this.f,this.j,this.k,this.l) }
-	sub2dZY(){
-		return new Drw2t3D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.g,this.h,this.i,this.d,this.e,this.f,this.j,this.k,this.l)
-	}
-	sub2dXZ(){
-		return new Drw2t3D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.a,this.b,this.c,this.g,this.h,this.i,this.j,this.k,this.l)
-	}
+	sub2dZY(){ return new Drw2t3D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.g,this.h,this.i,this.d,this.e,this.f,this.j,this.k,this.l) }
+	sub2dXZ(){ return new Drw2t3D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.a,this.b,this.c,this.g,this.h,this.i,this.j,this.k,this.l) }
 	resetTo(m){ this.a=m.a;this.b=m.b;this.c=m.c;this.d=m.d;this.e=m.e;this.f=m.f;this.g=m.g;this.h=m.h;this.i=m.i;this.j=m.j;this.k=m.k;this.l=m.l;this._mask=m._mask;this._sh=m._sh;this._shp=m._shp }
 	reset(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1,j=0,k=0,l=0){if(typeof a=='object')({a,b,c,d,e,f,g,h,i,j,k,l}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this.i=i;this.j=j;this.k=k;this.l=l;this._mask=290787599;this._sh=$.Shader.COLOR_3D;this._shp=geo3}
 	draw(...values){
@@ -1027,6 +1023,7 @@ const switcher = (f,s,e) => {
 const names = ['float','vec2','vec3','vec4','int','ivec2','ivec3','ivec4','uint','uvec2','uvec3','uvec4']
 const maxAttribs = gl.getParameter(gl.MAX_VERTEX_ATTRIBS)
 function switchShader(s, fc, fm, c){ sh = s; shfCount = fc; shfMask = fm; shCount = c }
+function switchVao(v){ gl.bindVertexArray(sv = v) }
 const f4arr = new Float32Array(4), i4arr = new Int32Array(f4arr.buffer)
 // TODO: vao on Shader
 // Maybe vao on geometry
@@ -1087,7 +1084,7 @@ const vfgen = (three, vparams, _defaults = []) => {
 	return {three, _pack, _vcount, fsh: fShaderHead.join(''), vsh: vShaderHead.join(''), vshb: vShaderBody.join('')}
 }
 class Geo2D extends t2D{
-	constructor(t,s=0,L=0,tp=5,a=1,b=0,c=0,d=1,e=0,f=0){ super(a,b,c,d,e,f); this.t = t; this._s = s; this._l = L; this._t = tp; this.B = this.t.b }
+	constructor(t,s=0,L=0,tp=5,a=1,b=0,c=0,d=1,e=0,f=0){ super(a,b,c,d,e,f); this.t = t; this._s = s; this._l = L; this._t = tp; t.b.for=t }
 	sub(start = this.t._size, length = 0, type = this._t){ return new Geo2D(this.t, start>>>0, length>>>0, type&63, this.a, this.b, this.c, this.d, this.e, this.f) }
 	addPoint(x, y, ...v){
 		const {t} = this, i = t._pack(v), {arr} = t
@@ -1110,9 +1107,10 @@ class Geo2D extends t2D{
 		return t._size++
 	}
 }
+buf.for='main'
 class Geo3D extends t3D{
-	constructor(t,s=0,L=0,tp=5,a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1,j=0,k=0,l=0){ super(a,b,c,d,e,f,g,h,i,j,k,l); this.t = t; this._s = s; this._l = L; this._t = tp; this.B = this.t.b }
-	sub(start = this.t._size, length = 0, type = this._t){ return new Geo2D(this.t, start>>>0, length>>>0, type&63, this.a, this.b, this.c, this.d, this.e, this.f, this.g, this.h, this.i, this.j, this.k, this.l) }
+	constructor(t,s=0,L=0,tp=5,a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1,j=0,k=0,l=0){ super(a,b,c,d,e,f,g,h,i,j,k,l); this.t = t; this._s = s; this._l = L; this._t = tp; t.b.for=t }
+	sub(start = this.t._size, length = 0, type = this._t){ return new Geo3D(this.t, start>>>0, length>>>0, type&63, this.a, this.b, this.c, this.d, this.e, this.f, this.g, this.h, this.i, this.j, this.k, this.l) }
 	addPoint(x, y, z, ...v){
 		const {t} = this, i = t._pack(v), {arr} = t
 		arr[i] = x*this.a+y*this.d+z*this.g+this.j
@@ -1138,8 +1136,22 @@ class Geo3D extends t3D{
 		return t._size++
 	}
 }
+/*for(const k of Object.getOwnPropertyNames(WebGL2RenderingContext.prototype)){
+	try{
+		const f = WebGL2RenderingContext.prototype[k]
+		if(typeof f != 'function') continue
+		const san = !k.startsWith('get')
+		WebGL2RenderingContext.prototype[k] = function(...p){
+			const res = f.apply(this, p)
+			if(!san) return res
+			console.debug('gl.'+k+'(', ...p, ')')
+			return res
+		}
+	}catch{}
+}*/
 const y = Object.getOwnPropertyDescriptors({
-	get vertexCount(){ return this.t._size },
+	get size(){ return this.t._size },
+	get uploadCount(){ return this.t._usize },
 	_setShp(){
 		const {t} = this
 		i&&draw(); shp = this
@@ -1152,8 +1164,7 @@ const y = Object.getOwnPropertyDescriptors({
 			}
 		}
 		shpStart = this._s; shpLen = this._l
-		shpElT = t.elT
-		if(t.elB != oelb) gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, oelb = t.elB)
+		shpElT = t._elT
 	},
 	get end(){ return this._s + this._l },
 	set end(a){ a >>>= 0; if(a >= this._s) this._l = a - this._s; else this._l = this._s - a, this._s = a; if(shp == this) this._setShp() },
@@ -1166,15 +1177,29 @@ const y = Object.getOwnPropertyDescriptors({
 	get identity(){ return this.t },
 	upload(order = null){
 		const {t} = this
-		if(!order){ if(t.elB){
-			if(shp&&shp.t==t){
-				i&&draw(), shpElT = 0
-				gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null)
+		if(shp&&t==shp.t) i&&draw()
+		if(!order){
+			if(t.v){
+				gl.bindVertexArray(t.v)
+				if(!t.Ls){
+					t.Ls = 1
+					gl.bindBuffer(gl.ARRAY_BUFFER, t.b)
+					const vlowest = maxAttribs-(t._vcount+3>>2)
+					for(let i = maxAttribs-1,j=0; i >= vlowest; i--,j+=16){
+						gl.enableVertexAttribArray(i)
+						gl.vertexAttribIPointer(i,i==vlowest?t._vcount&3:4,gl.UNSIGNED_INT,t._vcount<<2,j)
+					}
+					gl.bindBuffer(gl.ARRAY_BUFFER, buf)
+				}
+				if(t._elB) gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null)
+				gl.bindVertexArray(sv)
 			}
-			t.elT = 0
-			t.elB.delete()
-			t.elB = null
-		} }else{
+			t._elT = 0
+			if(t._elB){
+				t._elB.delete()
+				t._elB = null
+			}
+		}else{
 			let typ = 0
 			if(Array.isArray(order)){
 				let max = 0
@@ -1184,20 +1209,33 @@ const y = Object.getOwnPropertyDescriptors({
 				order = buf
 			}
 			typ = gl.UNSIGNED_BYTE + (0x40200>>(order.BYTES_PER_ELEMENT<<2)&15)
-			if(shp&&shp.t==t) i&&draw(), shpElT = typ
-			t.elT = typ
-			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, t.elB ??= gl.createBuffer())
+			t._elT = typ
+			gl.bindVertexArray(t.v)
+			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, t._elB ??= gl.createBuffer())
 			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, order, gl.STATIC_DRAW)
-			if(!shp||shp.t!=t) gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, oelb)
-			else oelb = t.elB
+			if(!t.v) gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null)
+			else if(!t.Ls){
+				t.Ls = 1
+				gl.bindBuffer(gl.ARRAY_BUFFER, t.b)
+				const vlowest = maxAttribs-(t._vcount+3>>2)
+				for(let i = maxAttribs-1,j=0; i >= vlowest; i--,j+=16){
+					gl.enableVertexAttribArray(i)
+					gl.vertexAttribIPointer(i,i==vlowest?t._vcount&3:4,gl.UNSIGNED_INT,t._vcount<<2,j)
+				}
+				gl.bindBuffer(gl.ARRAY_BUFFER, buf)
+			}
+			gl.bindVertexArray(sv)
 		}
+		if(shp&&shp.t==t) shpElT = t._elT
 		gl.bindBuffer(gl.ARRAY_BUFFER, t.b)
 		gl.bufferData(gl.ARRAY_BUFFER, t.iarr.subarray(0, t.i), gl.STATIC_DRAW)
 		gl.bindBuffer(gl.ARRAY_BUFFER, buf)
 		t.arr = empty
 		t.iarr = iempty
 		t.i = 0
-		this._l = order ? order.length : t._size
+		t._usize = this._l = order ? order.length : t._size
+		t._size = 0
+		if(shp&&t==shp.t) this._setShp()
 	}
 })
 const empty = new Float32Array(), iempty = new Int32Array(empty.buffer)
@@ -1207,13 +1245,13 @@ $.Geometry2D = (v = null, type=5) => {
 	if(typeof v == 'number') type = v, v = null
 	const {_pack, _vcount} = v ?? $.Geometry2D.DEFAULT_VERTEX
 	const arr = new Float32Array(16)
-	return new Geo2D({arr, iarr: new Int32Array(arr.buffer), i: 0, b: gl.createBuffer(), _pack, _vcount, _size: 0, elB: null, elT: 0},0,4294967295,type)
+	return new Geo2D({arr, iarr: new Int32Array(arr.buffer), i: 0, b: gl.createBuffer(), _pack, _vcount, _size: 0, _usize: 0, v: null, _elB: null, _elT: 0},0,0,type)
 }
 $.Geometry3D = (v = null, type=5) => {
 	if(typeof v == 'number') type = v, v = null
 	const {_pack, _vcount} = v ?? $.Geometry3D.DEFAULT_VERTEX
 	const arr = new Float32Array(16)
-	return new Geo3D({arr, iarr: new Int32Array(arr.buffer), i: 0, b: gl.createBuffer(), _pack, _vcount, _size: 0, L: null, v: gl.createVertexArray(), Ls: 0, elB: null, elT: 0},0,4294967295,type)
+	return new Geo3D({arr, iarr: new Int32Array(arr.buffer), i: 0, b: gl.createBuffer(), _pack, _vcount, _size: 0, _usize: 0, v: gl.createVertexArray(), L: null, Ls: 0, _elB: null, _elT: 0},0,0,type)
 }
 
 $.Geometry2D.Vertex = vfgen.bind(null, false)
@@ -1347,13 +1385,12 @@ uvec4 uGetPixel(int u,ivec3 p,int l){${switcher(i=>`return texelFetch(GL_i[${i-m
 vec4 fGetPixel(int u,ivec3 p,int l){${T||switcher(i=>`return texelFetch(GL_f[${i}],p,l);`,0,fCount)}}\
 \n#define getColor(a,b)GL_lp(fGetColor(a,b))\n#define getPixel(a,b,c)GL_lp(fGetPixel(a,b,c))\n`
 	fShaderHead[1] = head
-	const fMask = 32-fCount&&(-1>>>fCount)
-	uniFnBody[0] = `i&&draw(0);if(sh!=s){gl.useProgram(program);switchShader(s,${fCount},${fMask},${matWidth > 3 ? attrs+12 : `lv==shVao3?${attrs+9}:${attrs+6}`})}`
-	fnBody[0] = `sz+=${attrs};if(this._setv()){const sd=sh!=s,{_shp}=this;;if(sd||sz!=shCount){i&&draw(0);switchShader(s,${fCount},${fMask},sz);if(sd)gl.useProgram(program),B();${matWidth>3?'}if(s!=_shp.t.L||sz!=_shp.Ls){_shp.L=s;_shp.Ls=sz;gl.bindVertexArray(_shp.v);setVao(sz>8);gl.bindBuffer(34962,_shp.B);':`gl.bindVertexArray(lv=sz>${8+attrs}?shVao3:shVao)}else if(lv!=(lv=sz>${8+attrs}?shVao3:shVao))gl.bindVertexArray(lv);if(lv.geo!=_shp.B){gl.bindBuffer(34962,lv.geo=_shp.B);`}${
-		vlowest==maxAttribs-1?`gl.vertexAttribIPointer(${vlowest},${vertex._vcount&3},gl.UNSIGNED_INT,${vertex._vcount<<2},0)`:`for(let i=${maxAttribs-1},j=0;i>=${vlowest};i--,j+=16){gl.vertexAttribIPointer(i,i==${vlowest}?${vertex._vcount&3}:4,gl.UNSIGNED_INT,${vertex._vcount<<2},j)`
-	};gl.bindBuffer(34962,buf)}if(shp!=_shp)_shp._setShp();}let b=boundUsed^shuniBind;`+texCheck.join(';')+`;const k=grow(sz),j=k+sz-${attrs}`
+	const fMask = 32-fCount&&(-1>>>fCount|0)
+	uniFnBody[0] = `i&&draw(0);if(sh!=s){gl.useProgram(program);switchShader(s,${fCount},${fMask},${matWidth>3 ? attrs+matWidth*(matWidth-1)+')' : `lv==shVao3?${attrs+9}:${attrs+6});switchVao(lv)`}}`
+	const bind = vlowest==maxAttribs-1?`gl.vertexAttribIPointer(${vlowest},${vertex._vcount&3},gl.UNSIGNED_INT,${vertex._vcount<<2},0)`:`for(let i=${maxAttribs-1},j=0;i>=${vlowest};i--,j+=16){gl.vertexAttribIPointer(i,i==${vlowest}?${vertex._vcount&3}:4,gl.UNSIGNED_INT,${vertex._vcount<<2},j)`
+	fnBody[0] = `sz+=${attrs};if(this._setv()){const sd=sh!=s,{_shp}=this,_st=_shp.t;if(sd||sz!=shCount){i&&draw(sd?0:shuniBind);switchShader(s,${fCount},${fMask},sz);if(sd)gl.useProgram(program),B();${matWidth>3 ? `}if(sv!=_st.v)i&&draw(),switchVao(_st.v);if(s!=_st.L||sz!=_st.Ls){i&&draw();setVao(sz>${8+attrs},0,false);_st.L=s;_st.Ls=sz` : `switchVao(lv=sz>${8+attrs}?shVao3:shVao)}if(lv.geo!=_st.b){i&&draw();gl.bindBuffer(gl.ARRAY_BUFFER,lv.geo=_st.b);${bind}`};gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,_st._elB);gl.bindBuffer(gl.ARRAY_BUFFER,buf)}if(shp!=_shp)_shp._setShp();}let b=boundUsed^shuniBind;`+texCheck.join(';')+`;const k=grow(sz),j=k+sz-${attrs}`
 	fnBody.push('return k')
-	const setVao = (proj, off=0) => {
+	const setVao = (proj=false, off=0,nw=true) => {
 		const base = matWidth*(2+proj)
 		const stride = (attrs + base) << 2
 		for(let loc = 1+proj; loc >= 0; loc--){
@@ -1371,7 +1408,7 @@ vec4 fGetPixel(int u,ivec3 p,int l){${T||switcher(i=>`return texelFetch(GL_f[${i
 			gl.vertexAttribIPointer(loc, min(4, attrs-i), gl.UNSIGNED_INT, stride, off + ((i + base) << 2))
 			gl.vertexAttribDivisor(loc, 1)
 		}
-		for(let i = maxAttribs-1; i >= vlowest; i--)
+		if(nw) for(let i = maxAttribs-1; i >= vlowest; i--)
 			gl.enableVertexAttribArray(i)
 		return stride>>2
 	}
@@ -1380,7 +1417,7 @@ vec4 fGetPixel(int u,ivec3 p,int l){${T||switcher(i=>`return texelFetch(GL_f[${i
 		gl.bindVertexArray(shVao = gl.createVertexArray())
 		shVao.geo = null
 		setVao(false)
-		gl.bindVertexArray(shVao3 = gl.createVertexArray())
+		gl.bindVertexArray(sv = shVao3 = gl.createVertexArray())
 		shVao3.geo = null
 		setVao(true)
 	}
@@ -1401,8 +1438,6 @@ vec4 fGetPixel(int u,ivec3 p,int l){${T||switcher(i=>`return texelFetch(GL_f[${i
 		gl.uniform1i(gl.getUniformLocation(program, i<fCount?'GL_f['+i+']':'GL_i['+(i-fCount)+']'), i>=fCount?maxTex+i-fCount:i)
 	s.vertex = vertex
 	s.three = vertex.three
-	const c = s._count = attrs + matWidth*2
-	s._countp = shCount = c + matWidth
 	return sh = s
 }
 let fdc = 0, fs = 0, fd = 0
