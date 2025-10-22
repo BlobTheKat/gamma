@@ -17,8 +17,9 @@
 	const $ = globalThis
 	let ow = 0, oh = 0
 	$.render = null
+	$.ctxSupersample = 1
 	Gamma(undefined, $).loop(() => {
-		const px = $.pixelRatio = devicePixelRatio
+		const px = $.pixelRatio = devicePixelRatio * ctxSupersample
 		const w = innerWidth, h = innerHeight
 		if(ow!=(ow=round(w*px))|oh!=(oh=round(h*px))) $.setSize(ow, oh)
 		$.canvas.style.transform = `scale(${1/px})`

@@ -229,7 +229,7 @@ $.Shader.font = (src, o={}) => {
 				q.#w=NaN; q.#l = null
 			}
 			#v = DEFAULT_PASSES
-			addTextPass(ord, x, y, a, off=0, spr=-1){
+			addTextPass(ord, a, x=0, y=0, off=0, spr=-1){
 				const o = {off, spr: .5/spr, 0: null, 1: V}
 				if(a) for(let i=0;i<a.length;i++) o[i+2] = a[i]
 				const v = this.#v, v2 = this.#v = []
@@ -241,7 +241,7 @@ $.Shader.font = (src, o={}) => {
 				while(i < v.length) v2.push(v[i], v[i+1], v[i+2], v[i+3]), i += 4
 				this.#q.#l = null
 			}
-			addLinePass(ord, y0, h, a){
+			addLinePass(ord, a, y0=0, h=1){
 				const o = {0: vec4one, 1: vec2l}
 				for(let i=0;i<a.length;i++) o[i+2] = a[i]
 				const v = this.#v, v2 = this.#v = []
@@ -251,20 +251,6 @@ $.Shader.font = (src, o={}) => {
 				}else{ if(v[i]==ord) i+=4; break }
 				v2.push(ord, o, +y0, +h)
 				while(i < v.length) v2.push(v[i], v[i+1], v[i+2], v[i+3]), i += 4
-				this.#q.#l = null
-			}
-			setValues(ord, a){
-				const v = this.#v = this.#v.slice()
-				for(let i = 0; i < v.length; i += 4) if(v[i] == ord){
-					let a2 = v[i+=3]
-					if(typeof a2=='number') a2 = v[i-=2]
-					v[i] = a2 = Object.assign({}, a2)
-					for(let i=a.length-1;i>=0;i--){
-						const a1 = a[i]
-						if(a1 !== undefined) a2[i+2] = a1
-					}
-					break
-				}else if(v[i] > ord) break
 				this.#q.#l = null
 			}
 			delPass(ord){
@@ -277,7 +263,7 @@ $.Shader.font = (src, o={}) => {
 				this.#q.#l = null
 			}
 
-			insertTextPass(ord, x, y, a, off=0, spr=-1){
+			insertTextPass(ord, a, x=0, y=0, off=0, spr=-1){
 				const o = {off, spr: .5/spr, 0:null,1: V}
 				if(a) for(let i=0;i<a.length;i++) o[i+2] = a[i]
 				const q = this.#q, len = q.length
@@ -300,7 +286,7 @@ $.Shader.font = (src, o={}) => {
 				if(p != 1) q.unshift(ord>0?[0,0,0,O,ord,x,y,o]:ord<0?[ord,x,y,o,0,0,0,O]:[ord,x,y,o])
 				q.#l = null
 			}
-			insertLinePass(ord, y0, h, a){
+			insertLinePass(ord, a, y0=0, h=1){
 				const o = {0: vec4one, 1: vec2l}
 				for(let i=0;i<a.length;i++) o[i+2] = a[i]
 				const q = this.#q, len = q.length
@@ -321,31 +307,6 @@ $.Shader.font = (src, o={}) => {
 					}
 				}
 				if(p != 1) q.unshift(ord>0?[0,0,0,O,ord,o,y0,h]:ord<0?[ord,o,y0,h,0,0,0,O]:[ord,o,y0,h])
-				q.#l = null
-			}
-			adjustValues(ord, a){
-				const q = this.#q, len = q.length
-				let idx = 0, p = 0
-				while(idx < len){
-					const s = q[idx++]
-					if(typeof s == 'number' && s>0) idx++
-					else if(typeof s == 'string' || typeof s == 'function'){ if(!p) p = 2 }
-					else if(Array.isArray(s)){
-						const v = q[idx-1] = s.slice()
-						if(s == q.#_v) q.#_v = v
-						let i = 0
-						for(; i < v.length; i += 4) if(v[i] == ord){
-							let a2 = v[i+=3]
-							if(typeof a2=='number') a2 = v[i-=2]
-							v[i] = a2 = Object.assign({}, a2)
-							for(let i=a.length-1;i>=0;i--){
-								const a1 = a[i]
-								if(a1 !== undefined) a2[i+2] = a1
-							}
-							break
-						}
-					}
-				}
 				q.#l = null
 			}
 			removePass(ord){
@@ -716,7 +677,8 @@ $.Shader.font = (src, o={}) => {
 				ctx.geometry = dfgeo
 				let vs = DEFAULT_PASSES, vlen = 3, font = null, dsc = 0
 				let last = -1, lastSt = 1
-				const pxr0 = ctx.pixelRatio()*2; let pxr = 1, rf = 1, rf1 = 1
+				let recalc = ctx.projection
+				let pxr0 = ctx.pixelRatio()*2, pxr = 1, rf = 1, rf1 = 1
 				let ea = 0
 				w: while(idx < q.length){
 					let s = q[idx++]
@@ -754,6 +716,7 @@ $.Shader.font = (src, o={}) => {
 							const c = ch.codePointAt()
 							const g = cmap.get(~c) ?? cmap._default
 							if(!g) continue
+							if(recalc) pxr0 = ctx.pixelRatio()*2, pxr = pxr0*sc*font.rangeFactor
 							const ker = (cmap.get(c+last*1114112) ?? 0) * min(lastSt, st)
 							last = c; lastSt = st
 							const w = (g._xadv+lsb+lsb)*st + ker, xr = ker-xo
@@ -786,6 +749,8 @@ $.Shader.font = (src, o={}) => {
 						if(!s){ cmap = null; continue }
 						if(Array.isArray(s)){
 							vlen = (vs = s).length
+							recalc = false
+							if(ctx.projection) for(let i = 0; i < vlen; i+=4) if(typeof vs[i+3]=='object' && vs[i+3].spr<0){ recalc = true; break }
 							continue
 						}
 						font = s; dsc = font.ascend-1; cmap = s
@@ -1160,11 +1125,13 @@ ffff\ ffff\ ffff\ ffff\
 			if(this.#cb) return
 			lsb *= .5
 			off /= this.rangeFactor
-			spr = spr<0 ? ctx.pixelRatio()*2*this.rangeFactor : .5*this.rangeFactor/spr
+			const recalc = spr<0&&ctx.projection
+			if(!recalc) spr = spr<0 ? ctx.pixelRatio()*2*this.rangeFactor : .5*this.rangeFactor/spr
 			for(const ch of txt){
 				const c = ch.codePointAt()
 				const g = this.get(~c) ?? this._default
 				if(!g) continue
+				if(recalc) spr = ctx.pixelRatio()*2*this.rangeFactor
 				const ker = this.get(c+last*1114112) ?? 0; last = c
 				const w = g._xadv + lsb + lsb + ker
 				if(g._tex) V.x = off, V.y = spr, ctx.drawRect(g.x+lsb+ker,g.y,g.w,g.h,g._tex,V,...v)
@@ -1177,7 +1144,7 @@ ffff\ ffff\ ffff\ ffff\
 			let w = 0
 			for(const ch of txt){
 				const c = ch.codePointAt()
-				const g = this.get(c) ?? this._default
+				const g = this.get(~c) ?? this._default
 				if(!g) continue
 				const ker = this.get(c+last*1114112) ?? 0; last = c
 				w += g._xadv + lsb + ker

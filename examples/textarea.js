@@ -16,7 +16,7 @@ const styles = new Map()
 input.transformer = txt => {
 	const r = RichText(font)
 	if(!txt){
-		r.setValues(0, [vec4(.4)])
+		r.addTextPass(0, [vec4(.4)])
 		r.index = false
 		r.skew = .2
 		r.add(`Let's get writing!`)
@@ -29,10 +29,10 @@ input.transformer = txt => {
 			if(!reg.test(txt)) continue
 			const len = reg.lastIndex - i
 			if(i > last){
-				r.setValues(0, [vec4.one])
+				r.addTextPass(0, [vec4.one])
 				r.add(txt.slice(last, i))
 			}
-			r.setValues(0, [col])
+			r.addTextPass(0, [col])
 			r.add(txt.slice(i, i += len))
 			last = i
 			continue w
@@ -40,7 +40,7 @@ input.transformer = txt => {
 		i++
 	}
 	if(i > last){
-		r.setValues(0, [vec4.one])
+		r.addTextPass(0, [vec4.one])
 		r.add(txt.slice(last, i))
 	}
 	return r

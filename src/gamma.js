@@ -485,8 +485,8 @@ class t2D{
 	}
 	multiply(x=1, y=0){
 		const {a,b,c,d} = this
-		this.a=a*x-c*y;this.b=b*x-d*y
-		this.c=a*y+c*x;this.d=b*y+d*x
+		this.a=a*x+c*y;this.b=b*x+d*y
+		this.c=c*x-a*y;this.d=d*x-b*y
 	}
 	box(x=0,y=0,w=1,h=w){ this.e+=x*this.a+y*this.c; this.f+=x*this.b+y*this.d; this.a*=w; this.b*=w; this.c*=h; this.d*=h }
 	to(x=0, y=0){ if(typeof x=='object')({x,y}=x); return {x:this.a*x+this.c*y+this.e,y:this.b*x+this.d*y+this.f}}
@@ -546,32 +546,6 @@ class t2t3D{
 		this.i+=x*this.c+y*this.f
 		this.a*=w; this.b*=w; this.c*=w
 		this.d*=h; this.e*=h; this.f*=h
-	}
-	to(x=0, y=0){
-		if(typeof x=='object')({x,y}=x)
-		let p = this.c*x+this.f*y+this.i
-		if(p<=0) return {x:NaN,y:NaN}
-		p = 1/p
-		return {x:(this.a*x+this.d*y+this.g)*p,y:(this.b*x+this.e*y+this.h)*p}
-	}
-	from(x=0, y=0){
-		if(typeof x=='object')({x,y}=x)
-		const {a,b,c,d,e,f} = this
-		// todo
-		return {x:NaN,y:NaN}
-	}
-	toDelta(x=0, y=0){
-		if(typeof x=='object')({x,y}=x)
-		let p = this.c*x+this.f*y+this.i
-		if(p<=0) return {x:NaN,y:NaN}
-		p = 1/p
-		return {x:(this.a*x+this.d*y)*p,y:(this.b*x+this.e*y)*p}
-	}
-	fromDelta(x=0, y=0){
-		if(typeof x=='object')({x,y}=x)
-		const {a,b,c,d,e,f} = this
-		// todo
-		return {x:NaN,y:NaN}
 	}
 }
 
@@ -699,14 +673,14 @@ const grow = ArrayBuffer.prototype.transfer ?
 	by=>{const j=i;if((i=j+by)>arr.length){arr=new Float32Array(arr.buffer.transfer(i*8)),iarr=new Int32Array(arr.buffer)}return j}
 	: by=>{const j=i;if((i=j+by)>arr.length){const oa=arr;(arr=new Float32Array(i*2)).set(oa,0);iarr=new Int32Array(arr.buffer)}return j}
 class Drw2D extends t2D{
-	set shader(sh){ this._sh=typeof sh=='function'&&sh.three===false?sh:$.Shader.DEFAULT }
+	set shader(sh){ this._sh=typeof sh=='function'&&sh.three===false?sh:$.Shader.DEFAULT; if(lastd == this) lastd = null }
 	get shader(){ return this._sh }
 	get geometry(){ return this._shp }
 	set geometry(a){ this._shp = a||geo2; if(lastd == this) lastd = null }
 	constructor(t,m=290787599,sp=geo2,s=$.Shader.DEFAULT,a=1,b=0,c=0,d=1,e=0,f=0){ super(a,b,c,d,e,f); this.t = t; this._mask = m; this._shp = sp; this._sh = s }
 	pixelRatio(){return sqrt(abs(this.a*this.d-this.b*this.c)*this.t.w*this.t.h)}
 	sub(){ return new Drw2D(this.t,this._mask,this._shp,this._sh,this.a,this.b,this.c,this.d,this.e,this.f) }
-	sub3DProj(z0=0,zsc=1){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D,this.a,this.b,0,this.c,this.d,0,this.e*zsc,this.f*zsc,zsc,this.e*z0,this.f*z0,z0)}
+	sub3dProj(z0=0,zsc=1){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D,this.a,this.b,0,this.c,this.d,0,this.e*zsc,this.f*zsc,zsc,this.e*z0,this.f*z0,z0)}
 	resetTo(m){ this.a=m.a;this.b=m.b;this.c=m.c;this.d=m.d;this.e=m.e;this.f=m.f;this._mask=m._mask;this._sh=m._sh;this._shp=m._shp }
 	reset(a=1,b=0,c=0,d=1,e=0,f=0){if(typeof a=='object')({a,b,c,d,e,f}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this._mask=290787599;this._sh=$.Shader.DEFAULT;this._shp=geo2}
 	draw(...values){
@@ -743,12 +717,43 @@ class Drw2D extends t2D{
 	}
 }
 class Drw2t3D extends t2t3D{
-	set shader(sh){ this._sh=typeof sh=='function'&&sh.three===false?sh:$.Shader.DEFAULT }
+	set shader(sh){ this._sh=typeof sh=='function'&&sh.three===false?sh:$.Shader.DEFAULT; if(lastd == this) lastd = null }
 	get shader(){ return this._sh }
 	get geometry(){ return this._shp }
 	set geometry(a){ this._shp = a||geo2; if(lastd == this) lastd = null }
 	constructor(t,m=290787599,sp=geo2,s=$.Shader.DEFAULT,a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=0){ super(a,b,c,d,e,f,g,h,i); this.t = t; this._mask = m; this._shp = sp; this._sh = s }
-	/*TODO*/pixelRatio(){return sqrt(abs(this.a*this.e-this.b*this.d)*this.t.w*this.t.h)}
+	pixelRatio(){
+		const {i} = this
+		const v = (this.a*i-this.g*this.c) * (this.e*i-this.h*this.f)
+		- (this.d*i-this.g*this.f) * (this.b*i-this.h*this.c)
+		return sqrt(abs(v)*this.t.w*this.t.h)/(i*i)
+	}
+	to(x=0, y=0){
+		if(typeof x=='object')({x,y}=x)
+		let p = this.c*x+this.f*y+this.i
+		if(p<=0) return {x:NaN,y:NaN}
+		p = 1/p
+		return {x:(this.a*x+this.d*y+this.g)*p,y:(this.b*x+this.e*y+this.h)*p}
+	}
+	from(x=0, y=0){
+		if(typeof x=='object')({x,y}=x)
+		const {a,b,c,d,e,f} = this
+		// todo
+		return {x:NaN,y:NaN}
+	}
+	toDelta(x=0, y=0){
+		if(typeof x=='object')({x,y}=x)
+		let i = this.i, i2 = this.c*x+this.f*y+this.i
+		if(i<=0||i2<=0) return {x:NaN,y:NaN}
+		i = 1/i; i2 = 1/i2
+		return {x: (this.g+this.a*x+this.d*y)*i2 - this.g*i, y: (this.h+this.b*x+this.e*y)*i2 - this.h*i}
+	}
+	fromDelta(x=0, y=0){
+		if(typeof x=='object')({x,y}=x)
+		const {a,b,c,d,e,f} = this
+		// todo
+		return {x:NaN,y:NaN}
+	}
 	sub(){ return new Drw2D(this.t,this._mask,this._shp,this._sh,this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h,this.i) }
 	/*TODO*/sub3DProj(z0=0,zsc=1){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D,this.a,this.b,0,this.c,this.d,0,this.e*zsc,this.f*zsc,zsc,this.e*z0,this.f*z0,z0)}
 	resetTo(m){ this.a=m.a;this.b=m.b;this.c=m.c;this.d=m.d;this.e=m.e;this.f=m.f;this.g=m.g;this.h=m.h;this.i=m.i;this._mask=m._mask;this._sh=m._sh;this._shp=m._shp }
@@ -793,16 +798,18 @@ class Drw2t3D extends t2t3D{
 	}
 }
 class Drw3D extends t3D{
-	set shader(sh){ this._sh=typeof sh=='function'&&sh.three===true?sh:$.Shader.COLOR_3D }
+	set shader(sh){ this._sh=typeof sh=='function'&&sh.three===true?sh:$.Shader.COLOR_3D; if(lastd == this) lastd = null }
 	get shader(){ return this._sh }
 	get geometry(){ return this._shp }
 	set geometry(a){ this._shp = a||geo3; if(lastd == this) lastd = null }
 	constructor(t,m=290787599,sp=geo3,s=$.Shader.COLOR_3D,a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1,j=0,k=0,l=0){ super(a,b,c,d,e,f,g,h,i,j,k,l); this.t = t; this._mask = m; this._shp = sp; this._sh = s }
 	sub(){ return new Drw3D(this.t,this._mask,this._shp,this._sh,this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h,this.i,this.j,this.k,this.l) }
-	sub2D(xx=NaN,xy=0,xz=0,yx=0,yy=1,yz=0){
-		if(xx!==xx) return new Drw2t3D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.a,this.b,this.c,this.d,this.e,this.f,this.j,this.k,this.l)
-		const A=this.a,B=this.b,C=this.c,D=this.d,E=this.e,F=this.f,G=this.g,H=this.h,I=this.i
-		return new Drw2t3D(this.t,this._mask,this._shp,this._sh,A*xx+D*xy+G*xz, B*xx+E*xy+H*xz, C*xx+F*xy+I*xz,A*yx+D*yy+G*yz, B*yx+E*yy+H*yz, C*yx+F*yy+I*yz,this.j,this.k,this.l)
+	sub2dXY(){ return new Drw2t3D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.a,this.b,this.c,this.d,this.e,this.f,this.j,this.k,this.l) }
+	sub2dZY(){
+		return new Drw2t3D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.g,this.h,this.i,this.d,this.e,this.f,this.j,this.k,this.l)
+	}
+	sub2dXZ(){
+		return new Drw2t3D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.a,this.b,this.c,this.g,this.h,this.i,this.j,this.k,this.l)
 	}
 	resetTo(m){ this.a=m.a;this.b=m.b;this.c=m.c;this.d=m.d;this.e=m.e;this.f=m.f;this.g=m.g;this.h=m.h;this.i=m.i;this.j=m.j;this.k=m.k;this.l=m.l;this._mask=m._mask;this._sh=m._sh;this._shp=m._shp }
 	reset(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1,j=0,k=0,l=0){if(typeof a=='object')({a,b,c,d,e,f,g,h,i,j,k,l}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this.i=i;this.j=j;this.k=k;this.l=l;this._mask=290787599;this._sh=$.Shader.COLOR_3D;this._shp=geo3}
@@ -977,11 +984,13 @@ const x = Object.getOwnPropertyDescriptors({
 		const q = this.t._stencil = this.t._stencil+1&7
 		if(!q) gl.stencilMask(255), gl.clear(1024)
 		gl.disable(2960); pmask &= -241
-	}
+	},
+	projection: false
 })
 Object.defineProperties(Drw2D.prototype, x)
 Object.defineProperties(Drw3D.prototype, x)
 Object.defineProperties(Drw2t3D.prototype, x)
+Drw3D.prototype.projection = Drw2t3D.prototype.projection = true
 //Object.defineProperties(Drw3t2D.prototype, x)
 
 Object.assign($.Blend = (src = 17, combine = 17, dst = 0, a2c = false) => src|dst<<8|combine<<16|a2c<<23, {
@@ -1057,11 +1066,11 @@ const vfgen = (three, vparams, _defaults = []) => {
 		if(!flat) nm = `uintBitsToFloat(${nm})`
 		const start = `GL_${flat?'V':'v'}${vid}.`
 		if(vEnd <= (vStart||4))
-			vShaderHead.push(`${flat?'flat out u':'centroid out '}vec4 ${(flat?'GL_V':'GL_v')+((vvarys>>2)-!((sz==4+vStart)))};`)
+			vShaderHead.push(`${flat?'flat out u':'out '}vec4 ${(flat?'GL_V':'GL_v')+((vvarys>>2)-!((sz==4+vStart)))};`)
 		if(vEnd <= vStart){
 			const name1 = (flat?'GL_V':'GL_v')+(vvarys>>2)
 			const v = `${flat?'u':''}vec${sz}(${start+'xyzw'.slice(vStart)},${start+'xyzw'.slice(0, vEnd)})`
-			fShaderHead.push(`${flat?'flat in u':'centroid in '}vec4 ${name1};\n#define vparam${vid} ${t>=64&&t<80?`uintBitsToFloat(${v})`:v}\n`)
+			fShaderHead.push(`${flat?'flat in u':'in '}vec4 ${name1};\n#define vparam${vid} ${t>=64&&t<80?`uintBitsToFloat(${v})`:v}\n`)
 			vShaderBody.push(`${n} t${id}=${nm};${start+'xyzw'.slice(vStart,vEnd)}=t${id}.${'xyzw'.slice(0, 4-vStart)};${name1}.${'xyzw'.slice(0, vEnd)}=t${id}.${'xyzw'.slice(4-vStart,sz)};`)
 		}else{
 			const v = start + 'xyzw'.slice(vStart, vEnd)
@@ -1139,7 +1148,7 @@ const y = Object.getOwnPropertyDescriptors({
 			if(!t4) gl.disable(gl.CULL_FACE)
 			else{
 				if(!ot4) gl.enable(gl.CULL_FACE)
-				gl.cullFace(1027+t4+(t4&t4<<1))
+				gl.frontFace(gl.CW + (t4>>1))
 			}
 		}
 		shpStart = this._s; shpLen = this._l
@@ -1340,7 +1349,7 @@ vec4 fGetPixel(int u,ivec3 p,int l){${T||switcher(i=>`return texelFetch(GL_f[${i
 	fShaderHead[1] = head
 	const fMask = 32-fCount&&(-1>>>fCount)
 	uniFnBody[0] = `i&&draw(0);if(sh!=s){gl.useProgram(program);switchShader(s,${fCount},${fMask},${matWidth > 3 ? attrs+12 : `lv==shVao3?${attrs+9}:${attrs+6}`})}`
-	fnBody[0] = `sz+=${attrs};if(this._setv()){const sd=sh!=s,{_shp}=this;;if(sd||sz!=shCount){i&&draw(0);switchShader(s,${fCount},${fMask},sz);if(sd){gl.useProgram(program);B()}${matWidth>3?'}if(s!=_shp.t.L||sz!=_shp.Ls){_shp.L=s;_shp.Ls=sz;gl.bindVertexArray(_shp.v);setVao(sz>8);gl.bindBuffer(34962,_shp.B);':`gl.bindVertexArray(lv=sz>${8+attrs}?shVao3:shVao)}else if(lv!=(lv=sz>${8+attrs}?shVao3:shVao)){gl.bindVertexArray(lv)};if(lv.geo!=_shp.B){gl.bindBuffer(34962,lv.geo=_shp.B);`}${
+	fnBody[0] = `sz+=${attrs};if(this._setv()){const sd=sh!=s,{_shp}=this;;if(sd||sz!=shCount){i&&draw(0);switchShader(s,${fCount},${fMask},sz);if(sd)gl.useProgram(program),B();${matWidth>3?'}if(s!=_shp.t.L||sz!=_shp.Ls){_shp.L=s;_shp.Ls=sz;gl.bindVertexArray(_shp.v);setVao(sz>8);gl.bindBuffer(34962,_shp.B);':`gl.bindVertexArray(lv=sz>${8+attrs}?shVao3:shVao)}else if(lv!=(lv=sz>${8+attrs}?shVao3:shVao))gl.bindVertexArray(lv);if(lv.geo!=_shp.B){gl.bindBuffer(34962,lv.geo=_shp.B);`}${
 		vlowest==maxAttribs-1?`gl.vertexAttribIPointer(${vlowest},${vertex._vcount&3},gl.UNSIGNED_INT,${vertex._vcount<<2},0)`:`for(let i=${maxAttribs-1},j=0;i>=${vlowest};i--,j+=16){gl.vertexAttribIPointer(i,i==${vlowest}?${vertex._vcount&3}:4,gl.UNSIGNED_INT,${vertex._vcount<<2},j)`
 	};gl.bindBuffer(34962,buf)}if(shp!=_shp)_shp._setShp();}let b=boundUsed^shuniBind;`+texCheck.join(';')+`;const k=grow(sz),j=k+sz-${attrs}`
 	fnBody.push('return k')

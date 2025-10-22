@@ -884,6 +884,10 @@ declare global{
 	 * - `TRIANGLES` Connect all triplets of vertices into a triangle (i.e vertices are connected like 0-1-2 3-4-5 6-7-8 with gaps between triplets)
 	 * - `TRIANGLE_STRIP` Connect all 3 adjacent vertices into a triangle (i.e triangles are made from 0-1-2, 1-2-3, 2-3-4, 3-4-5, ...). This means every new vertex after the second forms a new triangle along with the previous 2 vertices
 	 * - `TRIANGLE_FAN` Connect all 2 adjacent vertices with the first one in the list (i.e triangles are made from 0-1-2, 0-2-3, 0-3-4, 0-4-5, ...) This makes a 'fan'-like shape when the first point is placed in the center and all other points in a circle around it, hence the name
+	 * 
+	 * Can also be OR'd with
+	 * - `CW_ONLY` Only render triangles whose vertices appear to go clockwise. This means the triangle is only visible from one side. For the specific case of TRIANGLE_STRIP, since the spin of each triangle alternates in normal geometry, this rule is essentially flipped for each triangle: the first triangle must be winding clockwise to be rendered, the second counterclockwise, the third clockwise, and so on...
+	 * - `CCW_ONLY` Ditto but the faces must appear to be going counterclockwise instead of clockwise. The same alternating behavior occurs for TRIANGLE_STRIP
 	 */
 	function Geometry2D(type: number): Geometry2D
 	function Geometry2D(vertexParameters: Geometry2D.Vertex, type: number): Geometry2D
@@ -944,6 +948,9 @@ declare global{
 	/** See `Geometry()` */ const LINE_STRIP = 3
 	/** See `Geometry()` */ const LINES = 1
 	/** See `Geometry()` */ const POINTS = 0
+	/** See `Geometry()` */ const CW_ONLY = 16
+	/** See `Geometry()` */ const CCW_ONLY = 32
+
 
 	/**
 	 * Construct a shader using GLSL

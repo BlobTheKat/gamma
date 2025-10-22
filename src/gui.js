@@ -41,7 +41,7 @@
 	}
 	const v4 = $.vec4
 	let curf = null, ltf = 0
-	const defaultSr = (p2, field) => p2.insertLinePass(-1, 0, 1, [field.focus ? v4(0,.2,.4,.6) : v4(.2,.2,.2,.6)])
+	const defaultSr = (p2, field) => p2.insertLinePass(-1, [field.focus ? v4(0,.2,.4,.6) : v4(.2,.2,.2,.6)], 0, 1)
 	const defaultCr = (ctx, font) => {
 		ctx.shader = null
 		if(($.t-ltf)%1<.5) ctx.drawRect(0, font.ascend-1, .05, 1, v4.one)
@@ -129,10 +129,10 @@
 			w[0] = v[0] ? v4.multiply(v[0], .4) : v4(.4)
 			this.#tr = value => {
 				const p = $.RichText(font)
-				if(v.length) p.setValues(0, v)
+				if(v.length) p.addTextPass(0, v)
 				if(value) p.add(value)
 				else{
-					p.setValues(0, w)
+					p.addTextPass(0, w)
 					p.index = false
 					p.add(placeholder)
 				}

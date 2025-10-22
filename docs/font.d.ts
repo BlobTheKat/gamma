@@ -157,13 +157,13 @@ declare global{
 		/**
 		 * Add a text pass to be used by new text segments. Text passes can be used to make effects like shadows or glow effects
 		 * @param order The z-order of this text pass. Higher value = in front, lower values = behind. The order for the default text pass is `0`. You can also specify the order of an existing text/line pass to replace it in one step.
-		 * @param x x-offset for this text pass
-		 * @param y y-offset for this text pass
+		 * @param x x-offset for this text pass. Default: 0
+		 * @param y y-offset for this text pass. Default: 0
 		 * @param values The "values" to be passed to the shader. The default shader expects one optional value: the color (a `vec4`). If not specified, white is used.
 		 * @param offset The SDF offset for making bold or thin text. This offset is specified relative to the font height (i.e a value of 0.01 will make text appear approximately 0.01 units thicker at normal font size)
 		 * @param spread The SDF spread for making blurred. This offset is specified relative to the font height (i.e a value of 0.02 will make text blur across approximately 0.02 units at normal font size). The offset is specified at precisely the middle of this gradient. Pass -1 to use a blur specifically chosen to mimic antialiasing.
 		 */
-		addTextPass(order: number, x: number, y: number, values: any[], offset?: number, spread?: number): void
+		addTextPass(order: number, x?: number, y?: number, values: any[], offset?: number, spread?: number): void
 		/**
 		 * Add a line pass to be used by new text segments. Line passes can be used to make effects like underline, strikethrough, or highlighting
 		 * @param order The z-order of this text pass. Higher value = in front, lower values = behind. The order for the default text pass is `0`. You can also specify the order of an existing text/line pass to replace it in one step.
