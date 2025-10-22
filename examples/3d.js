@@ -104,8 +104,9 @@ function drawText(ctx){
 	label.draw(ctx)
 }
 
-const FOV = 90
+
 render = () => {
+	const FOV = keys.has(KEY.C) ? 15 : 90
 	skyShader.uniforms(t)
 	const {width, height} = ctx
 	ctx.reset(.05*height/width, 0, 0, .05, .5, .5)
