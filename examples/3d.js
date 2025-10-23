@@ -186,5 +186,5 @@ render = () => {
 		ctx.shader = Shader.MSDF
 		fonts.ubuntu.draw(ctx, 'Click anywhere to lock pointer', [vec4(.3+sin(t*PI)*.2)])
 	}
-	//ctxSupersample = keys.has(KEY.V) ? 0.125/devicePixelRatio : 1 + (devicePixelRatio < 2)
+	ctxSupersample = keys.has(KEY.V) ? 0.125/devicePixelRatio : 1 + (devicePixelRatio < 2)
 }
