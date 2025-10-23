@@ -645,7 +645,7 @@ class t3D{
 			z: (o * x + (d*c - f*a) * y + (a*e - b*d) * z) * i_det,
 		}
 	}
-	determinant(){ const {a,b,c,d,e,f,g,h,i} = this; return a*(e*i-f*h)-d*(h*c-i*b)+g*(b*f-c*e)}
+	determinant(){ const {a,b,c,d,e,f,g,h,i} = this; return a*(e*i-f*h)+d*(c*h-b*i)+g*(b*f-c*e)}
 	origin(){
 		const {a,b,c,d,e,f,g,h,i,j,k,l} = this
 		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e, i_det = -1./(a*m + d*n + g*o);
@@ -741,9 +741,16 @@ class Drw2t3D extends t2t3D{
 	}
 	from(x=0, y=0){
 		if(typeof x=='object')({x,y}=x)
-		const {a,b,c,d,e,f} = this
+		const {a,b,c,d,e,f,g,h,i} = this
 		// todo
-		return {x:NaN,y:NaN}
+		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e
+		const det = 1/(a*m + d*n + g*o)
+		const x0 = (m*x + n*y + o) * det
+		const y0 = ((f*g-d*i)*x + (a*i-c*g)*y + (c*d-a*f)) * det
+		let z0 = ((d*h-e*g)*x + (b*g-a*h)*y + (a*e-b*d)) * det
+		//if(z0 <= 0) return {x:NaN,y:NaN}
+		z0 = 1/z0
+		return {x:x0*z0, y: y0*z0}
 	}
 	toDelta(x=0, y=0){
 		if(typeof x=='object')({x,y}=x)

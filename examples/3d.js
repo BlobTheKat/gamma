@@ -101,6 +101,9 @@ function drawText(ctx){
 		ctx3.rotateXZ(t)
 		ctx3.rotateXY(t)
 		ctx3.drawCube(-1, -1, -1, 2, 2, 2, vec4(.8,0,0,1))
+	const {x, y} = ctx.from(cursor)
+	console.log(x,y)
+	ctx.drawRect(x-.1, y-.1, .2, .2, vec4(1,0,0,1))
 	label.draw(ctx)
 }
 
