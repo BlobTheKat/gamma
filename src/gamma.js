@@ -466,12 +466,11 @@ $.Texture.from = (src, o = 0, fmt = Formats.RGBA, mips = 0) => new Tex({
 // All matrices are "column-major"
 // All multiplication is right-multiplication
 // We only use the minimum matrix and operations for a given use case, hence why there are so many classes and methods
-// t2D & t2t3D implement the Transformable2D interface
-// t3t2D & t3D implement the Transformable3D interface
-// The interface represents the "input" vector type. The last component is always 1 and is used to make the transformations also support translation
+// t2D & t2t3D implement the Transformable2D interface. t3t2D & t3D implement the Transformable3D interface
+// The interface represents the "input" vector type. The last component is always 1 and is used to make the transformations support translation
 // The output vector type is irrelevant to the interface and only matters for how the content is eventually rendered (specifically, 2 outputs means 2D and 3 outputs means 2D + projection)
 
-// 3x2 matrix, maps R2 -> R2
+// 3x2 matrix, maps R² -> R²
 // x y 1
 // v v v
 // a c e > x
@@ -519,10 +518,9 @@ class t2D{
 		const {a,b,c,d} = this, i_det = 1/(a*d-b*c)
 		return {x: (x*d-y*c)*i_det, y: (y*a-x*b)*i_det}
 	}
-	determinant(){ return this.a*this.d-this.b*this.c }
 }
 
-// 3x3 matrix, maps R2 -> R3
+// 3x3 matrix, maps R² -> R³
 // x y 1
 // v v v
 // a d g > x
@@ -563,7 +561,7 @@ class t2t3D{
 	}
 }
 
-// 4x2 matrix, maps R3 -> R2
+// 4x2 matrix, maps R³ -> R²
 // x y z 1
 // v v v v
 // a c e g > x
@@ -638,7 +636,7 @@ class t3t2D{
 	}
 }
 
-// 4x3 matrix, maps R3 -> R3
+// 4x3 matrix, maps R³ -> R³
 // x y z 1
 // v v v v
 // a d g j > x
@@ -733,40 +731,41 @@ class Drw2D extends t2D{
 	constructor(t,m=290787599,sp=geo2,s=$.Shader.DEFAULT,a=1,b=0,c=0,d=1,e=0,f=0){ super(a,b,c,d,e,f); this.t = t; this._mask = m; this._shp = sp; this._sh = s }
 	pixelRatio(){return sqrt(abs(this.a*this.d-this.b*this.c)*this.t.w*this.t.h)}
 	sub(){ return new Drw2D(this.t,this._mask,this._shp,this._sh,this.a,this.b,this.c,this.d,this.e,this.f) }
+	sub3d(){ return new Drw3t2D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,this.c,this.d,0,0,this.e,this.f)}
 	sub3dProj(z0=0,zsc=1){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,0,this.c,this.d,0,this.e*zsc,this.f*zsc,zsc,this.e*z0,this.f*z0,z0)}
 	resetTo(m){ this.a=m.a;this.b=m.b;this.c=m.c;this.d=m.d;this.e=m.e;this.f=m.f;this._mask=m._mask;this._sh=m._sh;this._shp=m._shp }
 	reset(a=1,b=0,c=0,d=1,e=0,f=0){if(typeof a=='object')({a,b,c,d,e,f}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this._mask=290787599;this._sh=$.Shader.DEFAULT;this._shp=geo2}
 	draw(...values){
 		const i = this._sh(6,values)
-		arr[i  ] = this.a; arr[i+1] = this.c; arr[i+2] = this.e
-		arr[i+3] = this.b; arr[i+4] = this.d; arr[i+5] = this.f
+		arr[i  ] = this.e; arr[i+1] = this.a; arr[i+2] = this.c
+		arr[i+3] = this.f; arr[i+4] = this.b; arr[i+5] = this.d
 	}
 	drawRect(x=0, y=0, w=1, h=1, ...values){
 		const i = this._sh(6,values)
-		arr[i  ] = this.a*w; arr[i+1] = this.c*h; arr[i+2] = this.e+x*this.a+y*this.c
-		arr[i+3] = this.b*w; arr[i+4] = this.d*h; arr[i+5] = this.f+x*this.b+y*this.d
+		arr[i  ] = this.e+x*this.a+y*this.c; arr[i+1] = this.a*w; arr[i+2] = this.c*h
+		arr[i+3] = this.f+x*this.b+y*this.d; arr[i+4] = this.b*w; arr[i+5] = this.d*h
 	}
 	drawMat(a=1, b=0, c=0, d=1, e=0, f=0, ...values){
 		const i = this._sh(6,values)
 		const ta=this.a,tb=this.b,tc=this.c,td=this.d,te=this.e,tf=this.f
-		arr[i  ] = ta*a+tc*b; arr[i+1] = ta*c+tc*d; arr[i+2] = ta*e+tc*f+te
-		arr[i+3] = tb*a+td*b; arr[i+4] = tb*c+td*d; arr[i+5] = tb*e+td*f+tf
+		arr[i  ] = ta*e+tc*f+te; arr[i+1] = ta*a+tc*b; arr[i+2] = ta*c+tc*d
+		arr[i+3] = tb*e+td*f+tf; arr[i+4] = tb*a+td*b; arr[i+5] = tb*c+td*d
 	}
 	drawv(values){
 		const i = this._sh(6,values)
-		arr[i  ] = this.a; arr[i+1] = this.c; arr[i+2] = this.e
-		arr[i+3] = this.b; arr[i+4] = this.d; arr[i+5] = this.f
+		arr[i  ] = this.e; arr[i+1] = this.a; arr[i+2] = this.c
+		arr[i+3] = this.f; arr[i+4] = this.b; arr[i+5] = this.d
 	}
 	drawRectv(x=0, y=0, w=1, h=1, values){
 		const i = this._sh(6,values)
-		arr[i  ] = this.a*w; arr[i+1] = this.c*h; arr[i+2] = this.e+x*this.a+y*this.c
-		arr[i+3] = this.b*w; arr[i+4] = this.d*h; arr[i+5] = this.f+x*this.b+y*this.d
+		arr[i  ] = this.e+x*this.a+y*this.c; arr[i+1] = this.a*w; arr[i+2] = this.c*h
+		arr[i+3] = this.f+x*this.b+y*this.d; arr[i+4] = this.b*w; arr[i+5] = this.d*h
 	}
 	drawMatv(a=1, b=0, c=0, d=1, e=0, f=0, values){
 		const i = this._sh(6,values)
 		const ta=this.a,tb=this.b,tc=this.c,td=this.d,te=this.e,tf=this.f
-		arr[i  ] = ta*a+tc*b; arr[i+1] = ta*c+tc*d; arr[i+2] = ta*e+tc*f+te
-		arr[i+3] = tb*a+td*b; arr[i+4] = tb*c+td*d; arr[i+5] = tb*e+td*f+tf
+		arr[i  ] = ta*e+tc*f+te; arr[i+1] = ta*a+tc*b; arr[i+2] = ta*c+tc*d
+		arr[i+3] = tb*e+td*f+tf; arr[i+4] = tb*a+td*b; arr[i+5] = tb*c+td*d
 	}
 }
 class Drw2t3D extends t2t3D{
@@ -821,41 +820,41 @@ class Drw2t3D extends t2t3D{
 	reset(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1){if(typeof a=='object')({a,b,c,d,e,f,g,h,i}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this.i=i;this._mask=290787599;this._sh=$.Shader.DEFAULT;this._shp=geo2}
 	draw(...values){
 		const i = this._sh(9,values)
-		arr[i  ] = this.a; arr[i+1] = this.d; arr[i+2] = this.g
-		arr[i+3] = this.b; arr[i+4] = this.e; arr[i+5] = this.h
-		arr[i+6] = this.c; arr[i+7] = this.f; arr[i+8] = this.i
+		arr[i  ] = this.g; arr[i+1] = this.a; arr[i+2] = this.d
+		arr[i+3] = this.h; arr[i+4] = this.b; arr[i+5] = this.e
+		arr[i+6] = this.i; arr[i+7] = this.c; arr[i+8] = this.f
 	}
 	drawRect(x=0, y=0, w=1, h=1, ...values){
 		const i = this._sh(9,values)
-		arr[i  ] = this.a*w; arr[i+1] = this.d*h; arr[i+2] = this.g+x*this.a+y*this.d
-		arr[i+3] = this.b*w; arr[i+4] = this.e*h; arr[i+5] = this.h+x*this.b+y*this.e
-		arr[i+6] = this.c*w; arr[i+7] = this.f*h; arr[i+8] = this.i+x*this.c+y*this.f
+		arr[i  ] = this.g+x*this.a+y*this.d; arr[i+1] = this.a*w; arr[i+2] = this.d*h
+		arr[i+3] = this.h+x*this.b+y*this.e; arr[i+4] = this.b*w; arr[i+5] = this.e*h
+		arr[i+6] = this.i+x*this.c+y*this.f; arr[i+7] = this.c*w; arr[i+8] = this.f*h
 	}
 	drawMat(a=1, b=0, c=0, d=1, e=0, f=0, ...values){
 		const i = this._sh(9,values)
 		const ta=this.a,tb=this.b,tc=this.c,td=this.d,te=this.e,tf=this.f,tg=this.g,th=this.h,ti=this.i
-		arr[i  ] = ta*a+td*b; arr[i+1] = ta*c+td*d; arr[i+2] = ta*e+td*f+tg
-		arr[i+3] = tb*a+te*b; arr[i+4] = tb*c+te*d; arr[i+5] = tb*e+te*f+th
-		arr[i+6] = tc*a+tf*b; arr[i+7] = tc*c+tf*d; arr[i+8] = tc*e+tf*f+ti
+		arr[i  ] = ta*e+td*f+tg; arr[i+1] = ta*a+td*b; arr[i+2] = ta*c+td*d
+		arr[i+3] = tb*e+te*f+th; arr[i+4] = tb*a+te*b; arr[i+5] = tb*c+te*d
+		arr[i+6] = tc*e+tf*f+ti; arr[i+7] = tc*a+tf*b; arr[i+8] = tc*c+tf*d
 	}
 	drawv(values){
 		const i = this._sh(9,values)
-		arr[i  ] = this.a; arr[i+1] = this.d; arr[i+2] = this.g
-		arr[i+3] = this.b; arr[i+4] = this.e; arr[i+5] = this.h
-		arr[i+6] = this.c; arr[i+7] = this.f; arr[i+8] = this.i
+		arr[i  ] = this.g; arr[i+1] = this.a; arr[i+2] = this.d
+		arr[i+3] = this.h; arr[i+4] = this.b; arr[i+5] = this.e
+		arr[i+6] = this.i; arr[i+7] = this.c; arr[i+8] = this.f
 	}
 	drawRectv(x=0, y=0, w=1, h=1, values){
 		const i = this._sh(9,values)
-		arr[i  ] = this.a*w; arr[i+1] = this.d*h; arr[i+2] = this.g+x*this.a+y*this.d
-		arr[i+3] = this.b*w; arr[i+4] = this.e*h; arr[i+5] = this.h+x*this.b+y*this.e
-		arr[i+6] = this.c*w; arr[i+7] = this.f*h; arr[i+8] = this.i+x*this.c+y*this.f
+		arr[i  ] = this.g+x*this.a+y*this.d; arr[i+1] = this.a*w; arr[i+2] = this.d*h
+		arr[i+3] = this.h+x*this.b+y*this.e; arr[i+4] = this.b*w; arr[i+5] = this.e*h
+		arr[i+6] = this.i+x*this.c+y*this.f; arr[i+7] = this.c*w; arr[i+8] = this.f*h
 	}
 	drawMatv(a=1, b=0, c=0, d=1, e=0, f=0, values){
 		const i = this._sh(9,values)
 		const ta=this.a,tb=this.b,tc=this.c,td=this.d,te=this.e,tf=this.f,tg=this.g,th=this.h,ti=this.i
-		arr[i  ] = ta*a+td*b; arr[i+1] = ta*c+td*d; arr[i+2] = ta*e+td*f+tg
-		arr[i+3] = tb*a+te*b; arr[i+4] = tb*c+te*d; arr[i+5] = tb*e+te*f+th
-		arr[i+6] = tc*a+tf*b; arr[i+7] = tc*c+tf*d; arr[i+8] = tc*e+tf*f+ti
+		arr[i  ] = ta*e+td*f+tg; arr[i+1] = ta*a+td*b; arr[i+2] = ta*c+td*d
+		arr[i+3] = tb*e+te*f+th; arr[i+4] = tb*a+te*b; arr[i+5] = tb*c+te*d
+		arr[i+6] = tc*e+tf*f+ti; arr[i+7] = tc*a+tf*b; arr[i+8] = tc*c+tf*d
 	}
 }
 class Drw3D extends t3D{
@@ -872,49 +871,43 @@ class Drw3D extends t3D{
 	reset(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1,j=0,k=0,l=0){if(typeof a=='object')({a,b,c,d,e,f,g,h,i,j,k,l}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this.i=i;this.j=j;this.k=k;this.l=l;this._mask=290787599;this._sh=$.Shader.COLOR_3D_XZ;this._shp=geo3}
 	draw(...values){
 		const v = this._sh(12,values)
-		arr[v  ] = this.a; arr[v+1] = this.d; arr[v+2] = this.g; arr[v+3] = this.j
-		arr[v+4] = this.b; arr[v+5] = this.e; arr[v+6] = this.h; arr[v+7] = this.k
-		arr[v+8] = this.c; arr[v+9] = this.f; arr[v+10] = this.i; arr[v+11] = this.l
+		arr[v  ] = this.j; arr[v+1] = this.a; arr[v+2] = this.d; arr[v+3] = this.g
+		arr[v+4] = this.k; arr[v+5] = this.b; arr[v+6] = this.e; arr[v+7] = this.h
+		arr[v+8] = this.l; arr[v+9] = this.c; arr[v+10] = this.f; arr[v+11] = this.i
 	}
 	drawCube(x=0, y=0, z=0, xs=1, ys=1, zs=1, ...values){
 		const v = this._sh(12,values)
 		const {a,b,c,d,e,f,g,h,i} = this
-		arr[v  ] = a*xs; arr[v+1] = d*ys; arr[v+2] = g*zs; arr[v+3] = this.j+x*a+y*d+z*g
-		arr[v+4] = b*xs; arr[v+5] = e*ys; arr[v+6] = h*zs; arr[v+7] = this.k+x*b+y*e+z*h
-		arr[v+8] = c*xs; arr[v+9] = f*ys; arr[v+10] = i*zs; arr[v+11] = this.l+x*c+y*f+z*i
+		arr[v  ] = this.j+x*a+y*d+z*g; arr[v+1] = a*xs; arr[v+2] = d*ys; arr[v+3] = g*zs
+		arr[v+4] = this.k+x*b+y*e+z*h; arr[v+5] = b*xs; arr[v+6] = e*ys; arr[v+7] = h*zs
+		arr[v+8] = this.l+x*c+y*f+z*i; arr[v+9] = c*xs; arr[v+10] = f*ys; arr[v+11] = i*zs
 	}
 	drawMat(a=1, b=0, c=0, d=0, e=1, f=0, g=0, h=0, i=1, j=0, k=0, l=0, ...values){
 		const v = this._sh(12,values)
 		const A=this.a,B=this.b,C=this.c,D=this.d,E=this.e,F=this.f,G=this.g,H=this.h,I=this.i
-		arr[v  ] = A*a+D*b+G*c; arr[v+1] = A*d+D*e+G*f
-		arr[v+2] = A*g+D*h+G*i; arr[v+3] = this.j+A*j+D*k+G*l
-		arr[v+4] = B*a+E*b+H*c; arr[v+5] = B*d+E*e+H*f
-		arr[v+6] = B*g+E*h+H*i; arr[v+7] = this.k+B*j+E*k+H*l
-		arr[v+8] = C*a+F*b+I*c; arr[v+9] = C*d+F*e+I*f
-		arr[v+10] = C*g+F*h+I*i; arr[v+11] = this.l+C*j+F*k+I*l
+		arr[v  ] = this.j+A*j+D*k+G*l; arr[v+1] = A*a+D*b+G*c; arr[v+2] = A*d+D*e+G*f; arr[v+3] = A*g+D*h+G*i
+		arr[v+4] = this.k+B*j+E*k+H*l; arr[v+5] = B*a+E*b+H*c; arr[v+6] = B*d+E*e+H*f; arr[v+7] = B*g+E*h+H*i
+		arr[v+8] = this.l+C*j+F*k+I*l; arr[v+9] = C*a+F*b+I*c; arr[v+10] = C*d+F*e+I*f; arr[v+11] = C*g+F*h+I*i
 	}
 	drawv(values){
 		const v = this._sh(12,values)
-		arr[v  ] = this.a; arr[v+1] = this.d; arr[v+2] = this.g; arr[v+3] = this.j
-		arr[v+4] = this.b; arr[v+5] = this.e; arr[v+6] = this.h; arr[v+7] = this.k
-		arr[v+8] = this.c; arr[v+9] = this.f; arr[v+10] = this.i; arr[v+11] = this.l
+		arr[v  ] = this.j; arr[v+1] = this.a; arr[v+2] = this.d; arr[v+3] = this.g
+		arr[v+4] = this.k; arr[v+5] = this.b; arr[v+6] = this.e; arr[v+7] = this.h
+		arr[v+8] = this.l; arr[v+9] = this.c; arr[v+10] = this.f; arr[v+11] = this.i
 	}
 	drawCubev(x=0, y=0, z=0, xs=1, ys=1, zs=1, values){
 		const v = this._sh(12,values)
 		const {a,b,c,d,e,f,g,h,i} = this
-		arr[v  ] = a*xs; arr[v+1] = d*ys; arr[v+2] = g*zs; arr[v+3] = this.j+x*a+y*d+z*g
-		arr[v+4] = b*xs; arr[v+5] = e*ys; arr[v+6] = h*zs; arr[v+7] = this.k+x*b+y*e+z*h
-		arr[v+8] = c*xs; arr[v+9] = f*ys; arr[v+10] = i*zs; arr[v+11] = this.l+x*c+y*f+z*i
+		arr[v  ] = this.j+x*a+y*d+z*g; arr[v+1] = a*xs; arr[v+2] = d*ys; arr[v+3] = g*zs
+		arr[v+4] = this.k+x*b+y*e+z*h; arr[v+5] = b*xs; arr[v+6] = e*ys; arr[v+7] = h*zs
+		arr[v+8] = this.l+x*c+y*f+z*i; arr[v+9] = c*xs; arr[v+10] = f*ys; arr[v+11] = i*zs
 	}
 	drawMatv(a=1, b=0, c=0, d=0, e=1, f=0, g=0, h=0, i=1, j=0, k=0, l=0, values){
 		const v = this._sh(12,values)
 		const A=this.a,B=this.b,C=this.c,D=this.d,E=this.e,F=this.f,G=this.g,H=this.h,I=this.i
-		arr[v  ] = A*a+D*b+G*c; arr[v+1] = A*d+D*e+G*f
-		arr[v+2] = A*g+D*h+G*i; arr[v+3] = this.j+A*j+D*k+G*l
-		arr[v+4] = B*a+E*b+H*c; arr[v+5] = B*d+E*e+H*f
-		arr[v+6] = B*g+E*h+H*i; arr[v+7] = this.k+B*j+E*k+H*l
-		arr[v+8] = C*a+F*b+I*c; arr[v+9] = C*d+F*e+I*f
-		arr[v+10] = C*g+F*h+I*i; arr[v+11] = this.l+C*j+F*k+I*l
+		arr[v  ] = this.j+A*j+D*k+G*l; arr[v+1] = A*a+D*b+G*c; arr[v+2] = A*d+D*e+G*f; arr[v+3] = A*g+D*h+G*i
+		arr[v+4] = this.k+B*j+E*k+H*l; arr[v+5] = B*a+E*b+H*c; arr[v+6] = B*d+E*e+H*f; arr[v+7] = B*g+E*h+H*i
+		arr[v+8] = this.l+C*j+F*k+I*l; arr[v+9] = C*a+F*b+I*c; arr[v+10] = C*d+F*e+I*f; arr[v+11] = C*g+F*h+I*i
 	}
 	to(x=0, y=0, z=0){
 		if(typeof x=='object')({x,y,z=0}=x)
@@ -953,7 +946,6 @@ class Drw3D extends t3D{
 			z: (o * x + (d*c - f*a) * y + (a*e - b*d) * z) * i_det,
 		}
 	}
-	determinant(){ const {a,b,c,d,e,f,g,h,i} = this; return a*(e*i-f*h)+d*(c*h-b*i)+g*(b*f-c*e)}
 	origin(){
 		const {a,b,c,d,e,f,g,h,i,j,k,l} = this
 		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e, i_det = -1./(a*m + d*n + g*o);
@@ -978,6 +970,90 @@ class Drw3D extends t3D{
 		const dz = (m*x + p*y + s*z) * i_det
 		const i_dst = 1/sqrt(dx*dx+dy*dy+dz*dz)
 		return {origin: {x: xo, y: yo, z: zo}, direction: {x: dx*i_dst, y: dy*i_dst, z: dz*i_dst}}
+	}
+}
+class Drw3t2D extends t3t2D{
+	set shader(sh){ this._sh=typeof sh=='function'&&sh.three===true?sh:$.Shader.COLOR_3D_XZ; if(lastd == this) lastd = null }
+	get shader(){ return this._sh }
+	get geometry(){ return this._shp }
+	set geometry(a){ this._shp = a||geo3; if(lastd == this) lastd = null }
+	constructor(t,m=290787599,sp=geo3,s=$.Shader.COLOR_3D_XZ,a=1,b=0,c=0,d=1,e=0,f=0,g=0,h=0){ super(a,b,c,d,e,f,g,h); this.t = t; this._mask = m; this._shp = sp; this._sh = s }
+	sub(){ return new Drw3t2D(this.t,this._mask,this._shp,this._sh,this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h) }
+	sub2dXY(){ return new Drw2D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.a,this.b,this.c,this.d,this.g,this.h) }
+	sub2dZY(){ return new Drw2D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.e,this.f,this.c,this.d,this.g,this.h) }
+	sub2dXZ(){ return new Drw2D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.a,this.b,this.e,this.f,this.g,this.h) }
+	resetTo(m){ this.a=m.a;this.b=m.b;this.c=m.c;this.d=m.d;this.e=m.e;this.f=m.f;this.g=m.g;this.h=m.h;this._mask=m._mask;this._sh=m._sh;this._shp=m._shp }
+	reset(a=1,b=0,c=0,d=1,e=0,f=0,g=0,h=0){if(typeof a=='object')({a,b,c,d,e,f,g,h}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this._mask=290787599;this._sh=$.Shader.COLOR_3D_XZ;this._shp=geo3}
+	draw(...values){
+		const v = this._sh(8,values)
+		arr[v  ] = this.g; arr[v+1] = this.a; arr[v+2] = this.c; arr[v+3] = this.e
+		arr[v+4] = this.h; arr[v+5] = this.b; arr[v+6] = this.d; arr[v+7] = this.f
+	}
+	drawCube(x=0, y=0, z=0, xs=1, ys=1, zs=1, ...values){
+		const v = this._sh(8,values)
+		const {a,b,c,d,e,f} = this
+		arr[v  ] = this.g+x*a+y*c+z*e; arr[v+1] = a*xs; arr[v+2] = c*ys; arr[v+3] = e*zs
+		arr[v+4] = this.h+x*b+y*d+z*f; arr[v+5] = b*xs; arr[v+6] = d*ys; arr[v+7] = f*zs
+	}
+	drawMat(a=1, b=0, c=0, d=0, e=1, f=0, g=0, h=0, i=1, j=0, k=0, l=0, ...values){
+		const v = this._sh(8,values)
+		const A=this.a,B=this.b,C=this.c,D=this.d,E=this.e,F=this.f
+		arr[v  ] = this.g+A*j+C*k+E*l; arr[v+1] = A*a+C*b+E*c; arr[v+2] = A*d+C*e+E*f; arr[v+3] = A*g+C*h+E*i
+		arr[v+4] = this.h+B*j+D*k+F*l; arr[v+5] = B*a+D*b+F*c; arr[v+6] = B*d+D*e+F*f; arr[v+7] = B*g+D*h+F*i
+	}
+	drawv(values){
+		const v = this._sh(8,values)
+		arr[v  ] = this.g; arr[v+1] = this.a; arr[v+2] = this.c; arr[v+3] = this.e
+		arr[v+4] = this.h; arr[v+5] = this.b; arr[v+6] = this.d; arr[v+7] = this.f
+	}
+	drawCubev(x=0, y=0, z=0, xs=1, ys=1, zs=1, values){
+		const v = this._sh(8,values)
+		const {a,b,c,d,e,f} = this
+		arr[v  ] = this.g+x*a+y*c+z*e; arr[v+1] = a*xs; arr[v+2] = c*ys; arr[v+3] = e*zs
+		arr[v+4] = this.h+x*b+y*d+z*f; arr[v+5] = b*xs; arr[v+6] = d*ys; arr[v+7] = f*zs
+	}
+	drawMatv(a=1, b=0, c=0, d=0, e=1, f=0, g=0, h=0, i=1, j=0, k=0, l=0, values){
+		const v = this._sh(8,values)
+		const A=this.a,B=this.b,C=this.c,D=this.d,E=this.e,F=this.f
+		arr[v  ] = this.g+A*j+C*k+E*l; arr[v+1] = A*a+C*b+E*c; arr[v+2] = A*d+C*e+E*f; arr[v+3] = A*g+C*h+E*i
+		arr[v+4] = this.h+B*j+D*k+F*l; arr[v+5] = B*a+D*b+F*c; arr[v+6] = B*d+D*e+F*f; arr[v+7] = B*g+D*h+F*i
+	}
+	to(x=0, y=0, z=0){
+		if(typeof x=='object')({x,y,z=0}=x)
+		let p = this.c*x+this.f*y+this.i*z+this.l
+		if(p <= 0) return {x:NaN,y:NaN}
+		p = 1/p
+		return { x: (this.a*x+this.d*y+this.g*z+this.j)*p, y: (this.b*x+this.e*y+this.h*z+this.k)*p }
+	}
+	from(x=0, y=0){
+		if(typeof x=='object')({x,y}=x)
+		const {a,b,c,d,e,f,g,h,i} = this
+		x -= this.j; y -= this.k
+		const z = 1-this.l
+		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e, i_det = 1./(a*m + d*n + g*o)
+		return {
+			x: (m * x + (g*f - i*d) * y + (d*h - e*g) * z) * i_det,
+			y: (n * x + (a*i - c*g) * y + (g*b - h*a) * z) * i_det,
+			z: (o * x + (d*c - f*a) * y + (a*e - b*d) * z) * i_det,
+		}
+	}
+	toDelta(x=0, y=0, z=0){
+		if(typeof x=='object')({x,y,z=0}=x)
+		let p = this.c*x+this.f*y+this.i*z+this.l
+		if(p <= 0) return {x:NaN,y:NaN}
+		p = 1/p
+		return { x: (this.a*x+this.d*y+this.g*z)*p, y: (this.b*x+this.e*y+this.h*z)*p }
+	}
+	fromDelta(x=0, y=0){
+		if(typeof x=='object')({x,y}=x)
+		const {a,b,c,d,e,f,g,h,i} = this
+		const z = 1-this.l
+		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e, i_det = 1./(a*m + d*n + g*o)
+		return {
+			x: (m * x + (g*f - i*d) * y + (d*h - e*g) * z) * i_det,
+			y: (n * x + (a*i - c*g) * y + (g*b - h*a) * z) * i_det,
+			z: (o * x + (d*c - f*a) * y + (a*e - b*d) * z) * i_det,
+		}
 	}
 }
 const x = Object.getOwnPropertyDescriptors({
@@ -1111,7 +1187,7 @@ Object.defineProperties(Drw2D.prototype, x)
 Object.defineProperties(Drw3D.prototype, x)
 Object.defineProperties(Drw2t3D.prototype, x)
 Drw3D.prototype.projection = Drw2t3D.prototype.projection = true
-//Object.defineProperties(Drw3t2D.prototype, x)
+Object.defineProperties(Drw3t2D.prototype, x)
 
 Object.assign($.Blend = (src = 17, combine = 17, dst = 0, a2c = false) => src|dst<<8|combine<<16|a2c<<23, {
 	REPLACE: 1114129,
@@ -1284,6 +1360,21 @@ class Geo3D extends t3D{
 		return t._size++
 	}
 }
+gl.vertexAttrib4f(2, 1, 0, 0, 0)
+function setupGenericVao3(t){
+	gl.bindBuffer(gl.ARRAY_BUFFER, t.b)
+	const vlowest = maxAttribs-(t._vcount+3>>2)
+	for(let i = maxAttribs-1,j=0; i >= vlowest; i--,j+=16){
+		gl.enableVertexAttribArray(i)
+		gl.vertexAttribIPointer(i,i==vlowest?t._vcount&3:4,gl.UNSIGNED_INT,t._vcount<<2,j)
+	}
+	gl.enableVertexAttribArray(0)
+	gl.enableVertexAttribArray(1)
+	gl.vertexAttribDivisor(0, 1)
+	gl.vertexAttribDivisor(1, 1)
+	gl.vertexAttribDivisor(2, 1)
+	gl.bindBuffer(gl.ARRAY_BUFFER,buf)
+}
 const y = Object.getOwnPropertyDescriptors({
 	get size(){ return this.t._size },
 	get uploadCount(){ return this.t._usize },
@@ -1318,13 +1409,7 @@ const y = Object.getOwnPropertyDescriptors({
 				gl.bindVertexArray(t.v)
 				if(!t.Ls){
 					t.Ls = 1
-					gl.bindBuffer(gl.ARRAY_BUFFER, t.b)
-					const vlowest = maxAttribs-(t._vcount+3>>2)
-					for(let i = maxAttribs-1,j=0; i >= vlowest; i--,j+=16){
-						gl.enableVertexAttribArray(i)
-						gl.vertexAttribIPointer(i,i==vlowest?t._vcount&3:4,gl.UNSIGNED_INT,t._vcount<<2,j)
-					}
-					gl.bindBuffer(gl.ARRAY_BUFFER, buf)
+					setupGenericVao3(t)
 				}
 				if(t._elB) gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null)
 				gl.bindVertexArray(sv)
@@ -1351,13 +1436,7 @@ const y = Object.getOwnPropertyDescriptors({
 			if(!t.v) gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null)
 			else if(!t.Ls){
 				t.Ls = 1
-				gl.bindBuffer(gl.ARRAY_BUFFER, t.b)
-				const vlowest = maxAttribs-(t._vcount+3>>2)
-				for(let i = maxAttribs-1,j=0; i >= vlowest; i--,j+=16){
-					gl.enableVertexAttribArray(i)
-					gl.vertexAttribIPointer(i,i==vlowest?t._vcount&3:4,gl.UNSIGNED_INT,t._vcount<<2,j)
-				}
-				gl.bindBuffer(gl.ARRAY_BUFFER, buf)
+				setupGenericVao3(t)
 			}
 			gl.bindVertexArray(sv)
 		}
@@ -1410,7 +1489,7 @@ $.Shader = (src, {params, defaults: _defaults, uniforms, uniformDefaults: _uDefa
 	outputs = typeof outputs=='number' ? [outputs] : outputs || []
 	if(outputs.length > Drawable.MAX_TARGETS) throw `Too many shader outputs (Drawable.MAX_TARGETS == ${Drawable.MAX_TARGETS})`
 	const matWidth = 3+vertex.three
-	const fnParams = [], fnBody = [''], vShaderHead = [`#version 300 es\nprecision highp float;precision highp int;layout(location=0)in mat3x${matWidth} m;layout(location=${maxAttribs-1})in uvec4 o0;out vec4 GL_v0;`], vShaderBody = [`void main(){gl_PointSize=1.;gl_Position.z=0.;gl_Position.xyw=vec${matWidth}(GL_v0.xy${vertex.three?'z':''}=uintBitsToFloat(o0.xy${vertex.three?'z':''}),1.)*m;gl_Position.xy=gl_Position.xy*2.-gl_Position.w;`], fShaderHead = [`#version 300 es\nprecision highp float;precision highp int;in vec4 GL_v0;\n#define color color0\n#define pos GL_v0.xy${matWidth>3?'z':''}\n`+outputs.map((o,i) => `layout(location=${i})out ${!o?'':o==16||o==32?'u':'lowp '}vec4 color${i};`).join(';'),'']
+	const fnParams = [], fnBody = [''], vShaderHead = [`#version 300 es\nprecision highp float;precision highp int;layout(location=0)in mat3x${matWidth} m;layout(location=${maxAttribs-1})in uvec4 o0;out vec4 GL_v0;`], vShaderBody = [`void main(){gl_PointSize=1.;gl_Position.z=0.;gl_Position.xyw=vec${matWidth}(1.,GL_v0.xy${vertex.three?'z':''}=uintBitsToFloat(o0.xy${vertex.three?'z':''}))*m;gl_Position.xy=gl_Position.xy*2.-gl_Position.w;`], fShaderHead = [`#version 300 es\nprecision highp float;precision highp int;in vec4 GL_v0;\n#define color color0\n#define pos GL_v0.xy${matWidth>3?'z':''}\n`+outputs.map((o,i) => `layout(location=${i})out ${!o?'':o==16||o==32?'u':'lowp '}vec4 color${i};`).join(';'),'']
 	let used = 0, fCount = 0, iCount = 0, attrs = 0
 	const texCheck = []
 	const addAttr = (sz=0) => {
@@ -1527,28 +1606,32 @@ vec4 fGetPixel(int u,ivec3 p,int l){${T||switcher(i=>`return texelFetch(GL_f[${i
 	const fMask = 32-fCount&&(-1>>>fCount|0)
 	uniFnBody[0] = `i&&draw(0);if(sh!=s){gl.useProgram(program);switchShader(s,${fCount},${fMask},${matWidth>3 ? attrs+matWidth*(matWidth-1)+')' : `lv==shVao3?${attrs+9}:${attrs+6});switchVao(lv)`}}`
 	const bind = vlowest==maxAttribs-1?`gl.vertexAttribIPointer(${vlowest},${vertex._vcount&3},gl.UNSIGNED_INT,${vertex._vcount<<2},0)`:`for(let i=${maxAttribs-1},j=0;i>=${vlowest};i--,j+=16){gl.vertexAttribIPointer(i,i==${vlowest}?${vertex._vcount&3}:4,gl.UNSIGNED_INT,${vertex._vcount<<2},j)`
-	fnBody[0] = `sz+=${attrs};if(this._setv()){const sd=sh!=s,{_shp}=this,_st=_shp.t;if(sd||sz!=shCount){i&&draw(sd?0:shuniBind);switchShader(s,${fCount},${fMask},sz);if(sd)gl.useProgram(program),B();${matWidth>3 ? `}if(sv!=_st.v)i&&draw(),switchVao(_st.v);if(s!=_st.L||sz!=_st.Ls){i&&draw();setVao(sz>${8+attrs},0,false);_st.L=s;_st.Ls=sz` : `switchVao(lv=sz>${8+attrs}?shVao3:shVao)}if(lv.geo!=_st.b){i&&draw();gl.bindBuffer(gl.ARRAY_BUFFER,lv.geo=_st.b);${bind}`};gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,_st._elB);gl.bindBuffer(gl.ARRAY_BUFFER,buf)}if(shp!=_shp)_shp._setShp();}let b=boundUsed^shuniBind;`+texCheck.join(';')+`;const k=grow(sz),j=k+sz-${attrs}`
+	fnBody[0] = `sz+=${attrs};if(this._setv()){const sd=sh!=s,{_shp}=this,_st=_shp.t;if(sd||sz!=shCount){i&&draw(sd?0:shuniBind);switchShader(s,${fCount},${fMask},sz);if(sd)gl.useProgram(program),B();${matWidth>3 ? `}if(sv!=_st.v)i&&draw(),switchVao(_st.v);if(s!=_st.L||sz!=_st.Ls){i&&draw();if(!_st.Ls)setupGenericVao3(_st);setVao(sz>${8+attrs},0,false);_st.L=s;_st.Ls=sz` : `switchVao(lv=sz>${8+attrs}?shVao3:shVao)}if(lv.geo!=_st.b){i&&draw();gl.bindBuffer(gl.ARRAY_BUFFER,lv.geo=_st.b);${bind};gl.bindBuffer(gl.ARRAY_BUFFER,buf);gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,_st._elB)`}}if(shp!=_shp)_shp._setShp();}let b=boundUsed^shuniBind;`+texCheck.join(';')+`;const k=grow(sz),j=k+sz-${attrs}`
 	fnBody.push('return k')
 	const setVao = (proj=false, off=0,nw=true) => {
 		const base = matWidth*(2+proj)
 		const stride = (attrs + base) << 2
-		for(let loc = 1+proj; loc >= 0; loc--){
-			gl.enableVertexAttribArray(loc)
-			gl.vertexAttribPointer(loc, matWidth, gl.FLOAT, false, stride, off + loc * (matWidth<<2))
-			gl.vertexAttribDivisor(loc, 1)
-		}
-		if(!proj){
-			if(matWidth == 3) gl.vertexAttrib3f(2, 0, 0, 1)
-			else gl.vertexAttrib4f(2, 0, 0, 0, 1)
-		}
+		gl.vertexAttribPointer(0, matWidth, gl.FLOAT, false, stride, off)
+		gl.vertexAttribPointer(1, matWidth, gl.FLOAT, false, stride, off + (matWidth<<2))
+		if(proj){
+			gl.enableVertexAttribArray(2)
+			gl.vertexAttribPointer(2, matWidth, gl.FLOAT, false, stride, off + (matWidth<<3))
+		}else gl.disableVertexAttribArray(2)
 		for(let i = 0; i < attrs; i += 4){
 			const loc = (i>>2)+3
 			gl.enableVertexAttribArray(loc)
 			gl.vertexAttribIPointer(loc, min(4, attrs-i), gl.UNSIGNED_INT, stride, off + ((i + base) << 2))
 			gl.vertexAttribDivisor(loc, 1)
 		}
-		if(nw) for(let i = maxAttribs-1; i >= vlowest; i--)
-			gl.enableVertexAttribArray(i)
+		if(nw){
+			gl.enableVertexAttribArray(0)
+			gl.enableVertexAttribArray(1)
+			gl.vertexAttribDivisor(0, 1)
+			gl.vertexAttribDivisor(1, 1)
+			gl.vertexAttribDivisor(2, 1)
+			for(let i = maxAttribs-1; i >= vlowest; i--)
+				gl.enableVertexAttribArray(i)
+		}
 		return stride>>2
 	}
 	let shVao = null, shVao3 = null

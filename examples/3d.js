@@ -2,18 +2,23 @@
 
 title = '3D demo'
 
-const font = await Font.chlumsky('fonts/marker/')
+const fonts = {
+	ubuntu: await Font.chlumsky('fonts/ubuntu/'),
+	marker: await Font.chlumsky('fonts/marker/')
+}
 
-const label = RichText(font)
-label.addTextPass(0, [], 0, 0, 0, -1)
+const label = RichText(fonts.ubuntu)
 // middle-line rather than baseline
-label.yOffset = .5-font.ascend
+label.yOffset = .5-fonts.ubuntu.ascend
 label.add('Gamma is ')
-label.addTextPass(0, [vec4(1,0,0,.4)], 0, 0, 0, -1)
+label.addTextPass(0, [vec4(1,0,0,.4)])
+label.addTextPass(1, [vec4(0,0,0,.5)], 0, 0, -.04)
+label.font = fonts.marker
+label.yOffset = .5-fonts.marker.ascend
 label.add('peak')
 
 const ground = Texture(2, 2, 1, DOWNSCALE_SMOOTH | MIPMAP_SMOOTH | REPEAT, Formats.RGB5_A1, 2)
-	.pasteData(Uint16Array.fromHex('A529 C631 C631 A529')).super(0,0,.01,.01)
+	.pasteData(Uint16Array.fromHex('A529 C631 C631 A529')).super(.5,.5,.01,.01)
 ground.genMipmaps()
 
 const cyl = Geometry3D()
@@ -150,7 +155,7 @@ render = () => {
 
 	ctx3.shader = skyShader
 	ctx3.geometry = Geometry3D.INSIDE_CUBE
-	ctx3.drawCube(-1, -1, -1, 2, 2, 2)
+	ctx3.drawCube(-20, -20, -20, 40, 40, 40)
 	ctx3.translate(-pos.x, -pos.y, -pos.z)
 
 	ctx3.geometry = Geometry3D.XZ_FACE
@@ -177,9 +182,9 @@ render = () => {
 	
 	if(!pointerLock){
 		ctx.scale(0.5)
-		ctx.translate(font.measure('Click anywhere to lock pointer')*-.5, -18)
+		ctx.translate(fonts.ubuntu.measure('Click anywhere to lock pointer')*-.5, -18)
 		ctx.shader = Shader.MSDF
-		font.draw(ctx, 'Click anywhere to lock pointer', [vec4(.3+sin(t*PI)*.2)])
+		fonts.ubuntu.draw(ctx, 'Click anywhere to lock pointer', [vec4(.3+sin(t*PI)*.2)])
 	}
-	ctxSupersample = keys.has(KEY.V) ? 0.125/devicePixelRatio : 1 + (devicePixelRatio < 2)
+	//ctxSupersample = keys.has(KEY.V) ? 0.125/devicePixelRatio : 1 + (devicePixelRatio < 2)
 }

@@ -30,6 +30,7 @@ const renames = {
 	switchVao: '$l',
 	sv: '$v',
 	buf: '$M',
+	setupGenericVao3: '$a'
 }, propRenames = {
 	__proto__: null,
 	_shp: 'S',

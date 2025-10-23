@@ -231,7 +231,7 @@ $.Shader.font = (src, o={}) => {
 				q.#w=NaN; q.#l = null
 			}
 			#v = DEFAULT_PASSES
-			addTextPass(ord, a, x=0, y=0, off=0, spr=-1){
+			addTextPass(ord, a, x=0, y=0, off=0, spr=-0.5){
 				const o = {off, spr: .5/spr, 0: null, 1: V}
 				if(a) for(let i=0;i<a.length;i++) o[i+2] = a[i]
 				const v = this.#v, v2 = this.#v = []
@@ -265,7 +265,7 @@ $.Shader.font = (src, o={}) => {
 				this.#q.#l = null
 			}
 
-			insertTextPass(ord, a, x=0, y=0, off=0, spr=-1){
+			insertTextPass(ord, a, x=0, y=0, off=0, spr=-.5){
 				const o = {off, spr: .5/spr, 0:null,1: V}
 				if(a) for(let i=0;i<a.length;i++) o[i+2] = a[i]
 				const q = this.#q, len = q.length
@@ -680,7 +680,7 @@ $.Shader.font = (src, o={}) => {
 				let vs = DEFAULT_PASSES, vlen = 3, font = null, dsc = 0
 				let last = -1, lastSt = 1
 				let recalc = ctx.projection
-				let pxr0 = ctx.pixelRatio()*2, pxr = 1, rf = 1, rf1 = 1
+				let pxr0 = -2*ctx.pixelRatio(), pxr = 1, rf = 1, rf1 = 1
 				let ea = 0
 				w: while(idx < q.length){
 					let s = q[idx++]
@@ -718,7 +718,7 @@ $.Shader.font = (src, o={}) => {
 							const c = ch.codePointAt()
 							const g = cmap.get(~c) ?? cmap._default
 							if(!g) continue
-							if(recalc) pxr0 = ctx.pixelRatio()*2, pxr = pxr0*sc*font.rangeFactor
+							if(recalc) pxr0 = -2*ctx.pixelRatio(), pxr = pxr0*sc*font.rangeFactor
 							const ker = (cmap.get(c+last*1114112) ?? 0) * min(lastSt, st)
 							last = c; lastSt = st
 							const w = (g._xadv+lsb+lsb)*st + ker, xr = ker-xo
@@ -736,7 +736,7 @@ $.Shader.font = (src, o={}) => {
 									v1[0] = g._tex
 									V.x = v1.off*rf1
 									const {spr} = v1
-									V.y = spr<0?pxr:spr*rf
+									V.y = (spr<0?pxr:rf)*spr
 									ctx.drawRectv((g.x+lsb)*st+x+xr,g.y+y,g.w*st,g.h,v1)
 								}
 							}
@@ -1095,10 +1095,10 @@ ffff\ ffff\ ffff\ ffff\
 			}else code = (a&0xffffff)*1114112+(b&0xffffff)
 			return this.get(code) ?? 0
 		}
-		chlumsky(src, atlas = 'atlas.png'){ if(src.endsWith('/')) src += 'index.json'; fetch(src).then(a => (src=a.url,a.json())).then(d => {
+		chlumsky(src, atlas = 'atlas.png', opts = $.ANISOTROPY | $.SMOOTH, mips = 1){ if(src.endsWith('/')) src += 'index.json'; fetch(src).then(a => (src=a.url,a.json())).then(d => {
 			const {atlas:{type,distanceRange,size,width,height},metrics:{ascender,descender},glyphs,kerning} = d
 			this.rangeFactor = distanceRange/size
-			const img = $.Texture.from(new URL(atlas, src).href,$.SMOOTH | $.ANISOTROPY, type.toLowerCase().endsWith('msdf') ? $.Formats.RGB : $.Formats.RGBA4)
+			const img = $.Texture.from(new URL(atlas, src).href, opts, type.toLowerCase().endsWith('msdf') ? $.Formats.RGB : $.Formats.RG, mips)
 			this.ascend = ascender/(ascender-descender)
 			for(const {unicode1,unicode2,advance} of kerning) super.set(unicode2+unicode1*1114112, advance)
 			for(const {unicode,advance,planeBounds:pb,atlasBounds:ab} of glyphs) super.set(~unicode, pb ? {
@@ -1108,12 +1108,12 @@ ffff\ ffff\ ffff\ ffff\
 			} : { x: 0, y: 0, w: 0, h: 0, _xadv: advance, _tex: null })
 			this.done()
 		}, this.error.bind(this)); return this}
-		bmfont(src, baselineOffset=0){ fetch(src).then(a => (src=a.url,a.json())).then(d => {
+		bmfont(src, baselineOffset=0, opts = $.ANISOTROPY | $.SMOOTH, mips = 1){ fetch(src).then(a => (src=a.url,a.json())).then(d => {
 			const {chars,distanceField:df,pages,common:{base,lineHeight:sc,scaleW,scaleH},kernings} = d
 			const s = 1/d.info.size
 			this.rangeFactor = df.distanceRange/sc
 			const b = this.ascend = base/sc
-			const p = pages.map(a => $.Texture.from(new URL(a,src).href,$.SMOOTH, df.fieldType.toLowerCase().endsWith('msdf') ? $.Formats.RGB : $.Formats.RGBA4))
+			const p = pages.map(a => $.Texture.from(new URL(a,src).href, opts, df.fieldType.toLowerCase().endsWith('msdf') ? $.Formats.RGB : $.Formats.RG, mips))
 			for(const {first,second,amount} of kernings) super.set(second+first*1114112, amount/s)
 			for(const {id,x,y,width,height,xoffset,yoffset,xadvance,page} of chars) super.set(id, {
 				x: xoffset*s, y: b-(yoffset-baselineOffset+height)*s,
@@ -1123,20 +1123,21 @@ ffff\ ffff\ ffff\ ffff\
 			})
 			this.done()
 		}, this.error.bind(this)); return this}
-		draw(ctx, txt, v=[], off=0, spr=-1, lsb = 0, last = -1){
+		draw(ctx, txt, v=[], off=0, spr=-0.5, lsb = 0, last = -1){
 			if(this.#cb) return
 			lsb *= .5
 			off /= this.rangeFactor
 			const recalc = spr<0&&ctx.projection
-			if(!recalc) spr = spr<0 ? ctx.pixelRatio()*2*this.rangeFactor : .5*this.rangeFactor/spr
+			let aspr = spr = 1/spr
+			if(!recalc) aspr *= (spr<0 ? -ctx.pixelRatio() : .5)*this.rangeFactor
 			for(const ch of txt){
 				const c = ch.codePointAt()
 				const g = this.get(~c) ?? this._default
 				if(!g) continue
-				if(recalc) spr = ctx.pixelRatio()*2*this.rangeFactor
+				if(recalc) aspr = -ctx.pixelRatio()*this.rangeFactor*spr
 				const ker = this.get(c+last*1114112) ?? 0; last = c
 				const w = g._xadv + lsb + lsb + ker
-				if(g._tex) V.x = off, V.y = spr, ctx.drawRect(g.x+lsb+ker,g.y,g.w,g.h,g._tex,V,...v)
+				if(g._tex) V.x = off, V.y = aspr, ctx.drawRect(g.x+lsb+ker,g.y,g.w,g.h,g._tex,V,...v)
 				ctx.translate(w, 0)
 			}
 			return last

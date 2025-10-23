@@ -578,7 +578,7 @@ namespace GammaInstance{
 		 * - `REPEAT_MIRRORED`: Coordinates outside [0,1] will repeat (tile) the texture infinitely
 		 * - `REPEAT_MIRRORED_X`, `REPEAT_MIRRORED_Y`: Same as `REPEAT` but for the X or Y axis only. These values can be OR'd appropriately, e.g `REPEAT_X | REPEAT_MIRRORED_Y`
 		 * 
-		 * - `ANISOTROPY`: Enables anisotropic filtering, which performs more samples, especially utilizing mipmaps, to create a sample that is mathematically much closer to ideal sampling, one that blends the entire portion of the texture that a rendered pixel covers. This gives much nicer visuals especially for stretched faces, without the hard transitions or blurs of using mipmaps alone. This flag enables anisotropic filtering whenever it is available in hardware or an sufficiently fast method is available in software (this is decided by the browser). If it is not available, this flag does nothing.
+		 * - `ANISOTROPY`: Enables anisotropic filtering, which performs more samples, especially utilizing mipmaps, to create a sample that is mathematically much closer to ideal sampling, one that blends the entire portion of the texture that a rendered pixel covers. This gives much nicer visuals especially for stretched faces, without the hard transitions or blurs of using mipmaps alone. This flag enables anisotropic filtering whenever it is available in hardware or an sufficiently fast method is available in software (this is decided by the browser). If it is not available, this flag does nothing. Depending on the hardware/driver, anisotropy may also implicitly enable DOWNSCALE_SMOOTH and/or UPSCALE_SMOOTH
 		 * 
 		 * @example
 		 * ```js
