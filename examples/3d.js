@@ -12,8 +12,9 @@ label.add('Gamma is ')
 label.addTextPass(0, [vec4(1,0,0,.4)], 0, 0, 0, -1)
 label.add('peak')
 
-const ground = Texture(2, 2, 1, ANISOTROPY | DOWNSCALE_SMOOTH | REPEAT, Formats.RGB5_A1, 2)
+const ground = Texture(2, 2, 1, DOWNSCALE_SMOOTH | MIPMAP_SMOOTH | REPEAT, Formats.RGB5_A1, 2)
 	.pasteData(Uint16Array.fromHex('A529 C631 C631 A529')).super(0,0,.01,.01)
+ground.genMipmaps()
 
 const cyl = Geometry3D()
 cyl.type = TRIANGLE_STRIP | CW_ONLY
@@ -37,6 +38,16 @@ onKey(MOUSE.LEFT, () => {
 })
 let pos = vec3(0, 0, -6), vel = vec3(), look = vec2()
 
+Shader.AA_CIRCLE ??= Shader(`
+void main(){
+	float dist = 0.5 - length(pos - 0.5);
+
+	// Make [0, 1] the range covered by one pixel
+	float alpha = clamp(dist/fwidth(dist) + 0.5, 0.0, 1.0);
+
+	color = param0(pos) * alpha;
+}
+`, {params: COLOR})
 const skyShader = Shader(`
 uint uhash(uvec2 a){
 	uint x = ((a.x * 1597334673U) ^ (a.y * 3812015801U));
@@ -91,8 +102,10 @@ void main(){
 `, {uniforms: [FLOAT, FLOAT], uniformDefaults: [0, .05], vertex: Geometry3D.DEFAULT_VERTEX})
 
 function drawText(ctx){
-	ctx.translate(label.width*-.5, 0)
+	ctx.translate(label.width*-.5 + .5, 0)
+	ctx.mask |= SET
 	ctx.drawRect(-1.5, -.75, label.width+2, 1.5, vec4(0,0,0,.5))
+	ctx.mask = RGBA
 	let ctx3 = ctx.sub(); ctx3.translate(-.75, 0)
 	ctx3 = ctx3.sub3dProj()
 		ctx3.shader = Shader.SHADED_3D
@@ -101,22 +114,25 @@ function drawText(ctx){
 		ctx3.rotateXZ(t)
 		ctx3.rotateXY(t)
 		ctx3.drawCube(-1, -1, -1, 2, 2, 2, vec4(.8,0,0,1))
-	const {x, y} = ctx.from(cursor)
-	console.log(x,y)
-	ctx.drawRect(x-.1, y-.1, .2, .2, vec4(1,0,0,1))
-	label.draw(ctx)
+	const {x, y} = ctx.from(pointerLock ? vec2(.5) : cursor)
+	label.draw(ctx.sub())
+	ctx.mask |= IF_SET
+	ctx.drawRect(x-.1, y-.01, .2, .02, vec4(0,0,0,1))
+	ctx.drawRect(x-.01, y-.1, .02, .2, vec4(0,0,0,1))
 }
 
-
+let FOV = 90, targetFov = 90
 render = () => {
-	const FOV = keys.has(KEY.C) ? 15 : 90
+	if(keys.has(KEY.C)) targetFov = min(targetFov / SQRT2**dt, 15)
+	else targetFov = 90
+	FOV += (targetFov - FOV) * min(1, dt*20)
 	skyShader.uniforms(t)
 	const {width, height} = ctx
 	ctx.reset(.05*height/width, 0, 0, .05, .5, .5)
 	const ctx3 = ctx.sub3dProj(0, .125*tan(FOV * PI/360))
 	if(pointerLock){
-		look.x = (look.x + rawMouse.x*.002) % PI2
-		look.y = clamp(look.y + rawMouse.y*.002, PI*-.5, PI*.5)
+		look.x = (look.x + rawMouse.x*.00003*FOV) % PI2
+		look.y = clamp(look.y + rawMouse.y*.00003*FOV, PI*-.5, PI*.5)
 		const MAX_SPEED = 5
 		const dz = cos(look.x)*dt*20*MAX_SPEED, dx = sin(look.x)*dt*20*MAX_SPEED
 		const lr = keys.has(KEY.D) - keys.has(KEY.A), fb = keys.has(KEY.W) - keys.has(KEY.S)
@@ -165,4 +181,5 @@ render = () => {
 		ctx.shader = Shader.MSDF
 		font.draw(ctx, 'Click anywhere to lock pointer', [vec4(.3+sin(t*PI)*.2)])
 	}
+	ctxSupersample = keys.has(KEY.V) ? 0.125/devicePixelRatio : 1 + (devicePixelRatio < 2)
 }

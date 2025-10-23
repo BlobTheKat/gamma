@@ -23,6 +23,7 @@
 		const w = innerWidth, h = innerHeight
 		if(ow!=(ow=round(w*px))|oh!=(oh=round(h*px))) $.setSize(ow, oh)
 		$.canvas.style.transform = `scale(${1/px})`
+		$.canvas.style.imageRendering = ctxSupersample > 1 ? '' : 'pixelated'
 		$.cursorType = 'default'
 		$.render?.()
 		$.rawMouse.x = $.rawMouse.y = 0
@@ -30,7 +31,7 @@
 		$.scrollDelta.x = $.scrollDelta.y = 0
 		$.cursorDelta.x = $.cursorDelta.y = 0
 	})
-	$.pixelRatio = 1
+	$.pixelRatio = devicePixelRatio
 	const unint = `user-select:none;-webkit-user-select:none;touch-action: none;`
 	$.canvas.style = `image-rendering: pixelated; position: fixed; inset: 0; transform-origin: top left; `+unint
 	$.glLost = () => {

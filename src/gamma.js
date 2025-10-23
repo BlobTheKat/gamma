@@ -398,6 +398,7 @@ class Tex{
 	static setOptions(t){
 		Tex.fakeBind(t)
 		const {o} = t
+		if(maxAniso) gl.texParameterf(gl.TEXTURE_2D_ARRAY, 34046, o&128?maxAniso:1)
 		if(t.f[3]>>31)
 			gl.texParameterf(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, 9728),
 			gl.texParameterf(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, 9728)
@@ -406,7 +407,6 @@ class Tex{
 			gl.texParameterf(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, t.m>1?9984+(o>>1&3):9728+(o>>1&1))
 		gl.texParameterf(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, o&8?10497:o&16?33648:33071)
 		gl.texParameterf(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, o&32?10497:o&64?33648:33071)
-		if(maxAniso) gl.texParameterf(gl.TEXTURE_2D_ARRAY, 34046, o&128?maxAniso:1)
 	}
 	set options(o){
 		const {t} = this
@@ -461,6 +461,16 @@ $.Texture.from = (src, o = 0, fmt = Formats.RGBA, mips = 0) => new Tex({
 	w: 0, h: 0, d: src ? Array.isArray(src) ? src.length : 1 : 0, m: mips||1
 })
 
+// Linear algebra time!
+// Some info:
+// All matrices are "column-major"
+// All multiplication is right-multiplication
+// We only use the minimum matrix and operations for a given use case, hence why there are so many classes and methods
+// t2D & t2t3D implement the Transformable2D interface
+// t3t2D & t3D implement the Transformable3D interface
+// The interface represents the "input" vector type. The last component is always 1 and is used to make the transformations also support translation
+// The output vector type is irrelevant to the interface and only matters for how the content is eventually rendered (specifically, 2 outputs means 2D and 3 outputs means 2D + projection)
+
 // 3x2 matrix, maps R2 -> R2
 // x y 1
 // v v v
@@ -489,8 +499,8 @@ class t2D{
 	}
 	multiply(x=1, y=0){
 		const {a,b,c,d} = this
-		this.a=a*x+c*y;this.b=b*x+d*y
-		this.c=c*x-a*y;this.d=d*x-b*y
+		this.a=a*x-c*y;this.b=b*x-d*y
+		this.c=c*x+a*y;this.d=d*x+b*y
 	}
 	box(x=0,y=0,w=1,h=w){ this.e+=x*this.a+y*this.c; this.f+=x*this.b+y*this.d; this.a*=w; this.b*=w; this.c*=h; this.d*=h }
 	to(x=0, y=0){ if(typeof x=='object')({x,y}=x); return {x:this.a*x+this.c*y+this.e,y:this.b*x+this.d*y+this.f}}
@@ -553,6 +563,81 @@ class t2t3D{
 	}
 }
 
+// 4x2 matrix, maps R3 -> R2
+// x y z 1
+// v v v v
+// a c e g > x
+// b d f h > y
+class t3t2D{
+	constructor(a=1,b=0,c=0,d=1,e=0,f=0,g=0,h=0){this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h}
+	translate(x=0,y=0,z=0){
+		this.g+=x*this.a+y*this.c+z*this.e
+		this.h+=x*this.b+y*this.d+z*this.f
+	}
+	scale(x=1,y=x,z=x){
+		this.a*=x; this.b*=x
+		this.c*=y; this.d*=y
+		this.e*=z; this.f*=z
+	}
+	rotateXZ(by){
+		let sy = sin(by), cy = cos(by)
+		const {a,b,e,f} = this
+		this.a = cy*a-sy*e; this.e = cy*e+sy*a
+		this.b = cy*b-sy*f; this.f = cy*f+sy*b
+	}
+	rotateXY(by){
+		let sy = sin(by), cy = cos(by)
+		const {a,b,c,d} = this
+		this.a = cy*a-sy*c; this.c = cy*c+sy*a
+		this.b = cy*b-sy*d; this.d = cy*d+sy*b
+	}
+	rotateZY(by){
+		let sy = sin(by), cy = cos(by)
+		const {c,d,e,f} = this
+		this.e = cy*e-sy*c; this.c = cy*c+sy*e
+		this.f = cy*f-sy*d; this.d = cy*d+sy*f
+	}
+	multiplyXZ(x=1,y=0){
+		const {a,b,e,f} = this
+		this.a = x*a-y*e; this.e = x*e+y*a
+		this.b = x*b-y*f; this.f = x*f+y*b
+	}
+	multiplyXY(x=1,y=0){
+		const {a,b,c,d} = this
+		this.a = x*a-y*c; this.c = x*c+y*a
+		this.b = x*b-y*d; this.d = x*d+y*b
+	}
+	multiplyZY(x=1,y=0){
+		const {c,d,e,f} = this
+		this.e = x*e-y*c; this.c = x*c+y*e
+		this.f = x*f-y*d; this.d = x*d+y*f
+	}
+	skewX(xz=0,xy=0){ this.a += xy*this.c+xz*this.e; this.b += xy*this.d+xz*this.f }
+	skewY(yx=0,yz=0){ this.c += yx*this.a+yz*this.e; this.d += yx*this.b+yz*this.f }
+	skewZ(zx=0,zy=0){ this.e += zx*this.a+zy*this.c; this.f += zx*this.b+zy*this.d }
+	skew(xz=0,xy=0,yx=0,yz=0,zx=0,zy=0){
+		const {a,b,c,d,e,f} = this
+		this.a = a+xy*c+xz*e; this.b = b+xy*d+xz*f
+		this.c = c+yx*a+yz*e; this.d = d+yx*b+yz*f
+		this.e = e+zx*a+zy*c; this.f = f+zx*b+zy*d
+	}
+	transform(a,b,c,d,e,f,g,h,i,j=0,k=0,l=0){
+		if(typeof a=='object')({a,b,c,d,e,f,g,h,i,j,k,l}=a)
+		const A=this.a,B=this.b,C=this.c,D=this.d,E=this.e,F=this.f
+		this.a = A*a+C*b+E*c; this.b = B*a+D*b+F*c
+		this.c = A*d+C*e+E*f; this.d = B*d+D*e+F*f
+		this.e = A*g+C*h+E*i; this.f = B*g+D*h+F*i
+		this.g += A*j+C*k+E*l; this.h += B*j+D*k+F*l
+	}
+	box(x=0,y=0,z=0,w=1,h=w,d=w){
+		this.g+=x*this.a+y*this.c+z*this.e
+		this.h+=x*this.b+y*this.d+z*this.f
+		this.a*=w; this.b*=w
+		this.c*=h; this.d*=h
+		this.e*=d; this.f*=d
+	}
+}
+
 // 4x3 matrix, maps R3 -> R3
 // x y z 1
 // v v v v
@@ -592,6 +677,33 @@ class t3D{
 		this.h = cy*h-sy*e; this.e = cy*e+sy*h
 		this.i = cy*i-sy*f; this.f = cy*f+sy*i
 	}
+	multiplyXZ(x=1, y=0){
+		const {a,b,c,g,h,i} = this
+		this.a = x*a-y*g; this.g = x*g+y*a
+		this.b = x*b-y*h; this.h = x*h+y*b
+		this.c = x*c-y*i; this.i = x*i+y*c
+	}
+	multiplyXY(x=1, y=0){
+		const {a,b,c,d,e,f} = this
+		this.a = x*a-y*d; this.d = x*d+y*a
+		this.b = x*b-y*e; this.e = x*e+y*b
+		this.c = x*c-y*f; this.f = x*f+y*c
+	}
+	multiplyZY(x=1, y=0){
+		const {d,e,f,g,h,i} = this
+		this.g = x*g-y*d; this.d = x*d+y*g
+		this.h = x*h-y*e; this.e = x*e+y*h
+		this.i = x*i-y*f; this.f = x*f+y*i
+	}
+	skewX(xz=0,xy=0){ this.a += xy*this.d+xz*this.g; this.b += xy*this.e+xz*this.h; this.c += xy*this.f+xz*this.i }
+	skewY(yx=0,yz=0){ this.d += yx*this.a+yz*this.g; this.e += yx*this.b+yz*this.h; this.f += yx*this.c+yz*this.i }
+	skewZ(zx=0,zy=0){ this.g += zx*this.a+zy*this.d; this.h += zx*this.b+zy*this.e; this.i += zx*this.c+zy*this.f }
+	skew(xz=0,xy=0,yx=0,yz=0,zx=0,zy=0){
+		const {a,b,c,d,e,f,g,h,i} = this
+		this.a = a+xy*d+xz*g; this.b = b+xy*e+xz*h; this.c = c+xy*f+xz*i
+		this.d = d+yx*a+yz*g; this.e = e+yx*b+yz*h; this.f = f+yx*c+yz*i
+		this.g = g+zx*a+zy*d; this.h = h+zx*b+zy*e; this.i = i+zx*c+zy*f
+	}
 	transform(a,b,c,d,e,f,g,h,i,j=0,k=0,l=0){
 		if(typeof a=='object')({a,b,c,d,e,f,g,h,i,j,k,l}=a)
 		const A=this.a,B=this.b,C=this.c,D=this.d,E=this.e,F=this.f,G=this.g,H=this.h,I=this.i
@@ -607,69 +719,6 @@ class t3D{
 		this.a*=w; this.b*=w; this.c*=w
 		this.d*=h; this.e*=h; this.f*=h
 		this.g*=d; this.h*=d; this.i*=d
-	}
-	to(x=0, y=0, z=0){
-		if(typeof x=='object')({x,y,z=0}=x)
-		let p = this.c*x+this.f*y+this.i*z+this.l
-		if(p <= 0) return {x:NaN,y:NaN}
-		p = 1/p
-		return { x: (this.a*x+this.d*y+this.g*z+this.j)*p, y: (this.b*x+this.e*y+this.h*z+this.k)*p }
-	}
-	from(x=0, y=0){
-		if(typeof x=='object')({x,y}=x)
-		const {a,b,c,d,e,f,g,h,i} = this
-		x -= this.j; y -= this.k
-		const z = 1-this.l
-		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e, i_det = 1./(a*m + d*n + g*o)
-		return {
-			x: (m * x + (g*f - i*d) * y + (d*h - e*g) * z) * i_det,
-			y: (n * x + (a*i - c*g) * y + (g*b - h*a) * z) * i_det,
-			z: (o * x + (d*c - f*a) * y + (a*e - b*d) * z) * i_det,
-		}
-	}
-	toDelta(x=0, y=0, z=0){
-		if(typeof x=='object')({x,y,z=0}=x)
-		let p = this.c*x+this.f*y+this.i*z+this.l
-		if(p <= 0) return {x:NaN,y:NaN}
-		p = 1/p
-		return { x: (this.a*x+this.d*y+this.g*z)*p, y: (this.b*x+this.e*y+this.h*z)*p }
-	}
-	fromDelta(x=0, y=0){
-		if(typeof x=='object')({x,y}=x)
-		const {a,b,c,d,e,f,g,h,i} = this
-		const z = 1-this.l
-		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e, i_det = 1./(a*m + d*n + g*o)
-		return {
-			x: (m * x + (g*f - i*d) * y + (d*h - e*g) * z) * i_det,
-			y: (n * x + (a*i - c*g) * y + (g*b - h*a) * z) * i_det,
-			z: (o * x + (d*c - f*a) * y + (a*e - b*d) * z) * i_det,
-		}
-	}
-	determinant(){ const {a,b,c,d,e,f,g,h,i} = this; return a*(e*i-f*h)+d*(c*h-b*i)+g*(b*f-c*e)}
-	origin(){
-		const {a,b,c,d,e,f,g,h,i,j,k,l} = this
-		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e, i_det = -1./(a*m + d*n + g*o);
-		return {
-			x: (m*j + (g*f - i*d)*k + (d*h - e*g)*l) * i_det,
-			y: (n*j + (a*i - c*g)*k + (g*b - h*a)*l) * i_det,
-			z: (o*j + (d*c - f*a)*k + (a*e - b*d)*l) * i_det,
-		}
-	}
-	ray(x=0, y=0){
-		if(typeof x=='object')({x,y}=x)
-		const {a,b,c,d,e,f,g,h,i,j,k,l} = this
-		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e, i_det = 1./(a*m + d*n + g*o)
-		const p = g*f - i*d, q = a*i - c*g, r = d*c - f*a
-		const s = d*h - e*g, t = g*b - h*a, u = a*e - b*d
-		const xo = -(m*j + p*k + s*l) * i_det
-		const yo = -(n*j + q*k + t*l) * i_det
-		const zo = -(o*j + r*k + u*l) * i_det
-		const z = 1-this.l
-		const dx = (m*x + p*y + s*z) * i_det
-		const dy = (m*x + p*y + s*z) * i_det
-		const dz = (m*x + p*y + s*z) * i_det
-		const i_dst = 1/sqrt(dx*dx+dy*dy+dz*dz)
-		return {origin: {x: xo, y: yo, z: zo}, direction: {x: dx*i_dst, y: dy*i_dst, z: dz*i_dst}}
 	}
 }
 
@@ -742,13 +791,13 @@ class Drw2t3D extends t2t3D{
 	from(x=0, y=0){
 		if(typeof x=='object')({x,y}=x)
 		const {a,b,c,d,e,f,g,h,i} = this
-		// todo
+	// Definitely not plagiarized from ChatGPT
 		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e
 		const det = 1/(a*m + d*n + g*o)
-		const x0 = (m*x + n*y + o) * det
-		const y0 = ((f*g-d*i)*x + (a*i-c*g)*y + (c*d-a*f)) * det
-		let z0 = ((d*h-e*g)*x + (b*g-a*h)*y + (a*e-b*d)) * det
-		//if(z0 <= 0) return {x:NaN,y:NaN}
+		const x0 = (m*x + (f*g-d*i)*y + (d*h-e*g)) * det
+		const y0 = (n*x + (a*i-c*g)*y + (b*g-a*h)) * det
+		let z0 = (o*x + (c*d-a*f)*y + (a*e-b*d)) * det
+		if(z0 <= 0) return {x:NaN,y:NaN}
 		z0 = 1/z0
 		return {x:x0*z0, y: y0*z0}
 	}
@@ -761,14 +810,15 @@ class Drw2t3D extends t2t3D{
 	}
 	fromDelta(x=0, y=0){
 		if(typeof x=='object')({x,y}=x)
-		const {a,b,c,d,e,f} = this
+		const {a,b,c,d,e,f,g,hi} = this
 		// todo
 		return {x:NaN,y:NaN}
 	}
 	sub(){ return new Drw2t3D(this.t,this._mask,this._shp,this._sh,this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h,this.i) }
-	/*TODO*/sub3dProj(z0=0,zsc=1){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,this.c,this.d,this.e,this.f,this.g*zsc,this.h*zsc,this.i*zsc,this.g*z0,this.h*z0,this.i*z0)}
+	sub3d(){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,this.c,this.d,this.e,this.f,0,0,0,this.g,this.h,this.i)}
+	sub3dProj(z0=0,zsc=1){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,this.c,this.d,this.e,this.f,this.g*zsc,this.h*zsc,this.i*zsc,this.g*z0,this.h*z0,this.i*z0)}
 	resetTo(m){ this.a=m.a;this.b=m.b;this.c=m.c;this.d=m.d;this.e=m.e;this.f=m.f;this.g=m.g;this.h=m.h;this.i=m.i;this._mask=m._mask;this._sh=m._sh;this._shp=m._shp }
-	reset(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=0){if(typeof a=='object')({a,b,c,d,e,f}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this._mask=290787599;this._sh=$.Shader.DEFAULT;this._shp=geo2}
+	reset(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1){if(typeof a=='object')({a,b,c,d,e,f,g,h,i}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this.i=i;this._mask=290787599;this._sh=$.Shader.DEFAULT;this._shp=geo2}
 	draw(...values){
 		const i = this._sh(9,values)
 		arr[i  ] = this.a; arr[i+1] = this.d; arr[i+2] = this.g
@@ -865,6 +915,69 @@ class Drw3D extends t3D{
 		arr[v+6] = B*g+E*h+H*i; arr[v+7] = this.k+B*j+E*k+H*l
 		arr[v+8] = C*a+F*b+I*c; arr[v+9] = C*d+F*e+I*f
 		arr[v+10] = C*g+F*h+I*i; arr[v+11] = this.l+C*j+F*k+I*l
+	}
+	to(x=0, y=0, z=0){
+		if(typeof x=='object')({x,y,z=0}=x)
+		let p = this.c*x+this.f*y+this.i*z+this.l
+		if(p <= 0) return {x:NaN,y:NaN}
+		p = 1/p
+		return { x: (this.a*x+this.d*y+this.g*z+this.j)*p, y: (this.b*x+this.e*y+this.h*z+this.k)*p }
+	}
+	from(x=0, y=0){
+		if(typeof x=='object')({x,y}=x)
+		const {a,b,c,d,e,f,g,h,i} = this
+		x -= this.j; y -= this.k
+		const z = 1-this.l
+		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e, i_det = 1./(a*m + d*n + g*o)
+		return {
+			x: (m * x + (g*f - i*d) * y + (d*h - e*g) * z) * i_det,
+			y: (n * x + (a*i - c*g) * y + (g*b - h*a) * z) * i_det,
+			z: (o * x + (d*c - f*a) * y + (a*e - b*d) * z) * i_det,
+		}
+	}
+	toDelta(x=0, y=0, z=0){
+		if(typeof x=='object')({x,y,z=0}=x)
+		let p = this.c*x+this.f*y+this.i*z+this.l
+		if(p <= 0) return {x:NaN,y:NaN}
+		p = 1/p
+		return { x: (this.a*x+this.d*y+this.g*z)*p, y: (this.b*x+this.e*y+this.h*z)*p }
+	}
+	fromDelta(x=0, y=0){
+		if(typeof x=='object')({x,y}=x)
+		const {a,b,c,d,e,f,g,h,i} = this
+		const z = 1-this.l
+		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e, i_det = 1./(a*m + d*n + g*o)
+		return {
+			x: (m * x + (g*f - i*d) * y + (d*h - e*g) * z) * i_det,
+			y: (n * x + (a*i - c*g) * y + (g*b - h*a) * z) * i_det,
+			z: (o * x + (d*c - f*a) * y + (a*e - b*d) * z) * i_det,
+		}
+	}
+	determinant(){ const {a,b,c,d,e,f,g,h,i} = this; return a*(e*i-f*h)+d*(c*h-b*i)+g*(b*f-c*e)}
+	origin(){
+		const {a,b,c,d,e,f,g,h,i,j,k,l} = this
+		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e, i_det = -1./(a*m + d*n + g*o);
+		return {
+			x: (m*j + (g*f - i*d)*k + (d*h - e*g)*l) * i_det,
+			y: (n*j + (a*i - c*g)*k + (g*b - h*a)*l) * i_det,
+			z: (o*j + (d*c - f*a)*k + (a*e - b*d)*l) * i_det,
+		}
+	}
+	ray(x=0, y=0){
+		if(typeof x=='object')({x,y}=x)
+		const {a,b,c,d,e,f,g,h,i,j,k,l} = this
+		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e, i_det = 1./(a*m + d*n + g*o)
+		const p = g*f - i*d, q = a*i - c*g, r = d*c - f*a
+		const s = d*h - e*g, t = g*b - h*a, u = a*e - b*d
+		const xo = -(m*j + p*k + s*l) * i_det
+		const yo = -(n*j + q*k + t*l) * i_det
+		const zo = -(o*j + r*k + u*l) * i_det
+		const z = 1-this.l
+		const dx = (m*x + p*y + s*z) * i_det
+		const dy = (m*x + p*y + s*z) * i_det
+		const dz = (m*x + p*y + s*z) * i_det
+		const i_dst = 1/sqrt(dx*dx+dy*dy+dz*dz)
+		return {origin: {x: xo, y: yo, z: zo}, direction: {x: dx*i_dst, y: dy*i_dst, z: dz*i_dst}}
 	}
 }
 const x = Object.getOwnPropertyDescriptors({
@@ -1118,6 +1231,30 @@ class Geo2D extends t2D{
 		return t._size++
 	}
 }
+class Geo2t3D extends t2t3D{
+	constructor(t,s=0,L=0,tp=5,a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1){ super(a,b,c,d,e,f,g,h,i); this.t = t; this._s = s; this._l = L; this._t = tp; t.b.for=t }
+	sub(start = this.t._size, length = 0, type = this._t){ return new Geo2D(this.t, start>>>0, length>>>0, type&63, this.a, this.b, this.c, this.d, this.e, this.f, this.g, this.h, this,i) }
+	addPoint(x, y, ...v){
+		const {t} = this, i = t._pack(v), {arr} = t
+		arr[i] = x*this.a+y*this.d+this.g; arr[i+1] = x*this.b+y*this.e+this.h; arr[i+2] = x*this.c+y*this.f+this.i
+		return t._size++
+	}
+	add(...v){
+		const {t} = this, i = t._pack(v), {arr} = t
+		arr[i] = this.g; arr[i+1] = this.h; arr[i+2] = this.i
+		return t._size++
+	}
+	addPointv(x, y, v){
+		const {t} = this, i = t._pack(v), {arr} = t
+		arr[i] = x*this.a+y*this.d+this.g; arr[i+1] = x*this.b+y*this.e+this.h; arr[i+2] = x*this.c+y*this.f+this.i
+		return t._size++
+	}
+	addv(v){
+		const {t} = this, i = t._pack(v), {arr} = t
+		arr[i] = this.g; arr[i+1] = this.h; arr[i+2] = this.i
+		return t._size++
+	}
+}
 buf.for='main'
 class Geo3D extends t3D{
 	constructor(t,s=0,L=0,tp=5,a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1,j=0,k=0,l=0){ super(a,b,c,d,e,f,g,h,i,j,k,l); this.t = t; this._s = s; this._l = L; this._t = tp; t.b.for=t }
@@ -1147,19 +1284,6 @@ class Geo3D extends t3D{
 		return t._size++
 	}
 }
-/*for(const k of Object.getOwnPropertyNames(WebGL2RenderingContext.prototype)){
-	try{
-		const f = WebGL2RenderingContext.prototype[k]
-		if(typeof f != 'function') continue
-		const san = !k.startsWith('get')
-		WebGL2RenderingContext.prototype[k] = function(...p){
-			const res = f.apply(this, p)
-			if(!san) return res
-			console.debug('gl.'+k+'(', ...p, ')')
-			return res
-		}
-	}catch{}
-}*/
 const y = Object.getOwnPropertyDescriptors({
 	get size(){ return this.t._size },
 	get uploadCount(){ return this.t._usize },
@@ -1251,16 +1375,19 @@ const y = Object.getOwnPropertyDescriptors({
 })
 const empty = new Float32Array(), iempty = new Int32Array(empty.buffer)
 Object.defineProperties(Geo2D.prototype, y)
+Object.defineProperties(Geo2t3D.prototype, y)
 Object.defineProperties(Geo3D.prototype, y)
 $.Geometry2D = (v = null, type=5) => {
 	if(typeof v == 'number') type = v, v = null
-	const {_pack, _vcount} = v ?? $.Geometry2D.DEFAULT_VERTEX
+	const {_pack, _vcount, three} = v ?? $.Geometry2D.DEFAULT_VERTEX
+	if(three) return null
 	const arr = new Float32Array(16)
 	return new Geo2D({arr, iarr: new Int32Array(arr.buffer), i: 0, b: gl.createBuffer(), _pack, _vcount, _size: 0, _usize: 0, v: null, _elB: null, _elT: 0},0,0,type)
 }
 $.Geometry3D = (v = null, type=5) => {
 	if(typeof v == 'number') type = v, v = null
-	const {_pack, _vcount} = v ?? $.Geometry3D.DEFAULT_VERTEX
+	const {_pack, _vcount, three} = v ?? $.Geometry3D.DEFAULT_VERTEX
+	if(!three) return null
 	const arr = new Float32Array(16)
 	return new Geo3D({arr, iarr: new Int32Array(arr.buffer), i: 0, b: gl.createBuffer(), _pack, _vcount, _size: 0, _usize: 0, v: gl.createVertexArray(), L: null, Ls: 0, _elB: null, _elT: 0},0,0,type)
 }
