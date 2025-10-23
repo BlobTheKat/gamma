@@ -560,23 +560,6 @@ declare global{
 		 */
 		from(x: number, y: number): vec2
 		from(xy: vec2): vec2
-		/**
-		 * Transform a delta `(dx,dy)` by the current transformation matrix, returning the transformed delta as an object `{x, y}`. Unlike `to()`, this does not apply translation, only scale/rotation/skew
-		 * @performance This method is CPU-arithmetic, very fast and usually inlined
-		 */
-		toDelta(dx: number, dy: number): vec2
-		toDelta(dxy: vec2): vec2
-		/**
-		 * Inverse-transform a delta `(dx,dy)` by the current transformation matrix, returning the original delta as an object `{x, y}`. Unlike `from()`, this does not apply translation, only scale/rotation/skew
-		 * @performance This method is CPU-arithmetic, very fast and usually inlined
-		 */
-		fromDelta(dx: number, dy: number): vec2
-		fromDelta(dxy: vec2): vec2
-		/**
-		 * The determinant of the current transformation matrix. This is the signed area scaling factor of the transform
-		 * @performance This method is CPU-arithmetic, very fast and usually inlined
-		 */
-		determinant(): number
 	}
 	type Drawable = Drawable2D
 	interface Drawable2D extends Transformable2D{

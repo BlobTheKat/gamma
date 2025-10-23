@@ -502,22 +502,6 @@ class t2D{
 		this.c=c*x+a*y;this.d=d*x+b*y
 	}
 	box(x=0,y=0,w=1,h=w){ this.e+=x*this.a+y*this.c; this.f+=x*this.b+y*this.d; this.a*=w; this.b*=w; this.c*=h; this.d*=h }
-	to(x=0, y=0){ if(typeof x=='object')({x,y}=x); return {x:this.a*x+this.c*y+this.e,y:this.b*x+this.d*y+this.f}}
-	from(x=0, y=0){
-		if(typeof x=='object')({x,y}=x)
-		const {a,b,c,d} = this, i_det = 1/(a*d-b*c)
-		x -= this.e; y -= this.f
-		return {
-			x: (x*d - y*c)*i_det,
-			y: (y*a - x*b)*i_det
-		}
-	}
-	toDelta(dx=0, dy=0){ if(typeof dx=='object')({x:dx,y:dy}=dx); return {x: this.a*dx+this.c*dy, y: this.b*dx+this.d*dy}}
-	fromDelta(x=0, y=0){
-		if(typeof x=='object')({x,y}=x)
-		const {a,b,c,d} = this, i_det = 1/(a*d-b*c)
-		return {x: (x*d-y*c)*i_det, y: (y*a-x*b)*i_det}
-	}
 }
 
 // 3x3 matrix, maps R² -> R³
@@ -729,12 +713,22 @@ class Drw2D extends t2D{
 	get geometry(){ return this._shp }
 	set geometry(a){ this._shp = a||geo2; if(lastd == this) lastd = null }
 	constructor(t,m=290787599,sp=geo2,s=$.Shader.DEFAULT,a=1,b=0,c=0,d=1,e=0,f=0){ super(a,b,c,d,e,f); this.t = t; this._mask = m; this._shp = sp; this._sh = s }
-	pixelRatio(){return sqrt(abs(this.a*this.d-this.b*this.c)*this.t.w*this.t.h)}
 	sub(){ return new Drw2D(this.t,this._mask,this._shp,this._sh,this.a,this.b,this.c,this.d,this.e,this.f) }
 	sub3d(){ return new Drw3t2D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,this.c,this.d,0,0,this.e,this.f)}
 	sub3dProj(z0=0,zsc=1){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,0,this.c,this.d,0,this.e*zsc,this.f*zsc,zsc,this.e*z0,this.f*z0,z0)}
 	resetTo(m){ this.a=m.a;this.b=m.b;this.c=m.c;this.d=m.d;this.e=m.e;this.f=m.f;this._mask=m._mask;this._sh=m._sh;this._shp=m._shp }
 	reset(a=1,b=0,c=0,d=1,e=0,f=0){if(typeof a=='object')({a,b,c,d,e,f}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this._mask=290787599;this._sh=$.Shader.DEFAULT;this._shp=geo2}
+	pixelRatio(){return sqrt(abs(this.a*this.d-this.b*this.c)*this.t.w*this.t.h)}
+	to(x=0, y=0){ if(typeof x=='object')({x,y}=x); return {x:this.a*x+this.c*y+this.e,y:this.b*x+this.d*y+this.f}}
+	from(x=0, y=0){
+		if(typeof x=='object')({x,y}=x)
+		const {a,b,c,d} = this, i_det = 1/(a*d-b*c)
+		x -= this.e; y -= this.f
+		return {
+			x: (x*d - y*c)*i_det,
+			y: (y*a - x*b)*i_det
+		}
+	}
 	draw(...values){
 		const i = this._sh(6,values)
 		arr[i  ] = this.e; arr[i+1] = this.a; arr[i+2] = this.c
@@ -774,6 +768,11 @@ class Drw2t3D extends t2t3D{
 	get geometry(){ return this._shp }
 	set geometry(a){ this._shp = a||geo2; if(lastd == this) lastd = null }
 	constructor(t,m=290787599,sp=geo2,s=$.Shader.DEFAULT,a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=0){ super(a,b,c,d,e,f,g,h,i); this.t = t; this._mask = m; this._shp = sp; this._sh = s }
+	sub(){ return new Drw2t3D(this.t,this._mask,this._shp,this._sh,this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h,this.i) }
+	sub3d(){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,this.c,this.d,this.e,this.f,0,0,0,this.g,this.h,this.i)}
+	sub3dProj(z0=0,zsc=1){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,this.c,this.d,this.e,this.f,this.g*zsc,this.h*zsc,this.i*zsc,this.g*z0,this.h*z0,this.i*z0)}
+	resetTo(m){ this.a=m.a;this.b=m.b;this.c=m.c;this.d=m.d;this.e=m.e;this.f=m.f;this.g=m.g;this.h=m.h;this.i=m.i;this._mask=m._mask;this._sh=m._sh;this._shp=m._shp }
+	reset(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1){if(typeof a=='object')({a,b,c,d,e,f,g,h,i}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this.i=i;this._mask=290787599;this._sh=$.Shader.DEFAULT;this._shp=geo2}
 	pixelRatio(){
 		const {i} = this
 		const v = (this.a*i-this.g*this.c) * (this.e*i-this.h*this.f)
@@ -800,24 +799,6 @@ class Drw2t3D extends t2t3D{
 		z0 = 1/z0
 		return {x:x0*z0, y: y0*z0}
 	}
-	toDelta(x=0, y=0){
-		if(typeof x=='object')({x,y}=x)
-		let i = this.i, i2 = this.c*x+this.f*y+this.i
-		if(i<=0||i2<=0) return {x:NaN,y:NaN}
-		i = 1/i; i2 = 1/i2
-		return {x: (this.g+this.a*x+this.d*y)*i2 - this.g*i, y: (this.h+this.b*x+this.e*y)*i2 - this.h*i}
-	}
-	fromDelta(x=0, y=0){
-		if(typeof x=='object')({x,y}=x)
-		const {a,b,c,d,e,f,g,hi} = this
-		// todo
-		return {x:NaN,y:NaN}
-	}
-	sub(){ return new Drw2t3D(this.t,this._mask,this._shp,this._sh,this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h,this.i) }
-	sub3d(){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,this.c,this.d,this.e,this.f,0,0,0,this.g,this.h,this.i)}
-	sub3dProj(z0=0,zsc=1){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,this.c,this.d,this.e,this.f,this.g*zsc,this.h*zsc,this.i*zsc,this.g*z0,this.h*z0,this.i*z0)}
-	resetTo(m){ this.a=m.a;this.b=m.b;this.c=m.c;this.d=m.d;this.e=m.e;this.f=m.f;this.g=m.g;this.h=m.h;this.i=m.i;this._mask=m._mask;this._sh=m._sh;this._shp=m._shp }
-	reset(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1){if(typeof a=='object')({a,b,c,d,e,f,g,h,i}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this.i=i;this._mask=290787599;this._sh=$.Shader.DEFAULT;this._shp=geo2}
 	draw(...values){
 		const i = this._sh(9,values)
 		arr[i  ] = this.g; arr[i+1] = this.a; arr[i+2] = this.d
@@ -857,59 +838,19 @@ class Drw2t3D extends t2t3D{
 		arr[i+6] = tc*e+tf*f+ti; arr[i+7] = tc*a+tf*b; arr[i+8] = tc*c+tf*d
 	}
 }
-class Drw3D extends t3D{
+class Drw3t2D extends t3t2D{
 	set shader(sh){ this._sh=typeof sh=='function'&&sh.three===true?sh:$.Shader.COLOR_3D_XZ; if(lastd == this) lastd = null }
 	get shader(){ return this._sh }
 	get geometry(){ return this._shp }
 	set geometry(a){ this._shp = a||geo3; if(lastd == this) lastd = null }
-	constructor(t,m=290787599,sp=geo3,s=$.Shader.COLOR_3D_XZ,a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1,j=0,k=0,l=0){ super(a,b,c,d,e,f,g,h,i,j,k,l); this.t = t; this._mask = m; this._shp = sp; this._sh = s }
-	sub(){ return new Drw3D(this.t,this._mask,this._shp,this._sh,this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h,this.i,this.j,this.k,this.l) }
-	subProj(z0=0,zsc=1){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,this.c,this.d,this.e,this.f,this.j*zsc+this.g,this.k*zsc+this.h,this.l*zsc+this.i,this.j*z0,this.k*z0,this.l*z0)}
-	sub2dXY(){ return new Drw2t3D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.a,this.b,this.c,this.d,this.e,this.f,this.j,this.k,this.l) }
-	sub2dZY(){ return new Drw2t3D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.g,this.h,this.i,this.d,this.e,this.f,this.j,this.k,this.l) }
-	sub2dXZ(){ return new Drw2t3D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.a,this.b,this.c,this.g,this.h,this.i,this.j,this.k,this.l) }
-	resetTo(m){ this.a=m.a;this.b=m.b;this.c=m.c;this.d=m.d;this.e=m.e;this.f=m.f;this.g=m.g;this.h=m.h;this.i=m.i;this.j=m.j;this.k=m.k;this.l=m.l;this._mask=m._mask;this._sh=m._sh;this._shp=m._shp }
-	reset(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1,j=0,k=0,l=0){if(typeof a=='object')({a,b,c,d,e,f,g,h,i,j,k,l}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this.i=i;this.j=j;this.k=k;this.l=l;this._mask=290787599;this._sh=$.Shader.COLOR_3D_XZ;this._shp=geo3}
-	draw(...values){
-		const v = this._sh(12,values)
-		arr[v  ] = this.j; arr[v+1] = this.a; arr[v+2] = this.d; arr[v+3] = this.g
-		arr[v+4] = this.k; arr[v+5] = this.b; arr[v+6] = this.e; arr[v+7] = this.h
-		arr[v+8] = this.l; arr[v+9] = this.c; arr[v+10] = this.f; arr[v+11] = this.i
-	}
-	drawCube(x=0, y=0, z=0, xs=1, ys=1, zs=1, ...values){
-		const v = this._sh(12,values)
-		const {a,b,c,d,e,f,g,h,i} = this
-		arr[v  ] = this.j+x*a+y*d+z*g; arr[v+1] = a*xs; arr[v+2] = d*ys; arr[v+3] = g*zs
-		arr[v+4] = this.k+x*b+y*e+z*h; arr[v+5] = b*xs; arr[v+6] = e*ys; arr[v+7] = h*zs
-		arr[v+8] = this.l+x*c+y*f+z*i; arr[v+9] = c*xs; arr[v+10] = f*ys; arr[v+11] = i*zs
-	}
-	drawMat(a=1, b=0, c=0, d=0, e=1, f=0, g=0, h=0, i=1, j=0, k=0, l=0, ...values){
-		const v = this._sh(12,values)
-		const A=this.a,B=this.b,C=this.c,D=this.d,E=this.e,F=this.f,G=this.g,H=this.h,I=this.i
-		arr[v  ] = this.j+A*j+D*k+G*l; arr[v+1] = A*a+D*b+G*c; arr[v+2] = A*d+D*e+G*f; arr[v+3] = A*g+D*h+G*i
-		arr[v+4] = this.k+B*j+E*k+H*l; arr[v+5] = B*a+E*b+H*c; arr[v+6] = B*d+E*e+H*f; arr[v+7] = B*g+E*h+H*i
-		arr[v+8] = this.l+C*j+F*k+I*l; arr[v+9] = C*a+F*b+I*c; arr[v+10] = C*d+F*e+I*f; arr[v+11] = C*g+F*h+I*i
-	}
-	drawv(values){
-		const v = this._sh(12,values)
-		arr[v  ] = this.j; arr[v+1] = this.a; arr[v+2] = this.d; arr[v+3] = this.g
-		arr[v+4] = this.k; arr[v+5] = this.b; arr[v+6] = this.e; arr[v+7] = this.h
-		arr[v+8] = this.l; arr[v+9] = this.c; arr[v+10] = this.f; arr[v+11] = this.i
-	}
-	drawCubev(x=0, y=0, z=0, xs=1, ys=1, zs=1, values){
-		const v = this._sh(12,values)
-		const {a,b,c,d,e,f,g,h,i} = this
-		arr[v  ] = this.j+x*a+y*d+z*g; arr[v+1] = a*xs; arr[v+2] = d*ys; arr[v+3] = g*zs
-		arr[v+4] = this.k+x*b+y*e+z*h; arr[v+5] = b*xs; arr[v+6] = e*ys; arr[v+7] = h*zs
-		arr[v+8] = this.l+x*c+y*f+z*i; arr[v+9] = c*xs; arr[v+10] = f*ys; arr[v+11] = i*zs
-	}
-	drawMatv(a=1, b=0, c=0, d=0, e=1, f=0, g=0, h=0, i=1, j=0, k=0, l=0, values){
-		const v = this._sh(12,values)
-		const A=this.a,B=this.b,C=this.c,D=this.d,E=this.e,F=this.f,G=this.g,H=this.h,I=this.i
-		arr[v  ] = this.j+A*j+D*k+G*l; arr[v+1] = A*a+D*b+G*c; arr[v+2] = A*d+D*e+G*f; arr[v+3] = A*g+D*h+G*i
-		arr[v+4] = this.k+B*j+E*k+H*l; arr[v+5] = B*a+E*b+H*c; arr[v+6] = B*d+E*e+H*f; arr[v+7] = B*g+E*h+H*i
-		arr[v+8] = this.l+C*j+F*k+I*l; arr[v+9] = C*a+F*b+I*c; arr[v+10] = C*d+F*e+I*f; arr[v+11] = C*g+F*h+I*i
-	}
+	constructor(t,m=290787599,sp=geo3,s=$.Shader.COLOR_3D_XZ,a=1,b=0,c=0,d=1,e=0,f=0,g=0,h=0){ super(a,b,c,d,e,f,g,h); this.t = t; this._mask = m; this._shp = sp; this._sh = s }
+	sub(){ return new Drw3t2D(this.t,this._mask,this._shp,this._sh,this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h) }
+	subProj(z0=0,zsc=1){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,0,this.c,this.d,0,this.g*zsc+this.e,this.h*zsc+this.f,zsc,this.g*z0,this.h*z0,z0)}
+	sub2dXY(){ return new Drw2D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.a,this.b,this.c,this.d,this.g,this.h) }
+	sub2dZY(){ return new Drw2D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.e,this.f,this.c,this.d,this.g,this.h) }
+	sub2dXZ(){ return new Drw2D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.a,this.b,this.e,this.f,this.g,this.h) }
+	resetTo(m){ this.a=m.a;this.b=m.b;this.c=m.c;this.d=m.d;this.e=m.e;this.f=m.f;this.g=m.g;this.h=m.h;this._mask=m._mask;this._sh=m._sh;this._shp=m._shp }
+	reset(a=1,b=0,c=0,d=1,e=0,f=0,g=0,h=0){if(typeof a=='object')({a,b,c,d,e,f,g,h}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this._mask=290787599;this._sh=$.Shader.COLOR_3D_XZ;this._shp=geo3}
 	to(x=0, y=0, z=0){
 		if(typeof x=='object')({x,y,z=0}=x)
 		let p = this.c*x+this.f*y+this.i*z+this.l
@@ -929,16 +870,66 @@ class Drw3D extends t3D{
 			z: (o * x + (d*c - f*a) * y + (a*e - b*d) * z) * i_det,
 		}
 	}
-	toDelta(x=0, y=0, z=0){
+	origin(){ return { x: NaN, y: NaN, z: NaN } }
+	draw(...values){
+		const v = this._sh(8,values)
+		arr[v  ] = this.g; arr[v+1] = this.a; arr[v+2] = this.c; arr[v+3] = this.e
+		arr[v+4] = this.h; arr[v+5] = this.b; arr[v+6] = this.d; arr[v+7] = this.f
+	}
+	drawCube(x=0, y=0, z=0, xs=1, ys=1, zs=1, ...values){
+		const v = this._sh(8,values)
+		const {a,b,c,d,e,f} = this
+		arr[v  ] = this.g+x*a+y*c+z*e; arr[v+1] = a*xs; arr[v+2] = c*ys; arr[v+3] = e*zs
+		arr[v+4] = this.h+x*b+y*d+z*f; arr[v+5] = b*xs; arr[v+6] = d*ys; arr[v+7] = f*zs
+	}
+	drawMat(a=1, b=0, c=0, d=0, e=1, f=0, g=0, h=0, i=1, j=0, k=0, l=0, ...values){
+		const v = this._sh(8,values)
+		const A=this.a,B=this.b,C=this.c,D=this.d,E=this.e,F=this.f
+		arr[v  ] = this.g+A*j+C*k+E*l; arr[v+1] = A*a+C*b+E*c; arr[v+2] = A*d+C*e+E*f; arr[v+3] = A*g+C*h+E*i
+		arr[v+4] = this.h+B*j+D*k+F*l; arr[v+5] = B*a+D*b+F*c; arr[v+6] = B*d+D*e+F*f; arr[v+7] = B*g+D*h+F*i
+	}
+	drawv(values){
+		const v = this._sh(8,values)
+		arr[v  ] = this.g; arr[v+1] = this.a; arr[v+2] = this.c; arr[v+3] = this.e
+		arr[v+4] = this.h; arr[v+5] = this.b; arr[v+6] = this.d; arr[v+7] = this.f
+	}
+	drawCubev(x=0, y=0, z=0, xs=1, ys=1, zs=1, values){
+		const v = this._sh(8,values)
+		const {a,b,c,d,e,f} = this
+		arr[v  ] = this.g+x*a+y*c+z*e; arr[v+1] = a*xs; arr[v+2] = c*ys; arr[v+3] = e*zs
+		arr[v+4] = this.h+x*b+y*d+z*f; arr[v+5] = b*xs; arr[v+6] = d*ys; arr[v+7] = f*zs
+	}
+	drawMatv(a=1, b=0, c=0, d=0, e=1, f=0, g=0, h=0, i=1, j=0, k=0, l=0, values){
+		const v = this._sh(8,values)
+		const A=this.a,B=this.b,C=this.c,D=this.d,E=this.e,F=this.f
+		arr[v  ] = this.g+A*j+C*k+E*l; arr[v+1] = A*a+C*b+E*c; arr[v+2] = A*d+C*e+E*f; arr[v+3] = A*g+C*h+E*i
+		arr[v+4] = this.h+B*j+D*k+F*l; arr[v+5] = B*a+D*b+F*c; arr[v+6] = B*d+D*e+F*f; arr[v+7] = B*g+D*h+F*i
+	}
+}
+class Drw3D extends t3D{
+	set shader(sh){ this._sh=typeof sh=='function'&&sh.three===true?sh:$.Shader.COLOR_3D_XZ; if(lastd == this) lastd = null }
+	get shader(){ return this._sh }
+	get geometry(){ return this._shp }
+	set geometry(a){ this._shp = a||geo3; if(lastd == this) lastd = null }
+	constructor(t,m=290787599,sp=geo3,s=$.Shader.COLOR_3D_XZ,a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1,j=0,k=0,l=0){ super(a,b,c,d,e,f,g,h,i,j,k,l); this.t = t; this._mask = m; this._shp = sp; this._sh = s }
+	sub(){ return new Drw3D(this.t,this._mask,this._shp,this._sh,this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h,this.i,this.j,this.k,this.l) }
+	subProj(z0=0,zsc=1){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,this.c,this.d,this.e,this.f,this.j*zsc+this.g,this.k*zsc+this.h,this.l*zsc+this.i,this.j*z0,this.k*z0,this.l*z0)}
+	sub2dXY(){ return new Drw2t3D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.a,this.b,this.c,this.d,this.e,this.f,this.j,this.k,this.l) }
+	sub2dZY(){ return new Drw2t3D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.g,this.h,this.i,this.d,this.e,this.f,this.j,this.k,this.l) }
+	sub2dXZ(){ return new Drw2t3D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.a,this.b,this.c,this.g,this.h,this.i,this.j,this.k,this.l) }
+	resetTo(m){ this.a=m.a;this.b=m.b;this.c=m.c;this.d=m.d;this.e=m.e;this.f=m.f;this.g=m.g;this.h=m.h;this.i=m.i;this.j=m.j;this.k=m.k;this.l=m.l;this._mask=m._mask;this._sh=m._sh;this._shp=m._shp }
+	reset(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1,j=0,k=0,l=0){if(typeof a=='object')({a,b,c,d,e,f,g,h,i,j,k,l}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this.i=i;this.j=j;this.k=k;this.l=l;this._mask=290787599;this._sh=$.Shader.COLOR_3D_XZ;this._shp=geo3}
+	to(x=0, y=0, z=0){
 		if(typeof x=='object')({x,y,z=0}=x)
 		let p = this.c*x+this.f*y+this.i*z+this.l
 		if(p <= 0) return {x:NaN,y:NaN}
 		p = 1/p
-		return { x: (this.a*x+this.d*y+this.g*z)*p, y: (this.b*x+this.e*y+this.h*z)*p }
+		return { x: (this.a*x+this.d*y+this.g*z+this.j)*p, y: (this.b*x+this.e*y+this.h*z+this.k)*p }
 	}
-	fromDelta(x=0, y=0){
+	from(x=0, y=0){
 		if(typeof x=='object')({x,y}=x)
 		const {a,b,c,d,e,f,g,h,i} = this
+		x -= this.j; y -= this.k
 		const z = 1-this.l
 		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e, i_det = 1./(a*m + d*n + g*o)
 		return {
@@ -972,90 +963,45 @@ class Drw3D extends t3D{
 		const i_dst = 1/sqrt(dx*dx+dy*dy+dz*dz)
 		return {origin: {x: xo, y: yo, z: zo}, direction: {x: dx*i_dst, y: dy*i_dst, z: dz*i_dst}}
 	}
-}
-class Drw3t2D extends t3t2D{
-	set shader(sh){ this._sh=typeof sh=='function'&&sh.three===true?sh:$.Shader.COLOR_3D_XZ; if(lastd == this) lastd = null }
-	get shader(){ return this._sh }
-	get geometry(){ return this._shp }
-	set geometry(a){ this._shp = a||geo3; if(lastd == this) lastd = null }
-	constructor(t,m=290787599,sp=geo3,s=$.Shader.COLOR_3D_XZ,a=1,b=0,c=0,d=1,e=0,f=0,g=0,h=0){ super(a,b,c,d,e,f,g,h); this.t = t; this._mask = m; this._shp = sp; this._sh = s }
-	sub(){ return new Drw3t2D(this.t,this._mask,this._shp,this._sh,this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h) }
-	subProj(z0=0,zsc=1){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,0,this.c,this.d,0,this.g*zsc+this.e,this.h*zsc+this.f,zsc,this.g*z0,this.h*z0,z0)}
-	sub2dXY(){ return new Drw2D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.a,this.b,this.c,this.d,this.g,this.h) }
-	sub2dZY(){ return new Drw2D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.e,this.f,this.c,this.d,this.g,this.h) }
-	sub2dXZ(){ return new Drw2D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.a,this.b,this.e,this.f,this.g,this.h) }
-	resetTo(m){ this.a=m.a;this.b=m.b;this.c=m.c;this.d=m.d;this.e=m.e;this.f=m.f;this.g=m.g;this.h=m.h;this._mask=m._mask;this._sh=m._sh;this._shp=m._shp }
-	reset(a=1,b=0,c=0,d=1,e=0,f=0,g=0,h=0){if(typeof a=='object')({a,b,c,d,e,f,g,h}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this._mask=290787599;this._sh=$.Shader.COLOR_3D_XZ;this._shp=geo3}
 	draw(...values){
-		const v = this._sh(8,values)
-		arr[v  ] = this.g; arr[v+1] = this.a; arr[v+2] = this.c; arr[v+3] = this.e
-		arr[v+4] = this.h; arr[v+5] = this.b; arr[v+6] = this.d; arr[v+7] = this.f
+		const v = this._sh(12,values)
+		arr[v  ] = this.j; arr[v+1] = this.a; arr[v+2] = this.d; arr[v+3] = this.g
+		arr[v+4] = this.k; arr[v+5] = this.b; arr[v+6] = this.e; arr[v+7] = this.h
+		arr[v+8] = this.l; arr[v+9] = this.c; arr[v+10] = this.f; arr[v+11] = this.i
 	}
 	drawCube(x=0, y=0, z=0, xs=1, ys=1, zs=1, ...values){
-		const v = this._sh(8,values)
-		const {a,b,c,d,e,f} = this
-		arr[v  ] = this.g+x*a+y*c+z*e; arr[v+1] = a*xs; arr[v+2] = c*ys; arr[v+3] = e*zs
-		arr[v+4] = this.h+x*b+y*d+z*f; arr[v+5] = b*xs; arr[v+6] = d*ys; arr[v+7] = f*zs
+		const v = this._sh(12,values)
+		const {a,b,c,d,e,f,g,h,i} = this
+		arr[v  ] = this.j+x*a+y*d+z*g; arr[v+1] = a*xs; arr[v+2] = d*ys; arr[v+3] = g*zs
+		arr[v+4] = this.k+x*b+y*e+z*h; arr[v+5] = b*xs; arr[v+6] = e*ys; arr[v+7] = h*zs
+		arr[v+8] = this.l+x*c+y*f+z*i; arr[v+9] = c*xs; arr[v+10] = f*ys; arr[v+11] = i*zs
 	}
 	drawMat(a=1, b=0, c=0, d=0, e=1, f=0, g=0, h=0, i=1, j=0, k=0, l=0, ...values){
-		const v = this._sh(8,values)
-		const A=this.a,B=this.b,C=this.c,D=this.d,E=this.e,F=this.f
-		arr[v  ] = this.g+A*j+C*k+E*l; arr[v+1] = A*a+C*b+E*c; arr[v+2] = A*d+C*e+E*f; arr[v+3] = A*g+C*h+E*i
-		arr[v+4] = this.h+B*j+D*k+F*l; arr[v+5] = B*a+D*b+F*c; arr[v+6] = B*d+D*e+F*f; arr[v+7] = B*g+D*h+F*i
+		const v = this._sh(12,values)
+		const A=this.a,B=this.b,C=this.c,D=this.d,E=this.e,F=this.f,G=this.g,H=this.h,I=this.i
+		arr[v  ] = this.j+A*j+D*k+G*l; arr[v+1] = A*a+D*b+G*c; arr[v+2] = A*d+D*e+G*f; arr[v+3] = A*g+D*h+G*i
+		arr[v+4] = this.k+B*j+E*k+H*l; arr[v+5] = B*a+E*b+H*c; arr[v+6] = B*d+E*e+H*f; arr[v+7] = B*g+E*h+H*i
+		arr[v+8] = this.l+C*j+F*k+I*l; arr[v+9] = C*a+F*b+I*c; arr[v+10] = C*d+F*e+I*f; arr[v+11] = C*g+F*h+I*i
 	}
 	drawv(values){
-		const v = this._sh(8,values)
-		arr[v  ] = this.g; arr[v+1] = this.a; arr[v+2] = this.c; arr[v+3] = this.e
-		arr[v+4] = this.h; arr[v+5] = this.b; arr[v+6] = this.d; arr[v+7] = this.f
+		const v = this._sh(12,values)
+		arr[v  ] = this.j; arr[v+1] = this.a; arr[v+2] = this.d; arr[v+3] = this.g
+		arr[v+4] = this.k; arr[v+5] = this.b; arr[v+6] = this.e; arr[v+7] = this.h
+		arr[v+8] = this.l; arr[v+9] = this.c; arr[v+10] = this.f; arr[v+11] = this.i
 	}
 	drawCubev(x=0, y=0, z=0, xs=1, ys=1, zs=1, values){
-		const v = this._sh(8,values)
-		const {a,b,c,d,e,f} = this
-		arr[v  ] = this.g+x*a+y*c+z*e; arr[v+1] = a*xs; arr[v+2] = c*ys; arr[v+3] = e*zs
-		arr[v+4] = this.h+x*b+y*d+z*f; arr[v+5] = b*xs; arr[v+6] = d*ys; arr[v+7] = f*zs
+		const v = this._sh(12,values)
+		const {a,b,c,d,e,f,g,h,i} = this
+		arr[v  ] = this.j+x*a+y*d+z*g; arr[v+1] = a*xs; arr[v+2] = d*ys; arr[v+3] = g*zs
+		arr[v+4] = this.k+x*b+y*e+z*h; arr[v+5] = b*xs; arr[v+6] = e*ys; arr[v+7] = h*zs
+		arr[v+8] = this.l+x*c+y*f+z*i; arr[v+9] = c*xs; arr[v+10] = f*ys; arr[v+11] = i*zs
 	}
 	drawMatv(a=1, b=0, c=0, d=0, e=1, f=0, g=0, h=0, i=1, j=0, k=0, l=0, values){
-		const v = this._sh(8,values)
-		const A=this.a,B=this.b,C=this.c,D=this.d,E=this.e,F=this.f
-		arr[v  ] = this.g+A*j+C*k+E*l; arr[v+1] = A*a+C*b+E*c; arr[v+2] = A*d+C*e+E*f; arr[v+3] = A*g+C*h+E*i
-		arr[v+4] = this.h+B*j+D*k+F*l; arr[v+5] = B*a+D*b+F*c; arr[v+6] = B*d+D*e+F*f; arr[v+7] = B*g+D*h+F*i
-	}
-	to(x=0, y=0, z=0){
-		if(typeof x=='object')({x,y,z=0}=x)
-		let p = this.c*x+this.f*y+this.i*z+this.l
-		if(p <= 0) return {x:NaN,y:NaN}
-		p = 1/p
-		return { x: (this.a*x+this.d*y+this.g*z+this.j)*p, y: (this.b*x+this.e*y+this.h*z+this.k)*p }
-	}
-	from(x=0, y=0){
-		if(typeof x=='object')({x,y}=x)
-		const {a,b,c,d,e,f,g,h,i} = this
-		x -= this.j; y -= this.k
-		const z = 1-this.l
-		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e, i_det = 1./(a*m + d*n + g*o)
-		return {
-			x: (m * x + (g*f - i*d) * y + (d*h - e*g) * z) * i_det,
-			y: (n * x + (a*i - c*g) * y + (g*b - h*a) * z) * i_det,
-			z: (o * x + (d*c - f*a) * y + (a*e - b*d) * z) * i_det,
-		}
-	}
-	toDelta(x=0, y=0, z=0){
-		if(typeof x=='object')({x,y,z=0}=x)
-		let p = this.c*x+this.f*y+this.i*z+this.l
-		if(p <= 0) return {x:NaN,y:NaN}
-		p = 1/p
-		return { x: (this.a*x+this.d*y+this.g*z)*p, y: (this.b*x+this.e*y+this.h*z)*p }
-	}
-	fromDelta(x=0, y=0){
-		if(typeof x=='object')({x,y}=x)
-		const {a,b,c,d,e,f,g,h,i} = this
-		const z = 1-this.l
-		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e, i_det = 1./(a*m + d*n + g*o)
-		return {
-			x: (m * x + (g*f - i*d) * y + (d*h - e*g) * z) * i_det,
-			y: (n * x + (a*i - c*g) * y + (g*b - h*a) * z) * i_det,
-			z: (o * x + (d*c - f*a) * y + (a*e - b*d) * z) * i_det,
-		}
+		const v = this._sh(12,values)
+		const A=this.a,B=this.b,C=this.c,D=this.d,E=this.e,F=this.f,G=this.g,H=this.h,I=this.i
+		arr[v  ] = this.j+A*j+D*k+G*l; arr[v+1] = A*a+D*b+G*c; arr[v+2] = A*d+D*e+G*f; arr[v+3] = A*g+D*h+G*i
+		arr[v+4] = this.k+B*j+E*k+H*l; arr[v+5] = B*a+E*b+H*c; arr[v+6] = B*d+E*e+H*f; arr[v+7] = B*g+E*h+H*i
+		arr[v+8] = this.l+C*j+F*k+I*l; arr[v+9] = C*a+F*b+I*c; arr[v+10] = C*d+F*e+I*f; arr[v+11] = C*g+F*h+I*i
 	}
 }
 const x = Object.getOwnPropertyDescriptors({
