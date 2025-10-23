@@ -134,7 +134,7 @@ render = () => {
 	skyShader.uniforms(t)
 	const {width, height} = ctx
 	ctx.reset(.05*height/width, 0, 0, .05, .5, .5)
-	const ctx3 = ctx.sub3dProj(0, .125*tan(FOV * PI/360))
+	let ctx3 = ctx.sub3dProj(0, .125*tan(FOV * PI/360))
 	if(pointerLock){
 		look.x = (look.x + rawMouse.x*.00003*FOV) % PI2
 		look.y = clamp(look.y + rawMouse.y*.00003*FOV, PI*-.5, PI*.5)

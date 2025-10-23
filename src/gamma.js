@@ -864,6 +864,7 @@ class Drw3D extends t3D{
 	set geometry(a){ this._shp = a||geo3; if(lastd == this) lastd = null }
 	constructor(t,m=290787599,sp=geo3,s=$.Shader.COLOR_3D_XZ,a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1,j=0,k=0,l=0){ super(a,b,c,d,e,f,g,h,i,j,k,l); this.t = t; this._mask = m; this._shp = sp; this._sh = s }
 	sub(){ return new Drw3D(this.t,this._mask,this._shp,this._sh,this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h,this.i,this.j,this.k,this.l) }
+	subProj(z0=0,zsc=1){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,this.c,this.d,this.e,this.f,this.j*zsc+this.g,this.k*zsc+this.h,this.l*zsc+this.i,this.j*z0,this.k*z0,this.l*z0)}
 	sub2dXY(){ return new Drw2t3D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.a,this.b,this.c,this.d,this.e,this.f,this.j,this.k,this.l) }
 	sub2dZY(){ return new Drw2t3D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.g,this.h,this.i,this.d,this.e,this.f,this.j,this.k,this.l) }
 	sub2dXZ(){ return new Drw2t3D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.a,this.b,this.c,this.g,this.h,this.i,this.j,this.k,this.l) }
@@ -979,6 +980,7 @@ class Drw3t2D extends t3t2D{
 	set geometry(a){ this._shp = a||geo3; if(lastd == this) lastd = null }
 	constructor(t,m=290787599,sp=geo3,s=$.Shader.COLOR_3D_XZ,a=1,b=0,c=0,d=1,e=0,f=0,g=0,h=0){ super(a,b,c,d,e,f,g,h); this.t = t; this._mask = m; this._shp = sp; this._sh = s }
 	sub(){ return new Drw3t2D(this.t,this._mask,this._shp,this._sh,this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h) }
+	subProj(z0=0,zsc=1){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,0,this.c,this.d,0,this.g*zsc+this.e,this.h*zsc+this.f,zsc,this.g*z0,this.h*z0,z0)}
 	sub2dXY(){ return new Drw2D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.a,this.b,this.c,this.d,this.g,this.h) }
 	sub2dZY(){ return new Drw2D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.e,this.f,this.c,this.d,this.g,this.h) }
 	sub2dXZ(){ return new Drw2D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.a,this.b,this.e,this.f,this.g,this.h) }
@@ -1284,8 +1286,9 @@ const vfgen = (three, vparams, _defaults = []) => {
 	return {three, _pack, _vcount, fsh: fShaderHead.join(''), vsh: vShaderHead.join(''), vshb: vShaderBody.join('')}
 }
 class Geo2D extends t2D{
-	constructor(t,s=0,L=0,tp=5,a=1,b=0,c=0,d=1,e=0,f=0){ super(a,b,c,d,e,f); this.t = t; this._s = s; this._l = L; this._t = tp; t.b.for=t }
+	constructor(t,s=0,L=0,tp=5,a=1,b=0,c=0,d=1,e=0,f=0){ super(a,b,c,d,e,f); this.t = t; this._s = s; this._l = L; this._t = tp }
 	sub(start = this.t._size, length = 0, type = this._t){ return new Geo2D(this.t, start>>>0, length>>>0, type&63, this.a, this.b, this.c, this.d, this.e, this.f) }
+	sub3d(start = this.t._size, length = 0, type = this._t){ return new Geo3t2D(this.t, start>>>0, length>>>0, type&63, this.a, this.b, this.c, this.d, 0, 0, this.e, this.f) }
 	addPoint(x, y, ...v){
 		const {t} = this, i = t._pack(v), {arr} = t
 		arr[i] = x*this.a+y*this.c+this.e; arr[i+1] = x*this.b+y*this.d+this.f
@@ -1308,8 +1311,9 @@ class Geo2D extends t2D{
 	}
 }
 class Geo2t3D extends t2t3D{
-	constructor(t,s=0,L=0,tp=5,a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1){ super(a,b,c,d,e,f,g,h,i); this.t = t; this._s = s; this._l = L; this._t = tp; t.b.for=t }
-	sub(start = this.t._size, length = 0, type = this._t){ return new Geo2D(this.t, start>>>0, length>>>0, type&63, this.a, this.b, this.c, this.d, this.e, this.f, this.g, this.h, this,i) }
+	constructor(t,s=0,L=0,tp=5,a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1){ super(a,b,c,d,e,f,g,h,i); this.t = t; this._s = s; this._l = L; this._t = tp }
+	sub(start = this.t._size, length = 0, type = this._t){ return new Geo2t3D(this.t, start>>>0, length>>>0, type&63, this.a, this.b, this.c, this.d, this.e, this.f, this.g, this.h, this.i) }
+	sub3d(start = this.t._size, length = 0, type = this._t){ return new Geo3D(this.t, start>>>0, length>>>0, type&63, this.a, this.b, this.c, this.d, this.e, this.f, 0, 0, 0, this.g, this.h, this.i) }
 	addPoint(x, y, ...v){
 		const {t} = this, i = t._pack(v), {arr} = t
 		arr[i] = x*this.a+y*this.d+this.g; arr[i+1] = x*this.b+y*this.e+this.h; arr[i+2] = x*this.c+y*this.f+this.i
@@ -1331,10 +1335,41 @@ class Geo2t3D extends t2t3D{
 		return t._size++
 	}
 }
-buf.for='main'
+class Geo3t2D extends t3t2D{
+	constructor(t,s=0,L=0,tp=5,a=1,b=0,c=0,d=1,e=0,f=0,g=0,h=0){ super(a,b,c,d,e,f,g,h); this.t = t; this._s = s; this._l = L; this._t = tp }
+	sub(start = this.t._size, length = 0, type = this._t){ return new Geo3t2D(this.t, start>>>0, length>>>0, type&63, this.a, this.b, this.c, this.d, this.e, this.f, this.g, this.h) }
+	sub2dXY(start = this.t._size, length = 0, type = this._t){ return new Geo2D(this.t, start>>>0, length>>>0, type&63, this.a, this.b, this.c, this.d, this.g, this.h) }
+	sub2dXZ(start = this.t._size, length = 0, type = this._t){ return new Geo2D(this.t, start>>>0, length>>>0, type&63, this.a, this.b, this.e, this.f, this.g, this.h) }
+	sub2dZY(start = this.t._size, length = 0, type = this._t){ return new Geo2D(this.t, start>>>0, length>>>0, type&63, this.e, this.f, this.c, this.d, this.g, this.h) }
+	addPoint(x, y, z, ...v){
+		const {t} = this, i = t._pack(v), {arr} = t
+		arr[i] = x*this.a+y*this.c+z*this.e+this.g
+		arr[i+1] = x*this.b+y*this.d+z*this.f+this.h
+		return t._size++
+	}
+	add(...v){
+		const {t} = this, i = t._pack(v), {arr} = t
+		arr[i] = this.g; arr[i+1] = this.h
+		return t._size++
+	}
+	addPointv(x, y, z, v){
+		const {t} = this, i = t._pack(v), {arr} = t
+		arr[i] = x*this.a+y*this.c+z*this.e+this.g
+		arr[i+1] = x*this.b+y*this.d+z*this.f+this.h
+		return t._size++
+	}
+	addv(v){
+		const {t} = this, i = t._pack(v), {arr} = t
+		arr[i] = this.g; arr[i+1] = this.h
+		return t._size++
+	}
+}
 class Geo3D extends t3D{
-	constructor(t,s=0,L=0,tp=5,a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1,j=0,k=0,l=0){ super(a,b,c,d,e,f,g,h,i,j,k,l); this.t = t; this._s = s; this._l = L; this._t = tp; t.b.for=t }
+	constructor(t,s=0,L=0,tp=5,a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1,j=0,k=0,l=0){ super(a,b,c,d,e,f,g,h,i,j,k,l); this.t = t; this._s = s; this._l = L; this._t = tp }
 	sub(start = this.t._size, length = 0, type = this._t){ return new Geo3D(this.t, start>>>0, length>>>0, type&63, this.a, this.b, this.c, this.d, this.e, this.f, this.g, this.h, this.i, this.j, this.k, this.l) }
+	sub2dXY(start = this.t._size, length = 0, type = this._t){ return new Geo2t3D(this.t, start>>>0, length>>>0, type&63, this.a, this.b, this.c, this.d, this.e, this.f, this.j, this.k, this.l) }
+	sub2dXZ(start = this.t._size, length = 0, type = this._t){ return new Geo2t3D(this.t, start>>>0, length>>>0, type&63, this.a, this.b, this.c, this.g, this.h, this.i, this.j, this.k, this.l) }
+	sub2dZY(start = this.t._size, length = 0, type = this._t){ return new Geo2t3D(this.t, start>>>0, length>>>0, type&63, this.g, this.h, this.i, this.d, this.e, this.f, this.j, this.k, this.l) }
 	addPoint(x, y, z, ...v){
 		const {t} = this, i = t._pack(v), {arr} = t
 		arr[i] = x*this.a+y*this.d+z*this.g+this.j
@@ -1455,6 +1490,7 @@ const y = Object.getOwnPropertyDescriptors({
 const empty = new Float32Array(), iempty = new Int32Array(empty.buffer)
 Object.defineProperties(Geo2D.prototype, y)
 Object.defineProperties(Geo2t3D.prototype, y)
+Object.defineProperties(Geo3t2D.prototype, y)
 Object.defineProperties(Geo3D.prototype, y)
 $.Geometry2D = (v = null, type=5) => {
 	if(typeof v == 'number') type = v, v = null
