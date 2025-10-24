@@ -362,9 +362,9 @@ declare global{
 		 * @param dstMip Which mipmap to write data to. Default: 0
 		 * @returns `this`, or `null` if this is an image-backed texture that is not loaded yet
 		 * 
-		 * @performance This method performs a GPU-GPU copy, which is faster than uploading a texture. If the texture was recently used then this will create a light draw boundary (See `Drawable.draw()` for more info)
+		 * @performance This method performs a GPU-GPU copy, which is faster than uploading a texture. If the texture was recently used then this will create a light draw boundary (See `Drawable2D.draw()` for more info)
 		 */
-		paste(tex: Texture, x?: number, y?: number, layer?: number, dstMip?: number, srcX?: number, srcY?: number, srcLayer?: number, srcWidth?: number, srcHeight?: number, srcLayers?: number, srcMip?: number): this extends Promise<Texture> ? this? : this
+		paste(tex: Texture, x?: number, y?: number, layer?: number, dstMip?: number, srcX?: number, srcY?: number, srcLayer?: number, srcWidth?: number, srcHeight?: number, srcLayers?: number, srcMip?: number): this extends Promise<Texture> ? this|null : this
 
 		/**
 		 * Copy data from an image-like (img) object to another (this)
@@ -375,9 +375,9 @@ declare global{
 		 * @param dstMip Which mipmap to write data to. Default: 0
 		 * @returns `this`, or `null` if this is an image-backed texture that is not loaded yet
 		 * 
-		 * @performance This method performs an upload to the GPU, which is primarily bandwidth-bound for typical-size textures. Extra preprocessing may be done for certain source types (e.g <img> elements), which may be CPU-bound. It is recommended to use ImageBitmap sources where possible (with the correct options provided by Gamma.bitmapOpts), as they are GPU-ready by design. It may also cause partial pipeline stalls if following draw operations depend on the texture data but have to wait for the upload to finish, however this is mostly mitigated with modern drivers. If the texture was recently used then this will create a light draw boundary (See `Drawable.draw()` for more info)
+		 * @performance This method performs an upload to the GPU, which is primarily bandwidth-bound for typical-size textures. Extra preprocessing may be done for certain source types (e.g <img> elements), which may be CPU-bound. It is recommended to use ImageBitmap sources where possible (with the correct options provided by Gamma.bitmapOpts), as they are GPU-ready by design. It may also cause partial pipeline stalls if following draw operations depend on the texture data but have to wait for the upload to finish, however this is mostly mitigated with modern drivers. If the texture was recently used then this will create a light draw boundary (See `Drawable2D.draw()` for more info)
 		 */
-		paste(img: ImageSource, x?: number, y?: number, layer?: number, dstMip?: number): this extends Promise<Texture> ? this? : this
+		paste(img: ImageSource, x?: number, y?: number, layer?: number, dstMip?: number): this extends Promise<Texture> ? this|null : this
 
 		/**
 		 * Copy data from memory to this texture
@@ -391,7 +391,7 @@ declare global{
 		 * @param mip Which mipmap to write data to. Default: 0
 		 * @returns `this`, or `null` if this is an image-backed texture that is not loaded yet
 		 * 
-		 * @performance This method performs an upload to the GPU, which is primarily bandwidth-bound for typical-size textures. It may also cause partial pipeline stalls if following draw operations depend on the texture data but have to wait for the upload to finish, however this is mostly mitigated with modern drivers. If the texture was recently used then this will create a light draw boundary (See `Drawable.draw()` for more info)
+		 * @performance This method performs an upload to the GPU, which is primarily bandwidth-bound for typical-size textures. It may also cause partial pipeline stalls if following draw operations depend on the texture data but have to wait for the upload to finish, however this is mostly mitigated with modern drivers. If the texture was recently used then this will create a light draw boundary (See `Drawable2D.draw()` for more info)
 		 * 
 		 * | For format                        | Pass                               | of length          |
 		 * |-----------------------------------|------------------------------------|--------------------|
@@ -404,7 +404,7 @@ declare global{
 		 * | R16F, RG16F, RGB16F, RGBA16F      | `Uint16Array` / `Float16Array`     | `w*h*d * channels` |
 		 * | R32F, RG32F, RGB32F, RGBA32F      | `Float32Array`                     | `w*h*d * channels` |
 		 */
-		pasteData(data: Uint8Array | Uint8ClampedArray | Uint16Array | Uint32Array | Float16Array | Float32Array, x?: number, y?: number, layer?: number, width?: number, height?: number, layers?: number, mip?: number): this extends Promise<Texture> ? this? : this
+		pasteData(data: Uint8Array | Uint8ClampedArray | Uint16Array | Uint32Array | Float16Array | Float32Array, x?: number, y?: number, layer?: number, width?: number, height?: number, layers?: number, mip?: number): this extends Promise<Texture> ? this|null : this
 
 		/**
 		 * Copy data from this texture to CPU memory, asynchronously
@@ -435,14 +435,14 @@ declare global{
 		 * | R16F, RG16F, RGB16F, RGBA16F      | `Uint16Array` / `Float16Array`     | `w*h*d * channels` |
 		 * | R32F, RG32F, RGB32F, RGBA32F      | `Float32Array`                     | `w*h*d * channels` |
 		 */
-		readData(x?: number, y?: number, l?: number, w?: number, h?: number, d?: number, mip?: number): this extends Promise<Texture> ? Promise<ArrayBufferView>? : Promise<ArrayBufferView>
+		readData(x?: number, y?: number, l?: number, w?: number, h?: number, d?: number, mip?: number): this extends Promise<Texture> ? Promise<ArrayBufferView>|null : Promise<ArrayBufferView>
 		
 		/**
 		 * Set the range of mipmaps that can be used by this texture during drawing
 		 * @param min Lowest (highest-resolution) mipmap, inclusive, where the original texture is mipmap `0`
 		 * @param max Highest (lowest-resolution) mipmap, inclusive. Omit to set no upper bound
 		 * 
-		 * @performance This method is mostly CPU-only logic, and relatively fast. If the texture was recently used then this will create a light draw boundary (See `Drawable.draw()` for more info)
+		 * @performance This method is mostly CPU-only logic, and relatively fast. If the texture was recently used then this will create a light draw boundary (See `Drawable2D.draw()` for more info)
 		 */
 		setMipmapRange(min?: number, max?: number): void
 		/**
@@ -450,7 +450,7 @@ declare global{
 		 * 
 		 * Note that this method has no effect on image-backed textures as their mipmaps (if present) are automatically generated on load, and the texture contents are immutable, so mipmaps never change
 		 * 
-		 * @performance This method is performed entirely on the GPU, and processes the entire texture, which is relatively slow, especially if only a small portion of the texture has changed. Consider calling this as late as possible, ideally only once you are absolutely sure you need the mipmaps and no further modifications will be done. If the texture was recently used then this will create a light draw boundary (See `Drawable.draw()` for more info)
+		 * @performance This method is performed entirely on the GPU, and processes the entire texture, which is relatively slow, especially if only a small portion of the texture has changed. Consider calling this as late as possible, ideally only once you are absolutely sure you need the mipmaps and no further modifications will be done. If the texture was recently used then this will create a light draw boundary (See `Drawable2D.draw()` for more info)
 		 */
 		genMipmaps(): void
 
@@ -458,7 +458,7 @@ declare global{
 		 * Free the resources of this texture as soon as possible. It is invalid to use the texture object for anything beyond this point, the object should be "forgotten" and cannot be reinitialized
 		 * Under the hood, the texture's data will be freed by the GPU once all draw operations using it have finished
 		 * 
-		 * @performance This method is relatively fast, however, consider reusing textures where possible rather than quickly creating and deleting them, as reconstruction may be expensive and older drivers might not be optimized for rapid texture freeing/allocation. If the texture was recently used then this will create a light draw boundary (See `Drawable.draw()` for more info)
+		 * @performance This method is relatively fast, however, consider reusing textures where possible rather than quickly creating and deleting them, as reconstruction may be expensive and older drivers might not be optimized for rapid texture freeing/allocation. If the texture was recently used then this will create a light draw boundary (See `Drawable2D.draw()` for more info)
 		 */
 		delete(): void
 	}
@@ -480,21 +480,21 @@ declare global{
 	 * 
 	 * Conceptually, a `Drawable` is an object describing where and how to draw, its methods being used to actually draw. The 'target' behind a `Drawable` can be the canvas (as is the case for the main target), or one or more texture layer / multisampled buffer (see `Texture.MSAA`). You can add up to `Drawable.MAX_TARGETS` targets, differentiated by their IDs (0, 1, 2, ...)
 	 * 
-	 * To actually add targets to a drawable, see `Drawable.setTarget`.
+	 * To actually add targets to a drawable, see `Drawable.setTarget()`.
 	 * 
 	 * @param stencil Whether to also allocate a stencil buffer for IF_SET/IF_UNSET/SET/UNSET functionality. When this parameter is false, the stencil buffer will not be allocated and will behave as if it is always 0. Default: false (for performance reasons. Set to true only when you actually need it)
 	 * 
-	 * @performance This method itself is mostly CPU-only logic (a bit more expensive if a stencil buffer is allocated). However, using many drawables, especially interlaced, will have severe performance implications. See `Drawable.draw()` for more info
+	 * @performance This method itself is mostly CPU-only logic (a bit more expensive if a stencil buffer is allocated). However, using many drawables, especially interlaced, will have severe performance implications. See `Drawable2D.draw()` for more info
 	 */
-	function Drawable(stencil?: boolean): Drawable
+	function Drawable(stencil?: boolean): Drawable2D
 	namespace Drawable{
 		/** Maximum number of targets that can be set with `Drawable.setTarget()`. The targets are differentiated by their IDs (0, 1, 2, ..., up to this value) */
 		const MAX_TARGETS: number
 	}
 
-	class Transformable2D{
+	interface Transformable2D{
 		/**
-		 * Translate (move) all following draw operations, x+ corresponds to right and y+ corresponds to up
+		 * Translate (move) all following draw operations, x+ normally corresponds to right and y+ normally corresponds to up
 		 * @performance This method is CPU-arithmetic, very fast and usually inlined
 		 */
 		translate(x: number, y: number): void
@@ -502,12 +502,12 @@ declare global{
 		 * Scale all following draw operations
 		 * @performance This method is CPU-arithmetic, very fast and usually inlined
 		 */
-		scale(x: number, y?: number): void
+		scale(x: number, y: number): void
 		/**
-		 * Rotate all following draw operations, clockwise (or negative for anticlockwise)
-		 * @performance This method is CPU-arithmetic, fast and usually inlined, however it uses `sin()` and `cos()`
+		 * Scale all following draw operations
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
 		 */
-		rotate(by: number): void
+		scale(by: number): void
 		/**
 		 * Apply a custom transformation matrix to all following draw operations. The matrix is specified by the values a,b,c,d,e,f corresponding to the 2D affine transformation matrix:
 		 * ```
@@ -522,6 +522,11 @@ declare global{
 		 * @performance This method is CPU-arithmetic, very fast and usually inlined
 		 */
 		transform(a: number, b: number, c: number, d: number, e?: number, f?: number): void
+		/**
+		 * Rotate all following draw operations, clockwise (or negative for anticlockwise)
+		 * @performance This method is CPU-arithmetic, fast and usually inlined, however it uses `sin()` and `cos()`
+		 */
+		rotate(by: number): void
 		/**
 		 * Skew all following draw operations by the ratios x and y
 		 * 
@@ -539,30 +544,127 @@ declare global{
 		 */
 		multiply(r: number, i: number): void
 		/**
-		 * Reset the transformation matrix to the identity matrix, or to one defined by the transform values a,b,c,d,e,f respectively
-		 * @performance This method is CPU-arithmetic, very fast and usually inlined
-		 */
-		reset(a?: number, b?: number, c?: number, d?: number, e?: number, f?: number): void
-		/**
 		 * Simultaneous translates and scales such that the new origin is at `(x, y)` with basis vectors (w,0) and (0,h). A square drawn at `(0, 0)` with size `(1, 1)` after the transform would be drawn at `(x, y)` with size `(w, h)`
 		 * @performance This method is CPU-arithmetic, very fast and usually inlined
 		 */
 		box(x: number, y: number, w: number, h: number): void
+	}
+
+	interface Transformable3D{
 		/**
-		 * Transform a point `(x, y)` by the current transformation matrix, returning the transformed point as an object `{x, y}`
+		 * Translate (move) all following draw operations. Conventionally, y+ represents up, and, in scenes or objects with a definable "forward" direction, z+ represents that direction, since it is the default "forward" direction in a 3D transformation
 		 * @performance This method is CPU-arithmetic, very fast and usually inlined
 		 */
-		to(x: number, y: number): vec2
-		to(xy: vec2): vec2
+		translate(x: number, y: number, z: number): void
 		/**
-		 * Inverse-transform a point `(x, y)` by the current transformation matrix, returning the original point as an object `{x, y}`
-		 * @performance This method is CPU-arithmetic, very fast and usually inlined, however it involves a division
+		 * Scale all following draw operations
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
 		 */
-		from(x: number, y: number): vec2
-		from(xy: vec2): vec2
+		scale(x: number, y: number, z: number): void
+		/**
+		 * Scale all following draw operations
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		scale(by: number): void
+		/**
+		 * Apply a custom transformation matrix to all following draw operations. The matrix is specified by the values a,b,c,d,e,f,g,h,i,j,k,l corresponding to the 3D affine transformation matrix:
+		 * ```
+		 * | a d g j |
+		 * | b e h k |
+		 * | c f i l |
+		 * | 0 0 0 1 |
+		 * ```
+		 * 
+		 * This matrix transforms points `(x, y, z)` to `(a*x + d*y + g*z + j, b*x + e*y + h*z + k, c*x + f*y + i*z + l)`
+		 * Note that this method premultiplies the current transformation matrix by the provided one. In other words, the provided transform is applied before the current transform. This is the same convention as OpenGL and Canvas2D, but opposite to CSS and SVG
+		 * 
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		transform(a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j?: number, k?: number, l?: number): void
+		/**
+		 * Rotate all following draw operations, clockwise (or negative for anticlockwise) when seen from Z-, about the Z axis (i.e, the X and Y basis vectors are changed but all Z remain unchanged). For example, a vector facing up, after a PI/2 (90deg) rotation, will be facing right ("newX = oldY", hence XY)
+		 * @performance This method is CPU-arithmetic, fast and usually inlined, however it uses `sin()` and `cos()`
+		 */
+		rotateXY(by: number): void
+		/**
+		 * Rotate all following draw operations, clockwise (or negative for anticlockwise) when seen from Y+, about the Y axis (i.e, the X and Z basis vectors are changed but all Y remain unchanged). For example, a vector facing forward, after a PI/2 (90deg) rotation, will be facing right ("newX = oldZ", hence XZ)
+		 * @performance This method is CPU-arithmetic, fast and usually inlined, however it uses `sin()` and `cos()`
+		 */
+		rotateXZ(by: number): void
+		/**
+		 * Rotate all following draw operations, clockwise (or negative for anticlockwise) when seen from X-, about the Z axis (i.e, the Z and Y basis vectors are changed but all X remain unchanged). For example, a vector facing up, after a PI/2 (90deg) rotation, will be facing forwards ("newZ = oldY", hence ZY)
+		 * @performance This method is CPU-arithmetic, fast and usually inlined, however it uses `sin()` and `cos()`
+		 */
+		rotateZY(by: number): void
+		/**
+		 * Skew the X basis vector for all following draw operations by the ratios z and y
+		 * 
+		 * Note that the parameters are ratios and NOT degrees. Ratios are related to degrees via the `tan()` and `atan()` functions. A skew of 0 degrees has a ratio of 0. 45 degrees has a ratio of 1 and 90 degrees a ratio of Infinity
+		 * 
+		 * A cube drawn at `(0, 0, 0)` with a corner at `(1, 0, 0)` after the transform would have the same corner at `(1, y, z)`
+		 * 
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		skewX(z: number, y: number): void
+		/**
+		 * Skew the Y basis vector for all following draw operations by the ratios x and z
+		 * 
+		 * Note that the parameters are ratios and NOT degrees. Ratios are related to degrees via the `tan()` and `atan()` functions. A skew of 0 degrees has a ratio of 0. 45 degrees has a ratio of 1 and 90 degrees a ratio of Infinity
+		 * 
+		 * A cube drawn at `(0, 0, 0)` with a corner at `(0, 1, 0)` after the transform would have the same corner at `(x, 1, z)`
+		 * 
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		skewY(x: number, z: number): void
+		/**
+		 * Skew the Z basis vector for all following draw operations by the ratios x and y
+		 * 
+		 * Note that the parameters are ratios and NOT degrees. Ratios are related to degrees via the `tan()` and `atan()` functions. A skew of 0 degrees has a ratio of 0. 45 degrees has a ratio of 1 and 90 degrees a ratio of Infinity
+		 * 
+		 * A cube drawn at `(0, 0, 0)` with a corner at `(0, 0, 1)` after the transform would have the same corner at `(x, y, 1)`
+		 * 
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		skewZ(x: number, y: number): void
+		/**
+		 * Skew all basis vectors simultaneously. This is similar in concept to performing the three operations
+		 * - `skewX(xz, xy)`
+		 * - `skewY(yx, yz)`
+		 * - `skewZ(zx, zy)`
+		 * 
+		 * The main difference is that all three are performed "simultaneously" (in the sense that the skew of the first operation does not affect how the second or third skew is applied, and therefore the resulting transformation is order-independent)
+		 * 
+		 * Note that the parameters are ratios and NOT degrees. Ratios are related to degrees via the `tan()` and `atan()` functions. A skew of 0 degrees has a ratio of 0. 45 degrees has a ratio of 1 and 90 degrees a ratio of Infinity
+		 * 
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		skew(xz: number, xy: number, yx: number, yz: number, zx: number, zy: number): void
+		/**
+		 * Simultaneously scales uniformly and rotates. Faster than calling scale() and rotateXY() separately
+		 * Essentially moves the basis vector `(1, 0, 0)` to `(r, i, 0)` and the basis vector (0, 1, 0) to (-i, r, 0) without squishing or translating, or touching any Z, much like a mathematical complex multiplication, `(x + yi) * (r, i)`
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		multiplyXY(r: number, i: number): void
+		/**
+		 * Simultaneously scales uniformly and rotates. Faster than calling scale() and rotateXZ() separately
+		 * Essentially moves the basis vector `(1, 0, 0)` to `(r, 0, i)` and the basis vector (0, 0, 1) to (-i, 0, r) without squishing or translating, or touching any Y, much like a mathematical complex multiplication, `(x + zi) * (r, i)`
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		multiplyXZ(r: number, i: number): void
+		/**
+		 * Simultaneously scales uniformly and rotates. Faster than calling scale() and rotateZY() separately
+		 * Essentially moves the basis vector `(0, 0, 1)` to `(0, i, r)` and the basis vector (0, 1, 0) to (0, r, -i) without squishing or translating, or touching any X, much like a mathematical complex multiplication, `(z + yi) * (r, i)`
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		multiplyZY(r: number, i: number): void
+		/**
+		 * Simultaneous translates and scales such that the new origin is at `(x, y, z)` with basis vectors (w,0,0), (0,h,0) and (0, 0, d). A square drawn at `(0, 0, 0)` with size `(1, 1, 1)` after the transform would be drawn at `(x, y, z)` with size `(w, h, d)`
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		box(x: number, y: number, z: number, w: number, h: number, d: number): void
 	}
-	type Drawable = Drawable2D
-	interface Drawable2D extends Transformable2D{
+
+	interface Drawable{
 		/** An opaque object that will compare === for a `Drawable` and its sub-`Drawable`s, which always point to the same draw targets */
 		readonly identity: opaque
 		/** The backing target's whole width in pixels */
@@ -571,10 +673,9 @@ declare global{
 		readonly height: number
 		/**
 		 * Whether this drawable has a stencil buffer, allowing for IF_SET/IF_UNSET/SET/UNSET functionality. This value can be changed for all drawables except the main context
-		 * @performance Changing this value may create a heavy draw boundary if it causes a draw target change (See `Drawable.draw()` for more info). Allocating a stencil buffer may be slightly expensive for large targets, removing it is relatively fast. If you assign without changing (e.g `ctx.hasStencil = true` when it was already true), then no work is actually done. This may be preferable to a check-and-assign
+		 * @performance Changing this value may create a heavy draw boundary if it causes a draw target change (See `Drawable2D.draw()` for more info). Allocating a stencil buffer may be slightly expensive for large targets, removing it is relatively fast. If you assign without changing (e.g `ctx.hasStencil = true` when it was already true), then no work is actually done. This may be preferable to a check-and-assign
 		 */
 		hasStencil: boolean
-
 		/**
 		 * Set a drawable target for this drawable context
 		 * 
@@ -587,41 +688,13 @@ declare global{
 		setTarget(id: number, target: Texture, layer?: number, mip?: number): void
 		setTarget(id: number, target: Texture.MSAA): void
 		setTarget(id: number, target?: null): void
-
 		/**
-		 * Clear all currently bound targets (see `Drawable.setTarget`)
+		 * Clear all currently bound targets (see `Drawable.setTarget()`)
 		 * 
 		 * Additionally, any stencil buffer's memory is freed (beware, manually unsetting every target via `.setTarget(id, null)` will not do this!)
 		 */
 		clearTargets(): void
 
-		/**
-		 * The pixel ratio of the current transformation matrix. This is the geometric mean of the absolute values of the eigenvalues, or, in other words, sqrt(determinant), multiplied by the drawable's width and height. It can be used to determine appropriate mipmap levels for textures, and represents how many pixels one unit in the current transform space corresponds to on average on the draw target
-		 * @performance This method is CPU-arithmetic, fast and usually inlined, however it uses a square root
-		 */
-		pixelRatio(): number
-		/**
-		 * Create a sub-context, which points to the same target, stencil buffer, etc... as this one, much like `Texture.sub()`, however it keeps its own state such as transform, blend, mask, shader, geometry, making it ideal for passing to other functions that may modify their drawable context arbitrarily without us needing to revert it afterwards
-		 * @performance This method is CPU-logic, fast and usually inlined
-		 **/
-		sub(): Drawable2D
-		/**
-		 * Reset all sub-context state (transform, shader, blend, mask, geometry) to match another drawable
-		 * @param ctx The drawable to copy state from
-		 * @performance This method is CPU-logic, very fast and usually inlined
-		 */
-		resetTo(ctx: Drawable2D): void
-
-		/**
-		 * Reset the 2D transform to a matrix defined by the 6 values, or the default matrix (where (0,0) is the bottom-left and (1,1) is the top right)
-		 */
-		reset(a?: number, b?: number, c?: number, d?: number, e?: number, f?: number): void
-
-		/**
-		 * The shader to be used by all drawing operations. See `Shader()` for more info on custom shaders. Can be also set to `null` to use `Shader.DEFAULT`, however reading the property never returns null
-		 * @performance Changing this value will create a medium draw boundary (See `Drawable.draw()` for more info)
-		*/
-		shader: Shader
 		/**
 		 * Drawing masks. This is a bitmask with any the following:
 		 * - `R` (1): Enable writing to the red channel
@@ -642,21 +715,86 @@ declare global{
 		 * By default, all color channels are enabled and no stencil operations are performed (`R | G | B | A`)
 		 * 
 		 * If you need continuous stencil values rather than just 0 and 1 (e.g nice antialiased borders), consider making use of the alpha channel with blend modes to achieve similar effects
-		 * @performance Changing this value will create a light draw boundary (See `Drawable.draw()` for more info)
+		 * @performance Changing this value will create a light draw boundary (See `Drawable2D.draw()` for more info)
 		 */
 		mask: number
 		/**
 		 * The blending mode to be used by all drawing operations. See `Blend` for more info on blending modes. Can be also set to `0` to use `Blend.DEFAULT`, however reading the property never returns 0
-		 * @performance Changing this value will create a light draw boundary (See `Drawable.draw()` for more info)
+		 * @performance Changing this value will create a light draw boundary (See `Drawable2D.draw()` for more info)
 		 */
 		blend: Blend
 		/**
+		 * Clear the whole draw target to a solid color
+		 * 
+		 * @performance Will create a light draw boundary (See `Drawable2D.draw()` for more info)
+		 */
+		clear(r: number, g : number, b : number, a: number): void
+		clear(r: vec4): void
+		/**
+		 * Clear the whole stencil buffer to 0
+		 * 
+		 * @performance Will create a light draw boundary (See `Drawable2D.draw()` for more info). Well-optimized, under the hood, all 8 bits of the stencil buffer are used. "Clearing" the stencil buffer will simply switch to another bit, until all 8 bits have been used up, at which point the buffer is actually cleared, this operation is often times cheaper than attempting to clear only a portion of the stencil buffer with a `draw*()` call, however, benchmark your specific case if you are unsure
+		 */
+		clearStencil(): void
+	}
+	interface Drawable2D extends Drawable, Transformable2D{
+		a: number, b: number, c: number, d: number, e: number, f: number
+		/** Whether this drawable context has a projection component. Usually false, unless you are drawing content within 3D projective space */
+		readonly projection: boolean
+		/**
+		 * Create a sub-context, which points to the same target, stencil buffer, etc... as this one, much like `Texture.sub()`, however it keeps its own state such as transform, blend, mask, shader, geometry, making it ideal for passing to other functions that may modify their drawable context arbitrarily without us needing to revert it afterwards
+		 * @performance This method is CPU-logic, fast and usually inlined
+		 **/
+		sub(): Drawable2D
+		/**
+		 * Reset all sub-context state (transform, shader, blend, mask, geometry) to match another drawable
+		 * @param ctx The drawable to copy state from. Resetting to a Drawable2DProjection or any kind of Drawable3D is invalid
+		 * @performance This method is CPU-logic, very fast and usually inlined
+		 */
+		resetTo(ctx: Drawable2D): void
+		/**
+		 * Reset the 2D transform to a matrix defined by the 6 values, or the default matrix (where (0,0) is the bottom-left and (1,1) is the top right)
+		 * 
+		 * The matrix is column-major, for right-multiplication
+		 * ```txt
+		 * in x y 1
+		 *  [ a c e ] -> out x
+		 *  [ b d f ] -> out y
+		 * ```
+		 */
+		reset(a?: number, b?: number, c?: number, d?: number, e?: number, f?: number): void
+
+		/**
+		 * The shader to be used by all drawing operations. See `Shader()` for more info on custom shaders. Can be also set to `null` to use `Shader.DEFAULT`, however reading the property never returns null
+		 * @performance Changing this value will create a medium draw boundary (See `Drawable2D.draw()` for more info)
+		*/
+		shader: Shader2D
+		/**
 		 * The geometry to be used by all drawing operations. See `Geometry2D()` for more info on custom sprite geometries. Can be also set to `null` to use `Geometry2D.SQUARE`, however reading the property never returns null
-		 * @performance Changing this value will create a light-to-medium draw boundary (See `Drawable.draw()` for more info)
+		 * @performance Changing this value will create a light-to-medium draw boundary (See `Drawable2D.draw()` for more info)
 		 */
 		geometry: Geometry2D
+
 		/**
-		 * Draw a sprite at (0,0) to (1,1)
+		 * The pixel ratio of the current transformation matrix. This is the geometric mean of the absolute values of the eigenvalues, or, in other words, sqrt(determinant), multiplied by the drawable's width and height. It can be used to determine appropriate mipmap levels for textures, and represents how many pixels one unit in the current transform space corresponds to on average on the draw target
+		 * @performance This method is CPU-arithmetic, fast and usually inlined, however it uses a square root
+		 */
+		pixelRatio(): number
+		/**
+		 * Transform a point `(x, y)` by the current transformation matrix, returning the transformed point as an object `{x, y}`
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		to(x: number, y: number): vec2
+		to(xy: vec2): vec2
+		/**
+		 * Inverse-transform a point `(x, y)` by the current transformation matrix, returning the original point as an object `{x, y}`
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined, however it involves a division
+		 */
+		from(x: number, y: number): vec2
+		from(xy: vec2): vec2
+
+		/**
+		 * Draw a sprite at `(0,0)` to `(1,1)`
 		 * @param values Values, as required by the shader currently in use (See `Drawable.shader`, `Shader()` and `Shader.DEFAULT`)
 		 * 
 		 * @performance The `draw*()` family of calls is possibly the hardest to grasp performance for. This is due to the fact that many other operations are actually deferred until the next `draw()` call for performance. In addition to this, many `draw()` calls are coalesced to improve performance. This technique is absolutely fundamental to performant rendering. Whenever some other operation or state change forces `draw()` calls to not be coalesced, we call this a _draw boundary_. Examples of operations that create draw boundaries include:
@@ -678,7 +816,7 @@ declare global{
 		 * Draw a sprite at `(x, y)` with size `(w, h)`
 		 * @param values Values, as required by the shader currently in use (See `Drawable.shader`, `Shader()` and `Shader.DEFAULT`)
 		 * 
-		 * @performance See `Drawable.draw()` for more info
+		 * @performance See `Drawable2D.draw()` for more info
 		 */
 		drawRect(x: number, y: number, w: number, h: number, ...values: any[]): void
 		/**
@@ -687,15 +825,15 @@ declare global{
 		 * Bottom at `(e, f)` with bottom edge defined by the vector `(a, b)` and left edge defined by `(c, d)`
 		 * @param values Values, as required by the shader currently in use (See `Drawable.shader`, `Shader()` and `Shader.DEFAULT`)
 		 * 
-		 * @performance See `Drawable.draw()` for more info
+		 * @performance See `Drawable2D.draw()` for more info
 		 */
 		drawMat(a: number, b: number, c: number, d: number, e: number, f: number, ...values: any[]): void
 		/**
-		 * Draw a sprite at (0,0) to (1,1)
+		 * Draw a sprite at `(0,0)` to `(1,1)`
 		 * @param values Values, as required by the shader currently in use (See `Drawable.shader`, `Shader()` and `Shader.DEFAULT`)
 		 * 
 		 * This version of draw() expects an array rather than spread parameters
-		 * @performance See `Drawable.draw()` for more info
+		 * @performance See `Drawable2D.draw()` for more info
 		 */
 		drawv(values: any[]): void
 		/**
@@ -703,7 +841,7 @@ declare global{
 		 * @param values Values, as required by the shader currently in use (See `Drawable.shader`, `Shader()` and `Shader.DEFAULT`)
 		 * 
 		 * This version of drawRect() expects an array rather than spread parameters
-		 * @performance See `Drawable.draw()` for more info
+		 * @performance See `Drawable2D.draw()` for more info
 		 */
 		drawRectv(x: number, y: number, w: number, h: number, values: any[]): void
 		/**
@@ -713,22 +851,163 @@ declare global{
 		 * @param values Values, as required by the shader currently in use (See `Drawable.shader`, `Shader()` and `Shader.DEFAULT`)
 		 * 
 		 * This version of drawMat() expects an array rather than spread parameters
-		 * @performance See `Drawable.draw()` for more info
+		 * @performance See `Drawable2D.draw()` for more info
 		 */
 		drawMatv(a: number, b: number, c: number, d: number, e: number, f: number, values: any[]): void
+	}
+	interface Drawable2DProjection extends Drawable2D{
+		g: number, h: number, i: number
+		/**
+		 * Reset all sub-context state (transform, shader, blend, mask, geometry) to match another drawable
+		 * @param ctx The drawable to copy state from. Resetting to a Drawable2D (lacking projection) or any kind of Drawable3D is invalid
+		 * @performance This method is CPU-logic, very fast and usually inlined
+		 */
+		resetTo(ctx: Drawable2DProjection): void
+		/**
+		 * Reset the 2D transform to a matrix defined by the 9 values, or the default matrix (where (0,0) is the bottom-left and (1,1) is the top right)
+		 * 
+		 * The matrix is column-major, for right-multiplication
+		 * ```txt
+		 * in x y 1
+		 *  [ a d g ] -> out x
+		 *  [ b e h ] -> out y
+		 *  [ c f i ] -> out w
+		 * ```
+		 */
+		reset(a?: number, b?: number, c?: number, d?: number, e?: number, f?: number, g?: number, h?: number, i?: number): void
+	}
+	interface Drawable3D extends Drawable, Transformable3D{
+		/** Whether this drawable context has a projection component. Usually true, unless you are drawing in an orthographic projection via `Drawable2D.sub3d()` */
+		readonly projection: boolean
+		/**
+		 * Create a sub-context, which points to the same target, stencil buffer, etc... as this one, much like `Texture.sub()`, however it keeps its own state such as transform, blend, mask, shader, geometry, making it ideal for passing to other functions that may modify their drawable context arbitrarily without us needing to revert it afterwards
+		 * @performance This method is CPU-logic, fast and usually inlined
+		 **/
+		sub(): Drawable3D
+		/**
+		 * Reset all sub-context state (transform, shader, blend, mask, geometry) to match another drawable.
+		 * @param ctx The drawable to copy state from. Resetting to a Drawable3DProjection or any kind of Drawable2D is invalid
+		 * @performance This method is CPU-logic, very fast and usually inlined
+		 */
+		resetTo(ctx: Drawable3D): void
+		/**
+		 * Reset the 3D transform to a matrix defined by the 6 values, or the default matrix (where (0,0,z) is the bottom-left and (1,1,z) is the top right for any z)
+		 * 
+		 * The matrix is column-major, for right-multiplication
+		 * ```txt
+		 * in x y z 1
+		 *  [ a c e g ] -> out x
+		 *  [ b d f h ] -> out y
+		 */
+		reset(a?: number, b?: number, c?: number, d?: number, e?: number, f?: number, g?: number, h?: number): void
+
+		/**
+		 * The shader to be used by all drawing operations. See `Shader()` for more info on custom shaders. Can be also set to `null` to use `Shader.DEFAULT`, however reading the property never returns null
+		 * @performance Changing this value will create a medium draw boundary (See `Drawable2D.draw()` for more info)
+		*/
+		shader: Shader3D
+		/**
+		 * The geometry to be used by all drawing operations. See `Geometry2D()` for more info on custom sprite geometries. Can be also set to `null` to use `Geometry2D.SQUARE`, however reading the property never returns null
+		 * @performance Changing this value will create a light-to-medium draw boundary (See `Drawable2D.draw()` for more info)
+		 */
+		geometry: Geometry3D
+
+		/**
+		 * Transform a point `(x, y)` by the current transformation matrix, returning the transformed point as an object `{x, y}`
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		to(x: number, y: number, z: number): vec2
+		to(xyz: vec3): vec2
+		/**
+		 * Returns the point which transforms to a w (projection value) of 0 in screen space, essentially the "camera" position in a 3D transformation
+		 * 
+		 * In non-perspective transformations, this doesn't make sense, and the value is always `vec3(NaN, NaN, NaN)`
+		 * @performance This performs a matrix inversion. For what it does, it is usually much faster to keep track of the camera's position manually and perform any additional math than to calculate it via this method every time it's needed
+		 */
+		origin(): vec3
+
+		/**
+		 * Draw a sprite at `(0,0,0)` to `(1,1,1)`
+		 * @param values Values, as required by the shader currently in use (See `Drawable.shader`, `Shader()` and `Shader.DEFAULT`)
+		 * 
+		 * @performance See `Drawable2D.draw()` for more info
+		 */
+		draw(...values: any[]): void
+		/**
+		 * Draw a sprite at `(x, y, z)` with size `(w, h, d)`
+		 * @param values Values, as required by the shader currently in use (See `Drawable.shader`, `Shader()` and `Shader.COLOR_3D_XZ`)
+		 * 
+		 * @performance See `Drawable2D.draw()` for more info
+		 */
+		drawCube(x: number, y: number, z: number, w: number, h: number, d: number, ...values: any[]): void
+		/**
+		 * Draw a sprite within a parallelepiped (3D parallelogram) defined by a matrix
+		 * 
+		 * Bottom at `(j, k, l)` with X edge defined by the vector `(a, b, c)`, Y edge defined by `(d, e, f)` and Z edge defined by vector `(g, h, i)`
+		 * @param values Values, as required by the shader currently in use (See `Drawable.shader`, `Shader()` and `Shader.COLOR_3D_XZ`)
+		 * 
+		 * @performance See `Drawable2D.draw()` for more info
+		 */
+		drawMat(a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, ...values: any[]): void
+		/**
+		 * Draw a sprite at `(0,0,0)` to `(1,1,1)`
+		 * @param values Values, as required by the shader currently in use (See `Drawable.shader`, `Shader()` and `Shader.COLOR_3D_XZ`)
+		 * 
+		 * This version of draw() expects an array rather than spread parameters
+		 * @performance See `Drawable2D.draw()` for more info
+		 */
+		drawv(values: any[]): void
+		/**
+		 *Draw a sprite at `(x, y, z)` with size `(w, h, d)`
+		 * @param values Values, as required by the shader currently in use (See `Drawable.shader`, `Shader()` and `Shader.COLOR_3D_XZ`)
+		 * 
+		 * This version of drawRect() expects an array rather than spread parameters
+		 * @performance See `Drawable2D.draw()` for more info
+		 */
+		drawRectv(x: number, y: number, w: number, h: number, values: any[]): void
+		/**
+		 * Draw a sprite within a parallelogram defined by a matrix
+		 * 
+		 * Bottom at `(e, f)` with bottom edge defined by the vector `(a, b)` and left edge defined by `(c, d)`
+		 * @param values Values, as required by the shader currently in use (See `Drawable.shader`, `Shader()` and `Shader.COLOR_3D_XZ`)
+		 * 
+		 * This version of drawMat() expects an array rather than spread parameters
+		 * @performance See `Drawable2D.draw()` for more info
+		 */
+		drawMatv(a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, values: any[]): void
 		/**
 		 * Clear the whole draw target to a solid color
 		 * 
-		 * @performance Will create a light draw boundary (See `Drawable.draw()` for more info)
+		 * @performance Will create a light draw boundary (See `Drawable2D.draw()` for more info)
 		 */
 		clear(r: number, g : number, b : number, a: number): void
 		clear(r: vec4): void
 		/**
 		 * Clear the whole stencil buffer to 0
 		 * 
-		 * @performance Will create a light draw boundary (See `Drawable.draw()` for more info). Well-optimized, under the hood, all 8 bits of the stencil buffer are used. "Clearing" the stencil buffer will simply switch to another bit, until all 8 bits have been used up, at which point the buffer is actually cleared, this operation is often times cheaper than attempting to clear only a portion of the stencil buffer with a `draw*()` call, however, benchmark your specific case if you are unsure
+		 * @performance Will create a light draw boundary (See `Drawable2D.draw()` for more info). Well-optimized, under the hood, all 8 bits of the stencil buffer are used. "Clearing" the stencil buffer will simply switch to another bit, until all 8 bits have been used up, at which point the buffer is actually cleared, this operation is often times cheaper than attempting to clear only a portion of the stencil buffer with a `draw*()` call, however, benchmark your specific case if you are unsure
 		 */
 		clearStencil(): void
+	}
+	interface Drawable3DProjection extends Drawable3D{
+		i: number, j: number, k: number, l: number
+		/**
+		 * Reset all sub-context state (transform, shader, blend, mask, geometry) to match another drawable.
+		 * @param ctx The drawable to copy state from. Resetting to a Drawable3D (lacking projection) or any kind of Drawable2D is invalid
+		 * @performance This method is CPU-logic, very fast and usually inlined
+		 */
+		resetTo(ctx: Drawable3DProjection): void
+		/**
+		 * Reset the 3D transform to a matrix defined by the 6 values, or the default matrix (where (0,0,1) is the bottom-left and (1,1,1) is the top right, and the vanishing point, which is in the Z+ direction, is at the bottom left)
+		 * 
+		 * The matrix is column-major, for right-multiplication
+		 * ```txt
+		 * in x y z 1
+		 *  [ a d g j ] -> out x
+		 *  [ b e h k ] -> out y
+		 *  [ c f i l ]
+		 */
+		reset(a?: number, b?: number, c?: number, d?: number, e?: number, f?: number, g?: number, h?: number, i?: number, j?: number, k?: number, l?: number): void
 	}
 
 	/** See `Drawable.mask` */ const R = 1
@@ -883,7 +1162,7 @@ declare global{
 	 */
 	function Geometry2D(type: number): Geometry2D & Transformable2D
 	function Geometry2D(vertexParameters: Geometry2D.Vertex, type: number): Geometry2D & Transformable2D
-	class Geometry2D{
+	interface Geometry{
 		/** Primitive type, see `Geometry2D()` */
 		type: number
 		/** Start vertex index of subgeometry (see `Geometry.sub()`) */
@@ -895,25 +1174,27 @@ declare global{
 		/** Size of the entire geometry in vertices */
 		readonly size: number
 		/**
-		 * Create a subgeometry, i.e a geometry containing only a subset of the points of this geometry, optionally with a different type
-		 * @performance This method is CPU-arithmetic, very fast. Using many subgeometries of the same geometry is also faster than using many different geometries. For many related geometries, consider building one large geometry and taking subgeometries of it
-		 */
-		sub(start?: number, length?: number, type?: number): Geometry
-
-		/** Add a point to the geometry at (x,y) with the current transform, and additional vertex values (see `Geometry2D.Vertex()`) */
-		addPoint(x, y, ...values): void
-		/** Add a point to the geometry at (0,0) with the current transform, and additional vertex values (see `Geometry2D.Vertex()`) */
-		add(...values): void
-		/** Add a point to the geometry at (x,y) with the current transform, and additional vertex values (see `Geometry2D.Vertex()`) */
-		addPointv(x, y, values): void
-		/** Add a point to the geometry at (0,0) with the current transform, and additional vertex values (see `Geometry2D.Vertex()`) */
-		addv(values): void
-		/**
 		 * Upload all points added so far to the GPU, clearing any previously uploaded geometry. This method must be called prior to using the geometry
 		 * This method also clears all points on the CPU, so that you can use the same object to start constructing a new shape, without having to hold on to or manually clear the memory used by the last geometry
 		 * @param order Set the order of vertices, an array of vertex indices. Useful to create multiple orderings of a geometry without duplicating the entire geometry, or to reuse a lot of vertices without excessive memory usage. Omit this parameter to use the default order. When specifying a custom order, the `start` and `length` properties of any subgeometry apply to the array of indices and not the pool of vertices. This array may also include -1 (or the respective maximum unsigned integer) to indicate a "primitive restart", which breaks apart triangle strips, fans, line strips and loops without needing to draw multiple separate geometries. It essentially prevents any unwanted primitives (triangles/lines) from being formed across that boundary.
 		 */
-		upload(order?: number[] | Uint32Array): void
+		upload(order?: number[] | Uint32Array | Int32Array | Uint16Array | Int16Array | Uint8Array | Int8Array): void
+	}
+	interface Geometry2D extends Geometry{
+		/**
+		 * Create a subgeometry, i.e a geometry containing only a subset of the points of this geometry, optionally with a different type
+		 * @performance This method is CPU-arithmetic, very fast. Using many subgeometries of the same geometry is also faster than using many different geometries. For many related geometries, consider building one large geometry and taking subgeometries of it
+		 */
+		sub(start?: number, length?: number, type?: number): Geometry2D
+
+		/** Add a point to the geometry at (x,y) with the current transform, and additional vertex values (see `Geometry2D.Vertex()`) */
+		addPoint(x: number, y: number, ...values: any[]): void
+		/** Add a point to the geometry at (0,0) with the current transform, and additional vertex values (see `Geometry2D.Vertex()`) */
+		add(...values: any[]): void
+		/** Add a point to the geometry at (x,y) with the current transform, and additional vertex values (see `Geometry2D.Vertex()`) */
+		addPointv(x: number, y: number, values: any[]): void
+		/** Add a point to the geometry at (0,0) with the current transform, and additional vertex values (see `Geometry2D.Vertex()`) */
+		addv(values: any[]): void
 	}
 	namespace Geometry2D{
 		/**
@@ -959,37 +1240,21 @@ declare global{
 	 */
 	function Geometry3D(type: number): Geometry3D & Transformable3D
 	function Geometry3D(vertexParameters: Geometry3D.Vertex, type: number): Geometry3D & Transformable3D
-	class Geometry3D{
-		/** Primitive type, see `Geometry3D()` */
-		type: number
-		/** Start vertex index of subgeometry (see `Geometry.sub()`) */
-		start: number
-		/** Length in vertices of geometry/subgeometry */
-		length: number
-		/** End in vertices of geometry/subgeometry (see `Geometry.sub()`) */
-		end: number
-		/** Size of the entire geometry in vertices */
-		readonly size: number
+	interface Geometry3D extends Geometry{
 		/**
 		 * Create a subgeometry, i.e a geometry containing only a subset of the points of this geometry, optionally with a different type
 		 * @performance This method is CPU-arithmetic, very fast. Using many subgeometries of the same geometry is also faster than using many different geometries. For many related geometries, consider building one large geometry and taking subgeometries of it
 		 */
-		sub(start?: number, length?: number, type?: number): Geometry
+		sub(start?: number, length?: number, type?: number): Geometry3D
 
-		/** Add a point to the geometry at (x,y,z) with the current transform, and additional vertex values (see `Geometry3D.Vertex()`) */
-		addPoint(x, y, z, ...values): void
-		/** Add a point to the geometry at (0,0,0) with the current transform, and additional vertex values (see `Geometry3D.Vertex()`) */
-		add(...values): void
-		/** Add a point to the geometry at (x,y,z) with the current transform, and additional vertex values (see `Geometry3D.Vertex()`) */
-		addPointv(x, y, z, values): void
-		/** Add a point to the geometry at (0,0,0) with the current transform, and additional vertex values (see `Geometry3D.Vertex()`) */
-		addv(values): void
-		/**
-		 * Upload all points added so far to the GPU, clearing any previously uploaded geometry. This method must be called prior to using the geometry
-		 * This method also clears all points on the CPU, so that you can use the same object to start constructing a new shape, without having to hold on to or manually clear the memory used by the last geometry
-		 * @param order Set the order of vertices, an array of vertex indices. Useful to create multiple orderings of a geometry without duplicating the entire geometry, or to reuse a lot of vertices without excessive memory usage. Omit this parameter to use the default order. When specifying a custom order, the `start` and `length` properties of any subgeometry apply to the array of indices and not the pool of vertices. This array may also include -1 (or the respective maximum unsigned integer) to indicate a "primitive restart", which breaks apart triangle strips, fans, line strips and loops without needing to draw multiple separate geometries. It essentially prevents any unwanted primitives (triangles/lines) from being formed across that boundary.
-		 */
-		upload(order?: number[] | Uint32Array): void
+		/** Add a point to the geometry at (x,y,z) with the current transform, and additional vertex values (see `Geometry2D.Vertex()`) */
+		addPoint(x: number, y: number, z: number, ...values: any[]): void
+		/** Add a point to the geometry at (0,0,0) with the current transform, and additional vertex values (see `Geometry2D.Vertex()`) */
+		add(...values: any[]): void
+		/** Add a point to the geometry at (x,y,z) with the current transform, and additional vertex values (see `Geometry2D.Vertex()`) */
+		addPointv(x: number, y: number, z: number, values: any[]): void
+		/** Add a point to the geometry at (0,0,0) with the current transform, and additional vertex values (see `Geometry2D.Vertex()`) */
+		addv(values: any[]): void
 	}
 	namespace Geometry3D{
 		/**
@@ -1052,6 +1317,7 @@ declare global{
 	 * - `LOWP` (normal value)
 	 * - `FLOAT` for high precision targets (16F / 32F). This exists because `LOWP` will try to use the lowest precision available (`lowp`, for performance reasons), which may be insufficient for some use cases
 	 * Multiple outputs supported for drawing to multiple textures at once. See `Drawable.setTarget`
+	 * @param options.vertex The vertex format to be used by this shader. See `Geometry2D.Vertex` and `Geometry3D.Vertex`. A shader can only be used with geometries of compatible vertex type (i.e mixing 2D geometries with shaders meant for 3D geometries, or mixing a simple 3D geometry with a shader that expects 3D geometries with additional per-vertex data, are both invalid)
 	 * @param options.intFrac Optionally give a hint as to the bias towards integer or float textures. For example, if your shader uses one float and one int texture, but the int texture tends to stay the same while the float texture changes often, set this to `1` to indicate that you will use more float textures. Out of the 16 available texture slots, 15 will then be allocated for float textures, as opposed to 8 by default (when `intFrac == 0.5`), which will slightly increase performance
 	 * 
 	 * Note that you cannot use more than 16 different texture parameters in a single shader (across both `params` and `uniforms`), and that the number of params is also individually limited (don't go crazy and if you do run out, consider combining multiple `FLOAT`s to a `VEC2`/`VEC3`/`VEC4`, etc...)
@@ -1117,7 +1383,8 @@ declare global{
 	 * 
 	 * If you made it this far without your brain exploding, congratulations! Take a break :)
 	 */
-	function Shader(glsl: string, options?: { params?: number | number[], defaults?: number | number[], uniforms?: number | number[], uniformDefaults?: number | number[], outputs?: number, intFrac?: number }): Shader
+	function Shader(glsl: string, options?: { params?: number | number[], defaults?: number | number[], uniforms?: number | number[], uniformDefaults?: number | number[], outputs?: number, intFrac?: number, vertex?: Geometry2D.Vertex }): Shader2D
+	function Shader(glsl: string, options: { params?: number | number[], defaults?: number | number[], uniforms?: number | number[], uniformDefaults?: number | number[], outputs?: number, intFrac?: number, vertex: Geometry3D.Vertex }): Shader3D
 
 	/** See `Shader()` */ const FLOAT = 0
 	/** See `Shader()` */ const VEC2 = 1
@@ -1140,7 +1407,11 @@ declare global{
 	/** See `Shader()` */ const FCOLOR = 12
 	/** See `Shader()` */ const LOWP = 4
 
-	interface Shader{
+	interface Shader2D{
+		/** Set the shader's uniforms, as specified by the shader itself. See `Shader()` */
+		uniforms(...values: any[]): void
+	}
+	interface Shader3D{
 		/** Set the shader's uniforms, as specified by the shader itself. See `Shader()` */
 		uniforms(...values: any[]): void
 	}
@@ -1148,11 +1419,11 @@ declare global{
 		/**
 		 * The default shader, to draw a texture or solid color, optionally with a tint
 		 * 
-		 * Values: `(thing: Texture | vec4, tint: vec4 = vec4(1))` (i.e `[COLOR, VEC4]`)
+		 * Values: `(thing: Texture | vec4, tint = vec4(1))` (i.e `[COLOR, VEC4]`)
 		 * 
 		 * Uniforms: none
 		 */
-		const DEFAULT: Shader
+		const DEFAULT: Shader2D
 		/**
 		 * Shader for drawing to integer-texture targets
 		 * 
@@ -1162,7 +1433,7 @@ declare global{
 		 * 
 		 * Writes to integer targets
 		 */
-		const UINT: Shader
+		const UINT: Shader2D
 		/**
 		 * Always draws opaque black
 		 * 
@@ -1170,7 +1441,27 @@ declare global{
 		 * 
 		 * Uniforms: none
 		 */
-		const BLACK: Shader
+		const BLACK: Shader2D
+
+		/**
+		 * The default shader for 3D drawable contexts, to draw a texture or solid color, applied based on the geometry's X/Z positions
+		 * 
+		 * Values: `(thing: Texture | vec4)` (i.e `[COLOR]`)
+		 * 
+		 * Uniforms: none
+		 */
+		const COLOR_3D_XZ: Shader3D
+
+		/**
+		 * Shader for drawing a texture or solid color, applied based on the geometry's X/Z positions, with additional tint based on a face's direction to simulate some fake lighting
+		 * 
+		 * The tint is meant to greatly help humans in edge-detection, and makes a geometry look much less "flat" or unnatural than the default shader. The tint factor is calculated from the dot product of the normal and the "light" vector supplied. If this dot product is positive, the face becomes darker
+		 * 
+		 * Values: `(thing: Texture | vec4, light = vec3(-.15, -.3, 0))` (i.e `[COLOR, VEC3]`)
+		 * 
+		 * Uniforms: none
+		 */
+		const SHADED_3D: Shader3D
 	}
 
 	/**
@@ -1180,7 +1471,7 @@ declare global{
 	function flush(): void
 
 	/** The main Drawable, representing the <canvas> element. This drawable is limited: it cannot be read from, or have its configuration modified in any way. To do that, draw to a separate drawable and then `paste()` to `ctx` */
-	const ctx: Drawable
+	const ctx: Drawable2D
 
 	/**
 	 * Resize the <canvas> element. Will clear any existing content
@@ -1205,7 +1496,7 @@ declare global{
 	 */
 	let frameDrawCalls: number
 	/**
-	 * How many sprites (`Drawable.draw*()` calls) were performed during the last frame
+	 * How many sprites (`Drawable2D.draw*()` calls) were performed during the last frame
 	 * 
 	 * Available after calling `loop()`, calculated and reset automatically
 	 */

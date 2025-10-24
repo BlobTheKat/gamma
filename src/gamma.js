@@ -1649,7 +1649,7 @@ $.Shader.UINT = $.Shader(`void main(){color=param0;}`, {params:$.UVEC4, outputs:
 $.Shader.BLACK = $.Shader(`void main(){color=vec4(0,0,0,1);}`)
 $.Shader.DEFAULT = $.Shader(`void main(){color=param0(pos)*param1;}`, {params:[$.COLOR, $.VEC4], defaults:[void 0, $.vec4.one]})
 $.Shader.COLOR_3D_XZ = $.Shader(`void main(){color=param0(pos.xz);}`, {params:[$.COLOR], defaults:[void 0, $.vec4.one],vertex:Geometry3D.DEFAULT_VERTEX})
-$.Shader.SHADED_3D = $.Shader(`void main(){float a=(1.-dot(normalize(cross(dFdx(pos),dFdy(pos))),param1));color.rgb=param0.rgb*a;color.a=param0.a;}`, {params:[$.VEC4,$.VEC3], defaults:[$.vec4.one,vec3(.15,.3,0)],vertex:Geometry3D.DEFAULT_VERTEX})
+$.Shader.SHADED_3D = $.Shader(`void main(){float a=(1.+dot(normalize(cross(dFdx(pos),dFdy(pos))),param1));color=param0(pos.xy);color.rgb*=a;}`, {params:[$.COLOR,$.VEC3], defaults:[void 0,vec3(-.15,-.3,0)],vertex:Geometry3D.DEFAULT_VERTEX})
 let lastClr = 0
 $.flush = () => {
 	i&&draw()

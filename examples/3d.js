@@ -194,7 +194,6 @@ render = () => {
 		cubeCtx.rotateXY(t*.1)
 	
 	ctx3.translate(0, 0, -3)
-	
 	if(pos.z > -3){
 		const ct2 = ctx3.sub2dXY()
 		ct2.scale(-1,1)
