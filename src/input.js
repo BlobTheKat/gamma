@@ -231,7 +231,6 @@ Gamma.input = ($, can = $.canvas) => {
 	$.rawMouse = $.vec2(.5)
 	$.rawWheel = $.vec2()
 	$.cursor = $.vec2(.5)
-	$.cursorDelta = $.vec2()
 	$.scrollDelta = $.vec2()
 	const oldSafari = typeof ApplePaySession != 'undefined' && !('letterSpacing' in CanvasRenderingContext2D.prototype), ptrlockOpts = !navigator.platform.startsWith('Linux') && typeof netscape == 'undefined' && !oldSafari ? {unadjustedMovement:true} : undefined
 	Object.defineProperty($, 'pointerLock', {
@@ -331,22 +330,9 @@ Gamma.input = ($, can = $.canvas) => {
 			dx = e.offsetX-prevx, dy = e.offsetY-prevy
 		}
 		$.rawMouse.x += dx; $.rawMouse.y -= dy
-		$.cursorDelta.x += dx/w; $.cursorDelta.y -= dy/h
 		for(const f of wcb) f(dx, dy)
 		prevx = e.offsetX, prevy = e.offsetY
 	})
-	/*ptrlockel?.addEventListener('mousemove', e => {
-		e.preventDefault()
-		let dx = 0, dy = 0
-		dx = e.movementX
-		dy = e.movementY
-		if(!ptrlockOpts){
-
-		}
-		$.rawMouse.x += dx; $.rawMouse.y -= dy
-		$.cursorDelta.x += dx/can.offsetWidth; $.cursorDelta.y -= dy/can.offsetHeight
-		for(const f of wcb) f(dx, dy)
-	})*/
 }
 document.addEventListener('keydown', e => {
 	if(!_keys) return

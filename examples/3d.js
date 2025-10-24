@@ -126,15 +126,39 @@ function drawText(ctx){
 	ctx.drawRect(x-.01, y-.1, .02, .2, vec4(0,0,0,1))
 }
 
+let surface = null
+
 let FOV = 90, targetFov = 90
+const ctx2 = Drawable(true)
+
+const bulgeShader = Shader(`void main(){
+	vec2 uv = pos-.5;
+	uv *= 2.-length(uv)*1.8;
+	color = getColor(param0, vec3(uv+.5,0.));
+}`, {params: TEXTURE})
+
 render = () => {
+	const warp = keys.has(KEY.Q)
 	if(keys.has(KEY.C)) targetFov = min(targetFov / SQRT2**dt, 15)
 	else targetFov = 90
 	FOV += (targetFov - FOV) * min(1, dt*20)
 	skyShader.uniforms(t)
 	const {width, height} = ctx
-	ctx.reset(.05*height/width, 0, 0, .05, .5, .5)
-	let ctx3 = ctx.sub3dProj(0, .125*tan(FOV * PI/360))
+	let scene = ctx
+	if(!surface || surface.width != width || surface.height != height){
+		surface?.delete()
+		surface = Texture(width, height, 1, SMOOTH)
+		ctx2.setTarget(0, surface)
+	}
+	if(warp){
+		scene = ctx2
+		scene.clearStencil()
+	}
+	scene.reset(.05*height/width, 0, 0, .05, .5, .5)
+
+	let ctx3 = scene.sub3dProj(0, .125*tan(FOV * PI/360))
+
+
 	if(pointerLock){
 		look.x = (look.x + rawMouse.x*.00003*FOV) % PI2
 		look.y = clamp(look.y + rawMouse.y*.00003*FOV, PI*-.5, PI*.5)
@@ -181,10 +205,15 @@ render = () => {
 		drawText(ctx3.sub2dXY())
 	
 	if(!pointerLock){
-		ctx.scale(0.5)
-		ctx.translate(fonts.ubuntu.measure('Click anywhere to lock pointer')*-.5, -18)
-		ctx.shader = Shader.MSDF
-		fonts.ubuntu.draw(ctx, 'Click anywhere to lock pointer', [vec4(.3+sin(t*PI)*.2)])
+		scene.scale(0.5)
+		scene.translate(fonts.ubuntu.measure('Click anywhere to lock pointer')*-.5, -18)
+		scene.shader = Shader.MSDF
+		fonts.ubuntu.draw(scene, 'Click anywhere to lock pointer', [vec4(.3+sin(t*PI)*.2)])
 	}
 	ctxSupersample = keys.has(KEY.V) ? 0.125/devicePixelRatio : 1 + (devicePixelRatio < 2)
+
+	if(warp){
+		ctx.shader = bulgeShader
+		ctx.draw(surface)
+	}
 }

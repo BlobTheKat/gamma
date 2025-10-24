@@ -83,7 +83,7 @@ onKey(MOUSE.LEFT, () => pointerLock = true)
 
 let head = vec2()
 render = () => {
-	const w = ctx.width, h = ctx.height
+	const w = ctx.width/pixelRatio, h = ctx.height/pixelRatio
 	ctx.reset(1/w, 0, 0, 1/h, .5, .5)
 	// Let's implement cover fill
 	// We know:
@@ -104,7 +104,7 @@ render = () => {
 	}else elasticWheel = 0
 	ctx.scale(1/cam.z)
 	if(keys.has(MOUSE.LEFT)){
-		const mov = ctx.fromDelta(cursorDelta)
+		const mov = rawMouse
 		cam.x -= mov.x; cam.y -= mov.y
 		panTooltip.hide()
 	}
@@ -130,7 +130,7 @@ render = () => {
 
 	ctx.shader = Shader.AA_CIRCLE
 
-	head = pointerLock ? keys.has(MOUSE.LEFT) ? head : vec2.add(head, ctx.fromDelta(cursorDelta)) : ctx.from(cursor)
+	head = pointerLock ? keys.has(MOUSE.LEFT) ? head : vec2.add(head, rawMouse) : ctx.from(cursor)
 	let {x, y} = head
 	if(pointerLock){
 		const wq = w*.333*cam.z

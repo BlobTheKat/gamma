@@ -26,7 +26,7 @@ const img = Texture.from('examples/mountains.jpeg')
 let zoom = 50
 let cam = globalThis.cam = {x: 0, y: 0, z: 50}
 render = () => {
-	const w = ctx.width, h = ctx.height
+	const w = ctx.width/pixelRatio, h = ctx.height/pixelRatio
 	zoom *= .999**rawWheel.y
 	const d = .002**dt
 	cam.x = (cursor.x-.5)*-64*(1-d)+cam.x*d; cam.y = (cursor.y-.5)*-36*(1-d)+cam.y*d
