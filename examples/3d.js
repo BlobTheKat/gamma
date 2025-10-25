@@ -147,7 +147,7 @@ render = () => {
 	let scene = ctx
 	if(!surface || surface.width != width || surface.height != height){
 		surface?.delete()
-		surface = Texture(width, height, 1, SMOOTH)
+		surface = Texture(width, height, 1, SMOOTH, Formats.RGBA4)
 		ctx2.setTarget(0, surface)
 	}
 	if(warp){
@@ -194,6 +194,7 @@ render = () => {
 		cubeCtx.rotateXY(t*.1)
 	
 	ctx3.translate(0, 0, -3)
+	
 	if(pos.z > -3){
 		const ct2 = ctx3.sub2dXY()
 		ct2.scale(-1,1)

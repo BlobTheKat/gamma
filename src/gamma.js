@@ -705,8 +705,8 @@ class t3D{
 }
 
 const grow = ArrayBuffer.prototype.transfer ?
-	by=>{const j=i;if((i=j+by)>arr.length){arr=new Float32Array(arr.buffer.transfer(i*8)),iarr=new Int32Array(arr.buffer)}return j}
-	: by=>{const j=i;if((i=j+by)>arr.length){const oa=arr;(arr=new Float32Array(i*2)).set(oa,0);iarr=new Int32Array(arr.buffer)}return j}
+	by=>{const j=i;if((i=j+by)>iarr.length){iarr=new Int32Array(iarr.buffer.transfer(i*8)),arr=new Float32Array(iarr.buffer)}return j}
+	: by=>{const j=i;if((i=j+by)>iarr.length){const oa=iarr;(iarr=new Int32Array(i*2)).set(oa,0);arr=new Float32Array(iarr.buffer)}return j}
 class Drw2D extends t2D{
 	set shader(sh){ this._sh=typeof sh=='function'&&sh.three===false?sh:$.Shader.DEFAULT; if(lastd == this) lastd = null }
 	get shader(){ return this._sh }
@@ -1225,7 +1225,7 @@ const vfgen = (three, vparams, _defaults = []) => {
 		_vcount += sz
 		id++
 	}
-	vFnBody[0] = `let{i,arr,iarr}=this;if((this.i=i+${_vcount})>arr.length){${ArrayBuffer.prototype.transfer ? `arr=this.arr=new Float32Array(arr.buffer.transfer(i+${_vcount}<<3))` : `const oa=arr;arr=this.arr=new Float32Array(i+${_vcount}<<1);arr.set(oa,0)`};iarr=this.iarr=new Int32Array(arr.buffer)}`
+	vFnBody[0] = `let{i,arr,iarr}=this;if((this.i=i+${_vcount})>arr.length){${ArrayBuffer.prototype.transfer ? `iarr=this.iarr=new Int32Array(iarr.buffer.transfer(i+${_vcount}<<3))` : `const oa=iarr;iarr=this.iarr=new Int32Array(i+${_vcount}<<1);iarr.set(oa,0)`};arr=this.arr=new Float32Array(iarr.buffer)}`
 	vFnBody.push('return i')
 	if(flatvarys) vShaderHead.push(`flat out uvec4 GL_V0;`), fShaderHead.push(`flat in uvec4 GL_V0;`)
 	const _pack = eval(`(function({${vFnParams}}){${vFnBody.join(';')}})`)
@@ -1431,6 +1431,34 @@ const y = Object.getOwnPropertyDescriptors({
 		t._usize = this._l = order ? order.length : t._size
 		t._size = 0
 		if(shp&&t==shp.t) this._setShp()
+	},
+	export(){
+		const {t:{iarr, i: len}} = this, res = new Uint8Array(len*4)
+		for(let i = 0; i < len; i++){
+			const i2 = i*4, num = iarr[i]
+			res[i2] = num>>24; res[i2+1] = num>>16
+			res[i2+2] = num>>8; res[i2+3] = num
+		}
+		return res
+	},
+	import(f){
+		if(f instanceof ArrayBuffer) f = new Uint8Array(f)
+		const {t} = this
+		let {i, iarr} = t, l = i + (f.length*.25>>>0)
+		if(iarr.length < l){
+			if(ArrayBuffer.prototype.transfer){
+				iarr = t.iarr = new Int32Array(iarr.buffer.transfer(l*4))
+			}else{
+				const oa = t.iarr
+				iarr = t.iarr = new Int32Array(l)
+				t.iarr.set(oa, 0)
+			}
+			t.arr = new Float32Array(t.iarr.buffer)
+		}
+		let j = 0
+		while(i < l)
+			iarr[i++] = f[j++]<<24|f[j++]<<16|f[j++]<<8|f[j++]
+		t.i = l
 	}
 })
 const empty = new Float32Array(), iempty = new Int32Array(empty.buffer)
