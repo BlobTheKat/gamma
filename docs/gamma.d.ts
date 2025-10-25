@@ -1455,13 +1455,13 @@ namespace GammaInstance{
 	function Geometry2D(type: number): Geometry2D & Transformable2D
 	function Geometry2D(vertexParameters: Geometry2D.Vertex, type: number): Geometry2D & Transformable2D
 	interface Geometry{
-		/** Primitive type, see `Geometry2D()` */
+		/** Primitive type, see `Geometry2D()`/`Geometry3D()` */
 		type: number
-		/** Start vertex index of subgeometry (see `Geometry.sub()`) */
+		/** Start vertex index of subgeometry (see `Geometry2D.sub()`/`Geometry3D.sub()`) */
 		start: number
 		/** Length in vertices of geometry/subgeometry */
 		length: number
-		/** End in vertices of geometry/subgeometry (see `Geometry.sub()`) */
+		/** End in vertices of geometry/subgeometry (see `Geometry2D.sub()`/`Geometry3D.sub()`) */
 		end: number
 		/** Size of the entire geometry in vertices */
 		readonly size: number
@@ -1471,13 +1471,43 @@ namespace GammaInstance{
 		 * @param order Set the order of vertices, an array of vertex indices. Useful to create multiple orderings of a geometry without duplicating the entire geometry, or to reuse a lot of vertices without excessive memory usage. Omit this parameter to use the default order. When specifying a custom order, the `start` and `length` properties of any subgeometry apply to the array of indices and not the pool of vertices. This array may also include -1 (or the respective maximum unsigned integer) to indicate a "primitive restart", which breaks apart triangle strips, fans, line strips and loops without needing to draw multiple separate geometries. It essentially prevents any unwanted primitives (triangles/lines) from being formed across that boundary.
 		 */
 		upload(order?: number[] | Uint32Array | Int32Array | Uint16Array | Int16Array | Uint8Array | Int8Array): void
+
+		/**
+		 * Export all the current vertex data (that has not yet been uploaded to the GPU) to a portable Uint8Array, containing data for each vertex concatenated, using float32 and int32 format, big endian.
+		 */
+		export(): Uint8Array
+		/**
+		 * Import vertex data from a portable Uint8Array/ArrayBuffer and append it to the current Geometry. The data should contain data for each vertex concatenated, using float32 and int32 format, big endian.
+		 */
+		import(arr: Uint8Array | ArrayBuffer): void
 	}
 	interface Geometry2D extends Geometry{
 		/**
 		 * Create a subgeometry, i.e a geometry containing only a subset of the points of this geometry, optionally with a different type
 		 * @performance This method is CPU-arithmetic, very fast. Using many subgeometries of the same geometry is also faster than using many different geometries. For many related geometries, consider building one large geometry and taking subgeometries of it
 		 */
-		sub(start?: number, length?: number, type?: number): Geometry2D
+		sub(start?: number, length?: number, type?: number): this
+		/**
+		 * Create a subgeometry for easily managing multiple separate transformations, much like `Drawable.sub()`
+		 */
+		sub(): this
+		/**
+		 * Create a 3D subgeometry for easily managing multiple separate transformations, much like `Drawable2D.sub3d()`. Note that any vertices added via 3D subgeometries of a Geometry2D is always flattened down to 2D using an orthographic projection
+		 */
+		sub3d(): this extends Transformable3D ? never : Geometry2D & Transformable3D
+
+		/**
+		 * Create a 2D subgeometry for easily managing multiple separate transformations, much like `Drawable3D.sub2dXY()`. Note that any vertices added via 3D subgeometries of a Geometry2D is always flattened down to 2D using an orthographic projection
+		 */
+		sub2dXY(): this extends Transformable2D ? never : Geometry2D & Transformable2D
+		/**
+		 * Create a 2D subgeometry for easily managing multiple separate transformations, much like `Drawable3D.sub2dXZ()`. Note that any vertices added via 3D subgeometries of a Geometry2D is always flattened down to 2D using an orthographic projection
+		 */
+		sub2dXZ(): this extends Transformable2D ? never : Geometry2D & Transformable2D
+		/**
+		 * Create a 2D subgeometry for easily managing multiple separate transformations, much like `Drawable3D.sub2dZY()`. Note that any vertices added via 3D subgeometries of a Geometry2D is always flattened down to 2D using an orthographic projection
+		 */
+		sub2dZY(): this extends Transformable2D ? never : Geometry2D & Transformable2D
 
 		/** Add a point to the geometry at (x,y) with the current transform, and additional vertex values (see `Geometry2D.Vertex()`) */
 		addPoint(x: number, y: number, ...values: any[]): void
@@ -1537,7 +1567,28 @@ namespace GammaInstance{
 		 * Create a subgeometry, i.e a geometry containing only a subset of the points of this geometry, optionally with a different type
 		 * @performance This method is CPU-arithmetic, very fast. Using many subgeometries of the same geometry is also faster than using many different geometries. For many related geometries, consider building one large geometry and taking subgeometries of it
 		 */
-		sub(start?: number, length?: number, type?: number): Geometry3D
+		sub(start?: number, length?: number, type?: number): this
+		/**
+		 * Create a subgeometry for easily managing multiple separate transformations, much like `Drawable.sub()`
+		 */
+		sub(): this
+		/**
+		 * Create a 3D subgeometry for easily managing multiple separate transformations, much like `Drawable2D.sub3d()`
+		 */
+		sub3d(): this extends Transformable3D ? never : Geometry3D & Transformable3D
+
+		/**
+		 * Create a 2D subgeometry for easily managing multiple separate transformations, much like `Drawable3D.sub2dXY()`
+		 */
+		sub2dXY(): this extends Transformable2D ? never : Geometry3D & Transformable2D
+		/**
+		 * Create a 2D subgeometry for easily managing multiple separate transformations, much like `Drawable3D.sub2dXZ()`
+		 */
+		sub2dXZ(): this extends Transformable2D ? never : Geometry3D & Transformable2D
+		/**
+		 * Create a 2D subgeometry for easily managing multiple separate transformations, much like `Drawable3D.sub2dZY()`
+		 */
+		sub2dZY(): this extends Transformable2D ? never : Geometry3D & Transformable2D
 
 		/** Add a point to the geometry at (x,y,z) with the current transform, and additional vertex values (see `Geometry2D.Vertex()`) */
 		addPoint(x: number, y: number, z: number, ...values: any[]): void
