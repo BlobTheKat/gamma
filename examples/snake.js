@@ -130,7 +130,7 @@ render = () => {
 
 	ctx.shader = Shader.AA_CIRCLE
 
-	head = pointerLock ? keys.has(MOUSE.LEFT) ? head : vec2.add(head, rawMouse) : ctx.from(cursor)
+	head = pointerLock ? keys.has(MOUSE.LEFT) ? head : vec2.add(head, rawMouse) : ctx.unproject(cursor)
 	let {x, y} = head
 	if(pointerLock){
 		const wq = w*.333*cam.z

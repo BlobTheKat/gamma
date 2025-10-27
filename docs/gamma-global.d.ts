@@ -21,7 +21,10 @@ declare global{
 		const zero: vec2
 		const one: vec2
 		function add(a: vec2, b: vec2 | number): vec2
+		function subtract(a: vec2 | number, b: vec2): vec4
 		function multiply(a: vec2, b: vec2 | number): vec2
+		function magnitude(a: vec2): number
+		function normalize(a: vec2): vec2
 	}
 	type vec3 = {x: number, y: number, z: number}
 	/**
@@ -33,7 +36,10 @@ declare global{
 		const zero: vec3
 		const one: vec3
 		function add(a: vec3, b: vec3 | number): vec3
+		function subtract(a: vec3 | number, b: vec3): vec3
 		function multiply(a: vec3, b: vec3 | number): vec3
+		function magnitude(a: vec3): number
+		function normalize(a: vec3): vec3
 	}
 	type vec4 = {x: number, y: number, z: number, w: number}
 	/**
@@ -45,7 +51,10 @@ declare global{
 		const zero: vec4
 		const one: vec4
 		function add(a: vec4, b: vec4 | number): vec4
+		function subtract(a: vec4 | number, b: vec4): vec4
 		function multiply(a: vec4, b: vec4 | number): vec4
+		function magnitude(a: vec4): number
+		function normalize(a: vec4): vec4
 	}
 	
 	enum Formats{
@@ -553,6 +562,32 @@ declare global{
 		 */
 		box(x: number, y: number, w: number, h: number): void
 	}
+	interface Transformable2Dto2D{
+		/**
+		 * Transform a point `(x, y)` by the current transformation matrix, returning the transformed point as an object `{x, y}`
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		point(x: number, y: number): vec2
+		point(xy: vec2): vec2
+		/**
+		 * Inverse-transform a point `(x, y)` by the current transformation matrix, returning the original point as an object `{x, y}`
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined, however it involves a division
+		 */
+		pointFrom(x: number, y: number): vec2
+		pointFrom(xy: vec2): vec2
+		/**
+		 * Transform a metric `(dx, dy)` by the current transformation matrix, returning the transformed metric as an object `{x, y}`. Unlike points, metrics do not observe the matrix's translation component
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		metric(x: number, y: number): vec2
+		metric(xy: vec2): vec2
+		/**
+		 * Inverse-transform a metric `(dx, dy)` by the current transformation matrix, returning the original metric as an object `{x, y}`. Unlike points, metrics do not observe the matrix's translation component
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined, however it involves a division
+		 */
+		metricFrom(x: number, y: number): vec2
+		metricFrom(xy: vec2): vec2
+	}
 
 	interface Transformable3D{
 		/**
@@ -667,6 +702,74 @@ declare global{
 		 */
 		box(x: number, y: number, z: number, w: number, h: number, d: number): void
 	}
+	interface Transformable3Dto3D{
+		/**
+		 * Transform a point `(x, y, z)` by the current transformation matrix, returning the transformed point as an object `{x, y, z}`
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		point(x: number, y: number, z: number): vec3
+		point(xyz: vec3): vec3
+		/**
+		 * Inverse-transform a point `(x, y, z)` by the current transformation matrix, returning the original point as an object `{x, y, z}`
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined, however it involves a division
+		 */
+		pointFrom(x: number, y: number, z: number): never
+		pointFrom(xyz: vec3): never
+		/**
+		 * Transform a metric `(dx, dy, dz)` by the current transformation matrix, returning the transformed metric as an object `{x, y, z}`. Unlike points, metrics do not observe the matrix's translation component
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		metric(x: number, y: number, z: number): vec3
+		metric(xyz: vec3): vec3
+		/**
+		 * Inverse-transform a metric `(dx, dy, dz)` by the current transformation matrix, returning the original metric as an object `{x, y, z}`. Unlike points, metrics do not observe the matrix's translation component
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined, however it involves a division
+		 */
+		metricFrom(x: number, y: number, z: number): never
+		metricFrom(xyz: vec3): never
+	}
+
+	interface Transformable2Dto3D{
+		/**
+		 * Transform a point `(x, y)` by the current transformation matrix, returning the transformed point as an object `{x, y, z}`
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		point(x: number, y: number): vec3
+		point(xy: vec2): vec3
+		/** Inverse-transforms are not available on Transformable2Dto3D */
+		pointFrom(x: number, y: number): never
+		pointFrom(xy: vec2): never
+		/**
+		 * Transform a metric `(dx, dy)` by the current transformation matrix, returning the transformed metric as an object `{x, y, z}`. Unlike points, metrics do not observe the matrix's translation component
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		metric(x: number, y: number): vec3
+		metric(xy: vec2): vec3
+		/** Inverse-transforms are not available on Transformable2Dto3D */
+		metricFrom(x: number, y: number): never
+		metricFrom(xy: vec2): never
+	}
+
+	interface Transformable3Dto2D{
+		/**
+		 * Transform a point `(x, y, z)` by the current transformation matrix, returning the transformed point as an object `{x, y}`
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		point(x: number, y: number, z: number): vec2
+		point(xyz: vec3): vec2
+		/** Inverse-transforms are not available on Transformable3Dto2D */
+		pointFrom(x: number, y: number, z: number): never
+		pointFrom(xyz: vec3): never
+		/**
+		 * Transform a metric `(dx, dy, dz)` by the current transformation matrix, returning the transformed metric as an object `{x, y}`. Unlike points, metrics do not observe the matrix's translation component
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		metric(x: number, y: number, z: number): vec2
+		metric(xyz: vec3): vec2
+		/** Inverse-transforms are not available on Transformable3Dto2D */
+		metricFrom(x: number, y: number, z: number): never
+		metricFrom(xyz: vec3): never
+	}
 
 	interface Drawable{
 		/** An opaque object that will compare === for a `Drawable` and its sub-`Drawable`s, which always point to the same draw targets */
@@ -741,32 +844,26 @@ declare global{
 		 */
 		clearStencil(): void
 	}
-	interface Drawable2D extends Drawable, Transformable2D{
-		a: number, b: number, c: number, d: number, e: number, f: number
-		/** Whether this drawable context has a projection component. Usually false, unless you are drawing content within 3D projective space */
-		readonly projection: boolean
+	interface _Drawable2D extends Drawable, Transformable2D{
 		/**
 		 * Create a sub-context, which points to the same target, stencil buffer, etc... as this one, much like `Texture.sub()`, however it keeps its own state such as transform, blend, mask, shader, geometry, making it ideal for passing to other functions that may modify their drawable context arbitrarily without us needing to revert it afterwards
 		 * @performance This method is CPU-logic, fast and usually inlined
 		 **/
-		sub(): Drawable2D
+		sub(): this
 		/**
-		 * Reset all sub-context state (transform, shader, blend, mask, geometry) to match another drawable
-		 * @param ctx The drawable to copy state from. Resetting to a Drawable2DProjection or any kind of Drawable3D is invalid
-		 * @performance This method is CPU-logic, very fast and usually inlined
-		 */
-		resetTo(ctx: Drawable2D): void
+		 * Create a subcontext with a third dimension, which is capable of drawing 3D geometries using the family of 3D transformations. The 3D content is projected onto the current 2D plane using an orthographic projection. For a perspective projection, see `.sub3dProj()`
+		 * @performance This method is CPU-logic, fast and usually inlined
+		 **/
+		sub3d(): this extends Transformable2Dto3D ? Drawable3DProjection : Drawable3D
 		/**
-		 * Reset the 2D transform to a matrix defined by the 6 values, or the default matrix (where (0,0) is the bottom-left and (1,1) is the top right)
+		 * Create a subcontext with a third dimension, which is capable of drawing 3D geometries using the family of 3D transformations. The 3D content is projected onto the current 2D plane using a perspective projection defined by the two values.
 		 * 
-		 * The matrix is column-major, for right-multiplication
-		 * ```txt
-		 * in x y 1
-		 *  [ a c e ] -> out x
-		 *  [ b d f ] -> out y
-		 * ```
-		 */
-		reset(a?: number, b?: number, c?: number, d?: number, e?: number, f?: number): void
+		 * Perspective transformation means that the Z component acts as a "scaling" factor for the X and Y components. By default, content drawn at (x,y,z) will appear at (x, y)/z. This can be changed with the `zBase` and `zScale` parameters. Content will then be drawn at (x, y)/(z*zScale + zBase). For example, `.sub3dProj(0, 1)`, the default, gives a typical perspective transform while `.sub3dProj(1, 0)` gives an orthographic transform (constant scaling)
+		 * 
+		 * Note that after you have applied any rotations, the "Z" direction controlling the scaling factor will also change, such that the vanishing point always appears where you expect it to.
+		 * @performance This method is CPU-logic, fast and usually inlined
+		 **/
+		sub3dProj(zBase?: number, zScale?: number): Drawable3DProjection
 
 		/**
 		 * The shader to be used by all drawing operations. See `Shader()` for more info on custom shaders. Can be also set to `null` to use `Shader.DEFAULT`, however reading the property never returns null
@@ -784,18 +881,6 @@ declare global{
 		 * @performance This method is CPU-arithmetic, fast and usually inlined, however it uses a square root
 		 */
 		pixelRatio(): number
-		/**
-		 * Transform a point `(x, y)` by the current transformation matrix, returning the transformed point as an object `{x, y}`
-		 * @performance This method is CPU-arithmetic, very fast and usually inlined
-		 */
-		to(x: number, y: number): vec2
-		to(xy: vec2): vec2
-		/**
-		 * Inverse-transform a point `(x, y)` by the current transformation matrix, returning the original point as an object `{x, y}`
-		 * @performance This method is CPU-arithmetic, very fast and usually inlined, however it involves a division
-		 */
-		from(x: number, y: number): vec2
-		from(xy: vec2): vec2
 
 		/**
 		 * Draw a sprite at `(0,0)` to `(1,1)`
@@ -859,8 +944,33 @@ declare global{
 		 */
 		drawMatv(a: number, b: number, c: number, d: number, e: number, f: number, values: any[]): void
 	}
-	interface Drawable2DProjection extends Drawable2D{
-		g: number, h: number, i: number
+	interface Drawable2D extends _Drawable2D, Transformable2Dto2D{
+		a: number, b: number, c: number, d: number, e: number, f: number
+		/** Whether this drawable context has a projection component. False here. See `.sub3dProj()` */
+		readonly projection: false
+
+		/**
+		 * Reset all sub-context state (transform, shader, blend, mask, geometry) to match another drawable
+		 * @param ctx The drawable to copy state from. Resetting to a Drawable2DProjection or any kind of Drawable3D is invalid
+		 * @performance This method is CPU-logic, very fast and usually inlined
+		 */
+		resetTo(ctx: Drawable2D): void
+		/**
+		 * Reset the 2D transform to a matrix defined by the 6 values, or the default matrix (where (0,0) is the bottom-left and (1,1) is the top right)
+		 * 
+		 * The matrix is column-major, for right-multiplication
+		 * ```txt
+		 * in x y 1
+		 *  [ a c e ] -> out x
+		 *  [ b d f ] -> out y
+		 * ```
+		 */
+		reset(a?: number, b?: number, c?: number, d?: number, e?: number, f?: number): void
+	}
+	interface Drawable2DProjection extends _Drawable2D, Transformable2Dto3D{
+		a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number
+		/** Whether this drawable context has a projection component. True here */
+		readonly projection: true
 		/**
 		 * Reset all sub-context state (transform, shader, blend, mask, geometry) to match another drawable
 		 * @param ctx The drawable to copy state from. Resetting to a Drawable2D (lacking projection) or any kind of Drawable3D is invalid
@@ -880,31 +990,7 @@ declare global{
 		 */
 		reset(a?: number, b?: number, c?: number, d?: number, e?: number, f?: number, g?: number, h?: number, i?: number): void
 	}
-	interface Drawable3D extends Drawable, Transformable3D{
-		/** Whether this drawable context has a projection component. Usually true, unless you are drawing in an orthographic projection via `Drawable2D.sub3d()` */
-		readonly projection: boolean
-		/**
-		 * Create a sub-context, which points to the same target, stencil buffer, etc... as this one, much like `Texture.sub()`, however it keeps its own state such as transform, blend, mask, shader, geometry, making it ideal for passing to other functions that may modify their drawable context arbitrarily without us needing to revert it afterwards
-		 * @performance This method is CPU-logic, fast and usually inlined
-		 **/
-		sub(): Drawable3D
-		/**
-		 * Reset all sub-context state (transform, shader, blend, mask, geometry) to match another drawable.
-		 * @param ctx The drawable to copy state from. Resetting to a Drawable3DProjection or any kind of Drawable2D is invalid
-		 * @performance This method is CPU-logic, very fast and usually inlined
-		 */
-		resetTo(ctx: Drawable3D): void
-		/**
-		 * Reset the 3D transform to a matrix defined by the 6 values, or the default matrix (where (0,0,z) is the bottom-left and (1,1,z) is the top right for any z)
-		 * 
-		 * The matrix is column-major, for right-multiplication
-		 * ```txt
-		 * in x y z 1
-		 *  [ a c e g ] -> out x
-		 *  [ b d f h ] -> out y
-		 */
-		reset(a?: number, b?: number, c?: number, d?: number, e?: number, f?: number, g?: number, h?: number): void
-
+	interface _Drawable3D extends Drawable, Transformable3D{
 		/**
 		 * The shader to be used by all drawing operations. See `Shader()` for more info on custom shaders. Can be also set to `null` to use `Shader.DEFAULT`, however reading the property never returns null
 		 * @performance Changing this value will create a medium draw boundary (See `Drawable2D.draw()` for more info)
@@ -915,20 +1001,35 @@ declare global{
 		 * @performance Changing this value will create a light-to-medium draw boundary (See `Drawable2D.draw()` for more info)
 		 */
 		geometry: Geometry3D
-
 		/**
-		 * Transform a point `(x, y)` by the current transformation matrix, returning the transformed point as an object `{x, y}`
-		 * @performance This method is CPU-arithmetic, very fast and usually inlined
-		 */
-		to(x: number, y: number, z: number): vec2
-		to(xyz: vec3): vec2
+		 * Create a sub-context, which points to the same target, stencil buffer, etc... as this one, much like `Texture.sub()`, however it keeps its own state such as transform, blend, mask, shader, geometry, making it ideal for passing to other functions that may modify their drawable context arbitrarily without us needing to revert it afterwards
+		 * @performance This method is CPU-logic, fast and usually inlined
+		 **/
+		sub(): this
 		/**
-		 * Returns the point which transforms to a w (projection value) of 0 in screen space, essentially the "camera" position in a 3D transformation
+		 * Create a subcontext with one fewer dimension, which is capable of drawing 2D geometries using the (simpler) family of 2D transformations. The 2D context will have its X and Y axes correspond to this context's X and Y axes respectively
+		 * @performance This method is CPU-logic, fast and usually inlined
+		 **/
+		sub2dXY(): this extends Transformable3Dto3D ? Drawable2DProjection : Drawable2D
+		/**
+		 * Create a subcontext with one fewer dimension, which is capable of drawing 2D geometries using the (simpler) family of 2D transformations. The 2D context will have its X and Y axes correspond to this context's X and Z axes respectively
+		 * @performance This method is CPU-logic, fast and usually inlined
+		 **/
+		sub2dXZ(): this extends Transformable3Dto3D ? Drawable2DProjection : Drawable2D
+		/**
+		 * Create a subcontext with one fewer dimension, which is capable of drawing 2D geometries using the (simpler) family of 2D transformations. The 2D context will have its X and Y axes correspond to this context's Z and Y axes respectively
+		 * @performance This method is CPU-logic, fast and usually inlined
+		 **/
+		sub2dZY(): this extends Transformable3Dto3D ? Drawable2DProjection : Drawable2D
+		/**
+		 * Create a subcontext with additional perspective projection. This is useful for turning an orthographic projection into a perspective one, but is otherwise not particularly intuitive to use.
 		 * 
-		 * In non-perspective transformations, this doesn't make sense, and the value is always `vec3(NaN, NaN, NaN)`
-		 * @performance This performs a matrix inversion. For what it does, it is usually much faster to keep track of the camera's position manually and perform any additional math than to calculate it via this method every time it's needed
-		 */
-		origin(): vec3
+		 * Perspective transformation means that the Z component acts as a "scaling" factor for the X and Y components. By default, content drawn at (x,y,z) will appear at (x, y)/z. This can be changed with the `zBase` and `zScale` parameters. Content will then be drawn at (x, y)/(z*zScale + zBase). For example, `.sub3dProj(0, 1)`, the default, gives a typical perspective transform while `.sub3dProj(1, 0)` gives an orthographic transform (constant scaling)
+		 * 
+		 * Note that after you have applied any rotations, the "Z" direction controlling the scaling factor will also change, such that the vanishing point always appears where you expect it to.
+		 * @performance This method is CPU-logic, fast and usually inlined
+		 **/
+		subProj(zBase?: number, zScale?: number): Drawable3DProjection
 
 		/**
 		 * Draw a sprite at `(0,0,0)` to `(1,1,1)`
@@ -968,7 +1069,7 @@ declare global{
 		 * This version of drawRect() expects an array rather than spread parameters
 		 * @performance See `Drawable2D.draw()` for more info
 		 */
-		drawRectv(x: number, y: number, w: number, h: number, values: any[]): void
+		drawCubev(x: number, y: number, w: number, h: number, values: any[]): void
 		/**
 		 * Draw a sprite within a parallelogram defined by a matrix
 		 * 
@@ -979,22 +1080,46 @@ declare global{
 		 * @performance See `Drawable2D.draw()` for more info
 		 */
 		drawMatv(a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number, values: any[]): void
-		/**
-		 * Clear the whole draw target to a solid color
-		 * 
-		 * @performance Will create a light draw boundary (See `Drawable2D.draw()` for more info)
-		 */
-		clear(r: number, g : number, b : number, a: number): void
-		clear(r: vec4): void
-		/**
-		 * Clear the whole stencil buffer to 0
-		 * 
-		 * @performance Will create a light draw boundary (See `Drawable2D.draw()` for more info). Well-optimized, under the hood, all 8 bits of the stencil buffer are used. "Clearing" the stencil buffer will simply switch to another bit, until all 8 bits have been used up, at which point the buffer is actually cleared, this operation is often times cheaper than attempting to clear only a portion of the stencil buffer with a `draw*()` call, however, benchmark your specific case if you are unsure
-		 */
-		clearStencil(): void
 	}
-	interface Drawable3DProjection extends Drawable3D{
-		i: number, j: number, k: number, l: number
+	interface Drawable3D extends _Drawable3D, Transformable3Dto2D{
+		a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number
+		/** Whether this drawable context has a projection component. False here. See `.subProj()` */
+		readonly projection: false
+		/**
+		 * Reset all sub-context state (transform, shader, blend, mask, geometry) to match another drawable.
+		 * @param ctx The drawable to copy state from. Resetting to a Drawable3DProjection or any kind of Drawable2D is invalid
+		 * @performance This method is CPU-logic, very fast and usually inlined
+		 */
+		resetTo(ctx: Drawable3D): void
+		/**
+		 * Reset the 3D transform to a matrix defined by the 6 values, or the default matrix (where (0,0,z) is the bottom-left and (1,1,z) is the top right for any z)
+		 * 
+		 * The matrix is column-major, for right-multiplication
+		 * ```txt
+		 * in x y z 1
+		 *  [ a c e g ] -> out x
+		 *  [ b d f h ] -> out y
+		 */
+		reset(a?: number, b?: number, c?: number, d?: number, e?: number, f?: number, g?: number, h?: number): void
+
+		/**
+		 * Transform a point `(x, y)` by the current transformation matrix, returning the transformed point as an object `{x, y}`
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		project(x: number, y: number, z: number): vec2
+		project(xyz: vec3): vec2
+
+		/**
+		 * Returns the point which transforms to a w (projection value) of 0 in screen space, essentially the "camera" position in a 3D perspective transformation
+		 * 
+		 * Since this is a non-perspective transformations, this method doesn't make sense, and the returned value is always `vec3(NaN, NaN, NaN)`
+		 */
+		origin(): vec3
+	}
+	interface Drawable3DProjection extends _Drawable3D, Transformable3Dto3D{
+		a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number
+		/** Whether this drawable context has a projection component. True here */
+		readonly projection: true
 		/**
 		 * Reset all sub-context state (transform, shader, blend, mask, geometry) to match another drawable.
 		 * @param ctx The drawable to copy state from. Resetting to a Drawable3D (lacking projection) or any kind of Drawable2D is invalid
@@ -1012,6 +1137,12 @@ declare global{
 		 *  [ c f i l ]
 		 */
 		reset(a?: number, b?: number, c?: number, d?: number, e?: number, f?: number, g?: number, h?: number, i?: number, j?: number, k?: number, l?: number): void
+
+		/**
+		 * Returns the point which transforms to a w (projection value) of 0 in screen space, essentially the "camera" position in a 3D transformation
+		 * @performance This performs a matrix inversion. For what it does, it is usually much faster to keep track of the camera's position manually and perform any additional math than to calculate it via this method every time it's needed
+		 */
+		origin(): vec3
 	}
 
 	/** See `Drawable.mask` */ const R = 1
@@ -1164,8 +1295,8 @@ declare global{
 	 * - `CW_ONLY` Only render triangles whose vertices appear to go clockwise. This means the triangle is only visible from one side. For the specific case of TRIANGLE_STRIP, since the spin of each triangle alternates in normal geometry, this rule is essentially flipped for each triangle: the first triangle must be winding clockwise to be rendered, the second counterclockwise, the third clockwise, and so on...
 	 * - `CCW_ONLY` Ditto but the faces must appear to be going counterclockwise instead of clockwise. The same alternating behavior occurs for TRIANGLE_STRIP
 	 */
-	function Geometry2D(type: number): Geometry2D & Transformable2D
-	function Geometry2D(vertexParameters: Geometry2D.Vertex, type: number): Geometry2D & Transformable2D
+	function Geometry2D(type: number): Geometry2D & Transformable2D & Transformable2Dto2D
+	function Geometry2D(vertexParameters: Geometry2D.Vertex, type: number): Geometry2D & Transformable2D & Transformable2Dto2D
 	interface Geometry{
 		/** Primitive type, see `Geometry2D()`/`Geometry3D()` */
 		type: number
@@ -1206,20 +1337,20 @@ declare global{
 		/**
 		 * Create a 3D subgeometry for easily managing multiple separate transformations, much like `Drawable2D.sub3d()`. Note that any vertices added via 3D subgeometries of a Geometry2D is always flattened down to 2D using an orthographic projection
 		 */
-		sub3d(): this extends Transformable3D ? never : Geometry2D & Transformable3D
+		sub3d(): this extends Transformable3D ? never : Geometry2D & Transformable3D & Transformable3Dto2D
 
 		/**
 		 * Create a 2D subgeometry for easily managing multiple separate transformations, much like `Drawable3D.sub2dXY()`. Note that any vertices added via 3D subgeometries of a Geometry2D is always flattened down to 2D using an orthographic projection
 		 */
-		sub2dXY(): this extends Transformable2D ? never : Geometry2D & Transformable2D
+		sub2dXY(): this extends Transformable2D ? never : Geometry2D & Transformable2D & Transformable2Dto2D
 		/**
 		 * Create a 2D subgeometry for easily managing multiple separate transformations, much like `Drawable3D.sub2dXZ()`. Note that any vertices added via 3D subgeometries of a Geometry2D is always flattened down to 2D using an orthographic projection
 		 */
-		sub2dXZ(): this extends Transformable2D ? never : Geometry2D & Transformable2D
+		sub2dXZ(): this extends Transformable2D ? never : Geometry2D & Transformable2D & Transformable2Dto2D
 		/**
 		 * Create a 2D subgeometry for easily managing multiple separate transformations, much like `Drawable3D.sub2dZY()`. Note that any vertices added via 3D subgeometries of a Geometry2D is always flattened down to 2D using an orthographic projection
 		 */
-		sub2dZY(): this extends Transformable2D ? never : Geometry2D & Transformable2D
+		sub2dZY(): this extends Transformable2D ? never : Geometry2D & Transformable2D & Transformable2Dto2D
 
 		/** Add a point to the geometry at (x,y) with the current transform, and additional vertex values (see `Geometry2D.Vertex()`) */
 		addPoint(x: number, y: number, ...values: any[]): void
@@ -1272,8 +1403,8 @@ declare global{
 	 * - `CW_ONLY` Only render triangles whose vertices appear to go clockwise. This means the triangle is only visible from one side. For the specific case of TRIANGLE_STRIP, since the spin of each triangle alternates in normal geometry, this rule is essentially flipped for each triangle: the first triangle must be winding clockwise to be rendered, the second counterclockwise, the third clockwise, and so on...
 	 * - `CCW_ONLY` Ditto but the faces must appear to be going counterclockwise instead of clockwise. The same alternating behavior occurs for TRIANGLE_STRIP
 	 */
-	function Geometry3D(type: number): Geometry3D & Transformable3D
-	function Geometry3D(vertexParameters: Geometry3D.Vertex, type: number): Geometry3D & Transformable3D
+	function Geometry3D(type: number): Geometry3D & Transformable3D & Transformable3Dto3D
+	function Geometry3D(vertexParameters: Geometry3D.Vertex, type: number): Geometry3D & Transformable3D & Transformable3Dto3D
 	interface Geometry3D extends Geometry{
 		/**
 		 * Create a subgeometry, i.e a geometry containing only a subset of the points of this geometry, optionally with a different type
@@ -1287,20 +1418,20 @@ declare global{
 		/**
 		 * Create a 3D subgeometry for easily managing multiple separate transformations, much like `Drawable2D.sub3d()`
 		 */
-		sub3d(): this extends Transformable3D ? never : Geometry3D & Transformable3D
+		sub3d(): this extends Transformable3D ? never : Geometry3D & Transformable3D & Transformable3Dto3D
 
 		/**
 		 * Create a 2D subgeometry for easily managing multiple separate transformations, much like `Drawable3D.sub2dXY()`
 		 */
-		sub2dXY(): this extends Transformable2D ? never : Geometry3D & Transformable2D
+		sub2dXY(): this extends Transformable2D ? never : Geometry3D & Transformable2D & Transformable2Dto3D
 		/**
 		 * Create a 2D subgeometry for easily managing multiple separate transformations, much like `Drawable3D.sub2dXZ()`
 		 */
-		sub2dXZ(): this extends Transformable2D ? never : Geometry3D & Transformable2D
+		sub2dXZ(): this extends Transformable2D ? never : Geometry3D & Transformable2D & Transformable2Dto3D
 		/**
 		 * Create a 2D subgeometry for easily managing multiple separate transformations, much like `Drawable3D.sub2dZY()`
 		 */
-		sub2dZY(): this extends Transformable2D ? never : Geometry3D & Transformable2D
+		sub2dZY(): this extends Transformable2D ? never : Geometry3D & Transformable2D & Transformable2Dto3D
 
 		/** Add a point to the geometry at (x,y,z) with the current transform, and additional vertex values (see `Geometry2D.Vertex()`) */
 		addPoint(x: number, y: number, z: number, ...values: any[]): void

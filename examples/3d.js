@@ -1,5 +1,8 @@
 /// <reference path="../docs/monolith-global.d.ts" />
 
+
+const libnoise = await fetch('examples/libnoise.glsl').then(a => a.text())
+
 title = '3D demo'
 
 const fonts = {
@@ -56,44 +59,7 @@ void main(){
 	color = param0(pos) * alpha;
 }
 `, {params: COLOR})
-const skyShader = Shader(`
-uint uhash(uvec2 a){
-	uint x = ((a.x * 1597334673U) ^ (a.y * 3812015801U));
-	x = x * 0x7feb352du;
-	x = x ^ (x >> 15u);
-	x = x * 0x846ca68bu;
-	return x;
-}
-#define lerp(a,b,c) mix(a,b,c*c*(3.f-2.f*c))
-float valnoise(vec2 uv){
-	vec2 fa = floor(uv);
-	uv -= fa;
-	uvec2 i = uvec2(ivec2(fa));
-	uint x = uhash(i);
-	float a = float(x)/4294967296.;
-	i.x++; x = uhash(i);
-	a = lerp(a, float(x)/4294967296., uv.x);
-	i.y++; x = uhash(i);
-	float a2 = float(x)/4294967296.;
-	i.x--; x = uhash(i);
-	a2 = lerp(float(x)/4294967296., a2, uv.x);
-	return lerp(a, a2, uv.y);
-}
-vec2 valnoise2(vec2 uv){
-	vec2 fa = floor(uv);
-	uv -= fa;
-	uvec2 i = uvec2(ivec2(fa));
-	uint x = uhash(i);
-	float a = float(x&0xffffu)/65535., b = float(x>>16)/65535.;
-	i.x++; x = uhash(i);
-	a = lerp(a, float(x&0xffffu)/65535., uv.x); b = lerp(b, float(x>>16)/65535., uv.x);
-	i.y++; x = uhash(i);
-	float a2 = float(x&0xffffu)/65535., b2 = float(x>>16)/65535.;
-	i.x--; x = uhash(i);
-	a2 = lerp(float(x&0xffffu)/65535., a2, uv.x); b2 = lerp(float(x>>16)/65535., b2, uv.x);
-	return vec2(lerp(a, a2, uv.y), lerp(b, b2, uv.y));
-}
-
+const skyShader = Shader(`${libnoise}
 void main(){
 	vec3 p = pos*2.-1.;
 	vec3 a = normalize(p);
@@ -121,17 +87,17 @@ function drawText(ctx){
 		ctx3.rotateXZ(t)
 		ctx3.rotateXY(t)
 		ctx3.drawCube(-1, -1, -1, 2, 2, 2, vec4(.8,0,0,1))
-	const {x, y} = ctx.from(pointerLock ? vec2(.5) : cursor)
+	const {x, y} = ctx.unproject(pointerLock ? vec2(.5) : cursor)
 	label.draw(ctx.sub())
 	ctx.mask |= IF_SET
 	ctx.drawRect(x-.1, y-.01, .2, .02, vec4(0,0,0,1))
 	ctx.drawRect(x-.01, y-.1, .02, .2, vec4(0,0,0,1))
 }
 
-let surface = null
+let surface = null, surface2 = null
 
 let FOV = 90, targetFov = 90
-const ctx2 = Drawable(true)
+const altctx = Drawable(true), altctx2 = Drawable(false)
 
 const bulgeShader = Shader(`void main(){
 	vec2 uv = pos-.5; float j = 0.;
@@ -145,6 +111,62 @@ const bulgeShader = Shader(`void main(){
 	color.rgb = color.rgb*mat3(.393,.769,.189,.349,.686,.168,.272,.534,.131);
 }`, {uniforms: TEXTURE})
 
+const ghostShader = Shader(`void main(){
+	color = getColor(uni0, vec3(pos.xy, 0.)) * param0;
+}`, {uniforms: TEXTURE, params: FLOAT})
+
+const edgeShader = Shader(`vec4 cubic(float v){
+	vec4 s = vec4(1., 2., 3., 4.) - v;
+	s *= s*s;
+	float x = s.x, y = s.y - 4.*s.x, z = s.z - 4.*s.y + 6.*s.x;
+	return vec4(x, y, z, 6. - x - y - z) * .1666666667;
+}
+
+vec4 texture2(sampler2DArray sampler, vec2 texCoords, int m){
+	vec2 texSize = vec2(textureSize(sampler, m));
+	texCoords = texCoords * texSize - 0.5;
+	vec2 fxy = fract(texCoords);
+	texCoords -= fxy;
+	vec4 xcubic = cubic(fxy.x);
+	vec4 ycubic = cubic(fxy.y);
+	vec4 c = texCoords.xxyy + vec4(-.5, 1.5, -.5, 1.5);
+	vec4 s = vec4(xcubic.xz + xcubic.yw, ycubic.xz + ycubic.yw);
+	vec4 offset = c + vec4 (xcubic.yw, ycubic.yw) / s;
+	offset *= (1./texSize).xxyy;
+	float fm = float(m);
+	vec4 sample0 = textureLod(sampler, vec3(offset.xz,0.), fm);
+	vec4 sample1 = textureLod(sampler, vec3(offset.yz,0.), fm);
+	vec4 sample2 = textureLod(sampler, vec3(offset.xw,0.), fm);
+	vec4 sample3 = textureLod(sampler, vec3(offset.yw,0.), fm);
+	float sx = s.x / (s.x + s.y);
+	float sy = s.z / (s.z + s.w);
+	return mix(
+		mix(sample3, sample2, sx),
+		mix(sample1, sample0, sx)
+	, sy);
+}
+
+void main(){
+	color = texture2(uni0, pos, 0);
+	float a = 0., m = 16.;
+	for(int i = 2; i < 10; i++){
+		a += length(fwidth(texture2(uni0, pos, i).rgb)) * m;
+		m *= 1.;
+	}
+	color.rgb *= a;
+}`, {uniforms: TEXTURE})
+
+const waterShader = Shader(`${libnoise}
+void main(){
+	vec2 uv = pos; uv.x *= uni1; uv *= 10.;
+	uv += param0*vec2(.6,1.6);
+	vec2 off = valnoise2(uv);
+	off += param0*vec2(1.6,.5);
+	vec2 v = valnoise2(vec2(uv.x+uv.y, uv.x-uv.y)/2.8+off);
+	v -= .5; v.x *= uni1; v *= .1;
+	color = getColor(uni0, vec3(pos + v, 0.));
+}`, {uniforms: [TEXTURE, FLOAT], params: [FLOAT]})
+
 let sfx = 0
 let frames = []
 
@@ -152,7 +174,9 @@ const fogXzShader = Shader(`void main(){ color = param0(pos.xz)*(1.-1./(i_depth*
 
 render = () => {
 	ctxSupersample = keys.has(KEY.V) ? 0.125/devicePixelRatio : 1 + (devicePixelRatio < 2)
-	sfx = +keys.has(KEY.Q)
+	sfx = 0
+	for(let k = 0; k < 10; k++)
+		if(keys.has(KEY.NUM_0 + k)){ sfx = k; break }
 	if(keys.has(KEY.C)) targetFov = min(targetFov / SQRT2**dt, 15)
 	else targetFov = 90
 	FOV += (targetFov - FOV) * min(1, dt*20)
@@ -161,18 +185,20 @@ render = () => {
 	let scene = ctx
 	if(!surface || surface.width != width || surface.height != height){
 		surface?.delete()
-		surface = Texture(width, height, 1, SMOOTH, Formats.RGB565)
-		ctx2.setTarget(0, surface)
-		bulgeShader.uniforms(surface)
+		surface = Texture(width, height, 1, SMOOTH, Formats.RGB, 999)
+		surface2 = Texture(width, height, 1, 0, Formats.RGBA32F)
+		altctx.setTarget(0, surface)
+		altctx2.setTarget(0, surface2)
+		for(const sh of [bulgeShader, ghostShader, edgeShader, waterShader]) sh.uniforms(surface, width/height)
 	}
 	if(sfx){
-		scene = ctx2
+		scene = altctx
 		scene.clearStencil()
 	}
 	scene.reset(.025*height/width, 0, 0, .025, .5, .5)
 	const h = 40, w = width/height*40
 
-	let ctx3 = scene.sub3dProj(0, 1)
+	let ctx3 = scene.sub3dProj(keys.has(KEY.P)*.4, 1)
 	const sc = .16/tan(FOV * PI/360)
 	// Scale FOV without changing depth values (used for fog)
 	ctx3.scale(sc, sc, .01)
@@ -189,11 +215,20 @@ render = () => {
 		const d = hypot(vel.x, vel.z)
 		if(d > MAX_SPEED) vel.x *= MAX_SPEED/d, vel.z *= MAX_SPEED/d
 	}
-	pos.x += vel.x*dt; pos.y += vel.y*dt; pos.z += vel.z*dt
+	pos.x += vel.x*dt; pos.z += vel.z*dt
+	if(vel.y < 0 && pos.y<0) pos.y = tanh(atanh(pos.y*.55) + vel.y*dt*.55)/.55
+	else pos.y += vel.y*dt
 	const drag = .01**dt
 	vel.x *= drag; vel.y *= drag; vel.z *= drag
+	if(sfx==5){
+		ctx3.skewY(sin(t)*.25, cos(t)*.75)
+		ctx3.skewX(sin(t)*.5, cos(t)*.5)
+		ctx3.skewY(cos(t)*.5, sin(t)*.5)
+	}
 	ctx3.rotateZY(look.y)
 	ctx3.rotateXZ(-look.x)
+
+	const light = ctx3.metric(0, -0.25, 0)
 
 	ctx3.shader = skyShader
 	ctx3.geometry = Geometry3D.INSIDE_CUBE
@@ -218,19 +253,38 @@ render = () => {
 		ct2.scale(-1,1)
 		drawText(ct2)
 	}
-	cubeCtx.draw(vec4(.2,.85,.1,1))
+	cubeCtx.draw(vec4(.2,.85,.1,1), cubeCtx.metricFrom(light))
 	if(!(pos.z > -3))
 		drawText(ctx3.sub2dXY())
 	
-	if(!pointerLock){
-		const sc2 = scene.sub()
-		sc2.translate(fonts.ubuntu.measure('Click anywhere to lock pointer')*-.5, -18)
-		sc2.shader = Shader.MSDF
-		fonts.ubuntu.draw(sc2, 'Click anywhere to lock pointer', [vec4(.3+sin(t*PI)*.2)])
-	}
+	const hint = pointerLock ? 'Press 0-9 to try some special FX' : 'Click anywhere to lock pointer'
+	const sc2 = scene.sub()
+	sc2.translate(fonts.ubuntu.measure(hint)*-.5, -18)
+	sc2.shader = Shader.MSDF
+	fonts.ubuntu.draw(sc2, hint, [vec4(.3+sin(t*PI)*.2)])
 	if(sfx){
-		ctx.shader = bulgeShader
-		ctx.draw()
+		surface.genMipmaps()
+		switch(sfx){
+			case 1:
+				ctx.shader = bulgeShader
+				ctx.draw()
+				break
+			case 2:
+				altctx2.shader = ghostShader
+				altctx2.draw(1-.1**dt)
+				ctx.draw(surface2)
+				break
+			case 3:
+				ctx.shader = edgeShader
+				ctx.draw()
+				break
+			case 4:
+				ctx.shader = waterShader
+				ctx.draw(t)
+				break
+			default:
+				ctx.draw(surface)
+		}
 	}
 	ctx.resetTo(scene)
 	ctx.translate(-.5*w, .5*h - 1)

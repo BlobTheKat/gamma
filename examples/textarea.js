@@ -73,7 +73,7 @@ render = () => {
 		ctx.translate(-cxi,0)
 	if(!input.isSelecting)
 		cx = (input.sel0pos + input.sel1pos)*.5 * (input.multiline ? input.lineHeight : 1) + scr.y
-	const c = ctx.from(cursor)
+	const c = ctx.unproject(cursor)
 	//if(input.isSelecting || c.x > -.5 && c.x < input.width + .5 && c.y > -.5 && c.y < 1)
 	input.consumeInputs(ctx, c)
 	input.draw(ctx.sub())

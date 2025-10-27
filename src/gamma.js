@@ -156,18 +156,21 @@ $.Formats={
 $.vec2 = (x=0,y=x) => ({x,y})
 $.vec2.one = $.vec2(1); const v2z = $.vec2.zero = $.vec2(0)
 $.vec2.add = (a,b) => typeof b=='number'?{x:a.x+b,y:a.y+b}:{x:a.x+b.x,y:a.y+b.y}
+$.vec2.subtract = (a,b) => typeof a=='number'?{x:a-b.x,y:a-b.y}:{x:a.x-b.x,y:a.y-b.y}
 $.vec2.multiply = (a,b) => typeof b=='number'?{x:a.x*b,y:a.y*b}:{x:a.x*b.x,y:a.y*b.y}
 $.vec2.magnitude = a => sqrt(a.x*a.x+a.y*a.y)
 $.vec2.normalize = a => { const d = 1/sqrt(a.x*a.x+a.y*a.y); return {x:a.x*d, y: a.y*d} }
 $.vec3 = (x=0,y=x,z=x) => ({x,y,z})
 $.vec3.one = $.vec3(1); const v3z = $.vec3.zero = $.vec3(0)
 $.vec3.add = (a,b) => typeof b=='number'?{x:a.x+b,y:a.y+b,z:a.z+b}:{x:a.x+b.x,y:a.y+b.y,z:a.z+b.z}
+$.vec3.subtract = (a,b) => typeof a=='number'?{x:a-b.x,y:a-b.y,z:a-b.z}:{x:a.x-b.x,y:a.y-b.y,z:a.z-b.z}
 $.vec3.multiply = (a,b) => typeof b=='number'?{x:a.x*b,y:a.y*b,z:a.z*b}:{x:a.x*b.x,y:a.y*b.y,z:a.z*b.z}
 $.vec3.magnitude = a => sqrt(a.x*a.x+a.y*a.y+a.z*a.z)
 $.vec3.normalize = a => { const d = 1/sqrt(a.x*a.x+a.y*a.y+a.z*a.z); return {x:a.x*d, y: a.y*d, z: a.z*d} }
 $.vec4 = (x=0,y=x,z=x,w=x) => ({x,y,z,w})
 $.vec4.one = $.vec4(1); const v4z = $.vec4.zero = $.vec4(0)
 $.vec4.add = (a,b) => typeof b=='number'?{x:a.x+b,y:a.y+b,z:a.z+b,w:a.w+b}:{x:a.x+b.x,y:a.y+b.y,z:a.z+b.z,w:a.w+b.w}
+$.vec4.subtract = (a,b) => typeof a=='number'?{x:a-b.x,y:a-b.y,z:a-b.z,w:a-b.w}:{x:a.x-b.x,y:a.y-b.y,z:a.z-b.z,w:a.w-b.w}
 $.vec4.multiply = (a,b) => typeof b=='number'?{x:a.x*b,y:a.y*b,z:a.z*b,w:a.w*b}:{x:a.x*b.x,y:a.y*b.y,z:a.z*b.z,w:a.w*b.w}
 $.vec4.magnitude = a => sqrt(a.x*a.x+a.y*a.y+a.z*a.z+a.w*a.w)
 $.vec4.normalize = a => { const d = 1/sqrt(a.x*a.x+a.y*a.y+a.z*a.z+a.w*a.w); return {x:a.x*d, y: a.y*d, z: a.z*d, w: a.w*d} }
@@ -424,6 +427,7 @@ class Tex{
 		if(t.i < 0) gl.bindTexture(gl.TEXTURE_2D_ARRAY, null)
 	}
 	genMipmaps(){
+		i&&draw()
 		const {t} = this
 		if(t.m<2) return
 		Tex.fakeBind(t)
@@ -504,6 +508,19 @@ class t2D{
 		this.c=c*x+a*y;this.d=d*x+b*y
 	}
 	box(x=0,y=0,w=1,h=w){ this.e+=x*this.a+y*this.c; this.f+=x*this.b+y*this.d; this.a*=w; this.b*=w; this.c*=h; this.d*=h }
+	point(x=0, y=0){ if(typeof x=='object')({x,y}=x); return {x:this.a*x+this.c*y+this.e,y:this.b*x+this.d*y+this.f}}
+	metric(x=0, y=0){ if(typeof x=='object')({x,y}=x); return {x:this.a*x+this.c*y,y:this.b*x+this.d*y}}
+	pointFrom(x=0, y=0){
+		if(typeof x=='object')({x,y}=x)
+		const {a,b,c,d} = this, i_det = 1/(a*d-b*c)
+		x -= this.e; y -= this.f
+		return { x: (x*d - y*c)*i_det, y: (y*a - x*b)*i_det }
+	}
+	metricFrom(x=0, y=0){
+		if(typeof x=='object')({x,y}=x)
+		const {a,b,c,d} = this, i_det = 1/(a*d-b*c)
+		return { x: (x*d - y*c)*i_det, y: (y*a - x*b)*i_det }
+	}
 }
 
 // 3x3 matrix, maps R² -> R³
@@ -544,6 +561,14 @@ class t2t3D{
 		this.i+=x*this.c+y*this.f
 		this.a*=w; this.b*=w; this.c*=w
 		this.d*=h; this.e*=h; this.f*=h
+	}
+	point(x=0, y=0){
+		if(typeof x=='object')({x,y}=x)
+		return {x: this.a*x+this.d*y+this.g, y: this.b*x+this.e*y+this.h, z: this.c*x+this.f*y+this.i}
+	}
+	metric(x=0, y=0){
+		if(typeof x=='object')({x,y}=x)
+		return {x: this.a*x+this.d*y, y: this.b*x+this.e*y, z: this.c*x+this.f*y}
 	}
 }
 
@@ -619,6 +644,20 @@ class t3t2D{
 		this.a*=w; this.b*=w
 		this.c*=h; this.d*=h
 		this.e*=d; this.f*=d
+	}
+	point(x=0, y=0, z=0){
+		if(typeof x=='object')({x,y,z}=x)
+		return {
+			x: this.a*x+this.c*y+this.e*z+this.g,
+			y: this.b*x+this.d*y+this.f*z+this.h,
+		}
+	}
+	metric(x=0, y=0, z=0){
+		if(typeof x=='object')({x,y,z}=x)
+		return {
+			x: this.a*x+this.c*y+this.e*z,
+			y: this.b*x+this.d*y+this.f*z,
+		}
 	}
 }
 
@@ -704,6 +743,45 @@ class t3D{
 		this.d*=h; this.e*=h; this.f*=h
 		this.g*=d; this.h*=d; this.i*=d
 	}
+	point(x=0, y=0, z=0){
+		if(typeof x=='object')({x,y,z}=x)
+		return {
+			x: this.a*x+this.d*y+this.g*z+this.j,
+			y: this.b*x+this.e*y+this.h*z+this.k,
+			z: this.c*x+this.f*y+this.i*z+this.l
+		}
+	}
+	metric(x=0, y=0, z=0){
+		if(typeof x=='object')({x,y,z}=x)
+		return {
+			x: this.a*x+this.d*y+this.g*z,
+			y: this.b*x+this.e*y+this.h*z,
+			z: this.c*x+this.f*y+this.i*z
+		}
+	}
+	pointFrom(x=0, y=0, z=0){
+		if(typeof x=='object')({x,y,z}=x)
+		const {a,b,c,d,e,f,g,h,i} = this
+		x -= this.j; y -= this.k; z -= this.l
+		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e
+		const det = 1/(a*m + d*n + g*o)
+		return {
+			x: (m*x + (f*g-d*i)*y + (d*h-e*g)*z) * det,
+			y: (n*x + (a*i-c*g)*y + (b*g-a*h)*z) * det,
+			z: (o*x + (c*d-a*f)*y + (a*e-b*d)*z) * det
+		}
+	}
+	metricFrom(x=0, y=0, z=0){
+		if(typeof x=='object')({x,y,z}=x)
+		const {a,b,c,d,e,f,g,h,i} = this
+		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e
+		const det = 1/(a*m + d*n + g*o)
+		return {
+			x: (m*x + (f*g-d*i)*y + (d*h-e*g)*z) * det,
+			y: (n*x + (a*i-c*g)*y + (b*g-a*h)*z) * det,
+			z: (o*x + (c*d-a*f)*y + (a*e-b*d)*z) * det
+		}
+	}
 }
 
 const grow = ArrayBuffer.prototype.transfer ?
@@ -721,8 +799,8 @@ class Drw2D extends t2D{
 	resetTo(m){ this.a=m.a;this.b=m.b;this.c=m.c;this.d=m.d;this.e=m.e;this.f=m.f;this._mask=m._mask;this._sh=m._sh;this._shp=m._shp }
 	reset(a=1,b=0,c=0,d=1,e=0,f=0){if(typeof a=='object')({a,b,c,d,e,f}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this._mask=290787599;this._sh=$.Shader.DEFAULT;this._shp=geo2}
 	pixelRatio(){ return sqrt(abs(this.a*this.d-this.b*this.c)*this.t.w*this.t.h) }
-	to(x=0, y=0){ if(typeof x=='object')({x,y}=x); return {x:this.a*x+this.c*y+this.e,y:this.b*x+this.d*y+this.f}}
-	from(x=0, y=0){
+	project(x=0, y=0){ if(typeof x=='object')({x,y}=x); return {x:this.a*x+this.c*y+this.e,y:this.b*x+this.d*y+this.f}}
+	unproject(x=0, y=0){
 		if(typeof x=='object')({x,y}=x)
 		const {a,b,c,d} = this, i_det = 1/(a*d-b*c)
 		x -= this.e; y -= this.f
@@ -781,14 +859,14 @@ class Drw2t3D extends t2t3D{
 		- (this.d*i-this.g*this.f) * (this.b*i-this.h*this.c)
 		return sqrt(abs(v)*this.t.w*this.t.h)/(i*i)
 	}
-	to(x=0, y=0){
+	project(x=0, y=0){
 		if(typeof x=='object')({x,y}=x)
 		let p = this.c*x+this.f*y+this.i
 		if(p<=0) return {x:NaN,y:NaN}
 		p = 1/p
 		return {x:(this.a*x+this.d*y+this.g)*p,y:(this.b*x+this.e*y+this.h)*p}
 	}
-	from(x=0, y=0){
+	unproject(x=0, y=0){
 		if(typeof x=='object')({x,y}=x)
 		const {a,b,c,d,e,f,g,h,i} = this
 	// Definitely not plagiarized from ChatGPT
@@ -853,14 +931,14 @@ class Drw3t2D extends t3t2D{
 	sub2dXZ(){ return new Drw2D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.a,this.b,this.e,this.f,this.g,this.h) }
 	resetTo(m){ this.a=m.a;this.b=m.b;this.c=m.c;this.d=m.d;this.e=m.e;this.f=m.f;this.g=m.g;this.h=m.h;this._mask=m._mask;this._sh=m._sh;this._shp=m._shp }
 	reset(a=1,b=0,c=0,d=1,e=0,f=0,g=0,h=0){if(typeof a=='object')({a,b,c,d,e,f,g,h}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this._mask=290787599;this._sh=$.Shader.COLOR_3D_XZ;this._shp=geo3}
-	to(x=0, y=0, z=0){
+	project(x=0, y=0, z=0){
 		if(typeof x=='object')({x,y,z=0}=x)
 		let p = this.c*x+this.f*y+this.i*z+this.l
 		if(p <= 0) return {x:NaN,y:NaN}
 		p = 1/p
 		return { x: (this.a*x+this.d*y+this.g*z+this.j)*p, y: (this.b*x+this.e*y+this.h*z+this.k)*p }
 	}
-	from(x=0, y=0){
+	unproject(x=0, y=0){
 		if(typeof x=='object')({x,y}=x)
 		const {a,b,c,d,e,f,g,h,i} = this
 		x -= this.j; y -= this.k
@@ -921,14 +999,14 @@ class Drw3D extends t3D{
 	sub2dXZ(){ return new Drw2t3D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.a,this.b,this.c,this.g,this.h,this.i,this.j,this.k,this.l) }
 	resetTo(m){ this.a=m.a;this.b=m.b;this.c=m.c;this.d=m.d;this.e=m.e;this.f=m.f;this.g=m.g;this.h=m.h;this.i=m.i;this.j=m.j;this.k=m.k;this.l=m.l;this._mask=m._mask;this._sh=m._sh;this._shp=m._shp }
 	reset(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1,j=0,k=0,l=0){if(typeof a=='object')({a,b,c,d,e,f,g,h,i,j,k,l}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this.i=i;this.j=j;this.k=k;this.l=l;this._mask=290787599;this._sh=$.Shader.COLOR_3D_XZ;this._shp=geo3}
-	to(x=0, y=0, z=0){
+	project(x=0, y=0, z=0){
 		if(typeof x=='object')({x,y,z=0}=x)
 		let p = this.c*x+this.f*y+this.i*z+this.l
 		if(p <= 0) return {x:NaN,y:NaN}
 		p = 1/p
 		return { x: (this.a*x+this.d*y+this.g*z+this.j)*p, y: (this.b*x+this.e*y+this.h*z+this.k)*p }
 	}
-	from(x=0, y=0){
+	unproject(x=0, y=0){
 		if(typeof x=='object')({x,y}=x)
 		const {a,b,c,d,e,f,g,h,i} = this
 		x -= this.j; y -= this.k
@@ -1368,6 +1446,7 @@ function setupGenericVao3(t){
 const y = Object.getOwnPropertyDescriptors({
 	get size(){ return this.t._size },
 	get uploadCount(){ return this.t._usize },
+	get vertex(){ return this.t.vtx },
 	_setShp(){
 		const {t} = this
 		i&&draw(); shp = this
@@ -1480,14 +1559,14 @@ $.Geometry2D = (v = null, type=5) => {
 	const {_pack, _vcount, three} = v ?? $.Geometry2D.DEFAULT_VERTEX
 	if(three) return null
 	const arr = new Float32Array(16)
-	return new Geo2D({arr, iarr: new Int32Array(arr.buffer), i: 0, b: gl.createBuffer(), _pack, _vcount, _size: 0, _usize: 0, v: null, _elB: null, _elT: 0},0,0,type)
+	return new Geo2D({arr, iarr: new Int32Array(arr.buffer), i: 0, vtx: v, b: gl.createBuffer(), _pack, _vcount, _size: 0, _usize: 0, v: null, _elB: null, _elT: 0},0,0,type)
 }
 $.Geometry3D = (v = null, type=5) => {
 	if(typeof v == 'number') type = v, v = null
 	const {_pack, _vcount, three} = v ?? $.Geometry3D.DEFAULT_VERTEX
 	if(!three) return null
 	const arr = new Float32Array(16)
-	return new Geo3D({arr, iarr: new Int32Array(arr.buffer), i: 0, b: gl.createBuffer(), _pack, _vcount, _size: 0, _usize: 0, v: gl.createVertexArray(), L: null, Ls: 0, _elB: null, _elT: 0},0,0,type)
+	return new Geo3D({arr, iarr: new Int32Array(arr.buffer), i: 0, vtx: v, b: gl.createBuffer(), _pack, _vcount, _size: 0, _usize: 0, v: gl.createVertexArray(), L: null, Ls: 0, _elB: null, _elT: 0},0,0,type)
 }
 
 $.Geometry2D.Vertex = vfgen.bind(null, false)
@@ -1507,7 +1586,7 @@ $.Shader = (src, {params, defaults: _defaults, uniforms, uniformDefaults: _uDefa
 	outputs = typeof outputs=='number' ? [outputs] : outputs || []
 	if(outputs.length > Drawable.MAX_TARGETS) throw `Too many shader outputs (Drawable.MAX_TARGETS == ${Drawable.MAX_TARGETS})`
 	const matWidth = 3+vertex.three
-	const fnParams = [], fnBody = [''], vShaderHead = [`#version 300 es\nprecision highp float;precision highp int;layout(location=0)in mat3x${matWidth} m;layout(location=${maxAttribs-1})in uvec4 o0;out vec4 GL_v0;`], vShaderBody = [`void main(){gl_PointSize=1.;gl_Position.xyw=vec${matWidth}(1.,GL_v0.xy${vertex.three?'z':''}=uintBitsToFloat(o0.xy${vertex.three?'z':''}))*m;gl_Position.xy=gl_Position.xy*2.-gl_Position.w;gl_Position.z=0.;`], fShaderHead = [`#version 300 es\nprecision highp float;precision highp int;in vec4 GL_v0;\n#define color color0\n#define i_depth gl_FragCoord.w\n#define pos GL_v0.xy${matWidth>3?'z':''}\n`+outputs.map((o,i) => `layout(location=${i})out ${!o?'':o==16||o==32?'u':'lowp '}vec4 color${i};`).join(';'),'']
+	const fnParams = [], fnBody = [''], vShaderHead = [`#version 300 es\nprecision highp float;precision highp int;layout(location=0)in mat3x${matWidth} m;layout(location=${maxAttribs-1})in uvec4 o0;out vec4 GL_v0;`], vShaderBody = [`void main(){gl_Position.xyw=vec${matWidth}(1.,GL_v0.xy${vertex.three?'z':''}=uintBitsToFloat(o0.xy${vertex.three?'z':''}))*m;gl_Position.xy=gl_Position.xy*2.-gl_Position.w;gl_Position.z=0.;gl_PointSize=1.;`], fShaderHead = [`#version 300 es\nprecision highp float;precision highp int;in vec4 GL_v0;\n#define color color0\n#define i_depth gl_FragCoord.w\n#define pos GL_v0.xy${matWidth>3?'z':''}\n`+outputs.map((o,i) => `layout(location=${i})out ${!o?'':o==16||o==32?'u':'lowp '}vec4 color${i};`).join(';'),'']
 	let used = 0, fCount = 0, iCount = 0, attrs = 0
 	const texCheck = []
 	const addAttr = (sz=0) => {

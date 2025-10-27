@@ -241,7 +241,7 @@
 		lineAscend = .9
 		#lc = 0
 		get height(){return this.lineHeight*(this.#pa?this.#pa.length:1)}
-		consumeInputs(ctx, {x, y} = ctx.from($.cursor), k = $.keys.has(0)){
+		consumeInputs(ctx, {x, y} = ctx.unproject($.cursor), k = $.keys.has(0)){
 			y = this.lineAscend-y; cursorType = 'text'
 			if(!k) return void(this._f &= -513)
 			if(document.activeElement != this.#i)
