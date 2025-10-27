@@ -18,7 +18,7 @@
 	let ow = 0, oh = 0
 	$.render = null
 	$.ctxSupersample = 1
-	Gamma(undefined, $).loop(() => {
+	Gamma(undefined, $, 31).loop(() => {
 		const px = $.pixelRatio = devicePixelRatio * ctxSupersample
 		const w = innerWidth, h = innerHeight
 		if(ow!=(ow=round(w*px))|oh!=(oh=round(h*px))) $.setSize(ow, oh)

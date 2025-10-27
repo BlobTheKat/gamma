@@ -805,19 +805,18 @@ $.Shader.font = (src, o={}) => {
 						if(!_m) q2.push(q2.#_m = false)
 						s2.#setv(q2)
 					}
-					const iOnly = (ty&32)!=0 && !!q2.#_f
+					const iOnly = (ty&32)!=0
 					if(l){
 						let s = l
 						if(j<l.length) s = l.slice(0,j), l=l.slice(j),j=0
 						else j -= l.length, l = ''
-						iOnly&&q2.push(null)
+						iOnly&&q2.#_f&&q2.push(null)
 						if(s) q2.push(s)
 						if(q2.#_m) q2.#len += s.length
-						iOnly&&q2.push(q2.#_f)
+						iOnly&&q2.#_f&&q2.push(q2.#_f)
 					}
 					while(j > 0){
 						const s = q[idx++]
-						if(idx > q.length) debugger
 						if(typeof s == 'number'){
 							const v = q[idx++]
 							q2.push(s, v)

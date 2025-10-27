@@ -433,6 +433,8 @@ class Tex{
 }
 $.Drawable = (stencil = false) => new Drw2D({ _fb: gl.createFramebuffer(), _stencil: 0, _stenBuf: stencil ? gl.createRenderbuffer() : null, w: 0, h: 0, u: 0 })
 $.Drawable.MAX_TARGETS = gl.getParameter(gl.MAX_COLOR_ATTACHMENTS)
+$.Drawable.DRAW_32F = !!gl.getExtension('EXT_color_buffer_float')
+$.Drawable.DRAW_16F = !!gl.getExtension('EXT_color_buffer_half_float')
 let arr = new Float32Array(1024), iarr = new Int32Array(arr.buffer), i = 0
 $.Texture = (w = 0, h = 0, d = 1, o = 0, f = Formats.RGBA, mips = 0) => {
 	mips = min((mips>>>0)||1, floor(log2(max(w, h)))+1)
@@ -1163,11 +1165,18 @@ function draw(b = shuniBind){
 	} pendingFences.length = 0 }
 }
 
+/*
 const switcher = (f,s,e) => {
 	let m = 'switch(u){'
 	while(s<e) m += `case ${s}:${f(s++)}`
 	return m+'}'
 }
+/*/
+const switcher = (f,s,e) => {
+	if(e<=s+1) return f(s)
+	const m = s+(e-s>>1)
+	return `if(u<${m}){${switcher(f,s,m)}}else{${switcher(f,m,e)}}`
+} //*/
 const names = ['float','vec2','vec3','vec4','int','ivec2','ivec3','ivec4','uint','uvec2','uvec3','uvec4']
 const maxAttribs = gl.getParameter(gl.MAX_VERTEX_ATTRIBS)
 function switchShader(s, fc, fm, c){ sh = s; shfCount = fc; shfMask = fm; shCount = c }
@@ -1490,7 +1499,6 @@ geo2.upload()
 geo3.upload(new Uint8Array([4, 6, 0, 2, 3, 6, 7, 4, 5, 0, 1, 3, 5, 7]))
 $.Geometry3D.INSIDE_CUBE = geo3.sub(0, 14, 37)
 $.Geometry3D.XZ_FACE = geo3.sub(7, 4, 21)
-
 $.Shader = (src, {params, defaults: _defaults, uniforms, uniformDefaults: _uDefaults, outputs=4, vertex = $.Geometry2D.DEFAULT_VERTEX, intFrac=0.5}={}) => {
 	params = typeof params=='number' ? [params] : params || []
 	uniforms = typeof uniforms=='number' ? [uniforms] : uniforms || []
@@ -1499,7 +1507,7 @@ $.Shader = (src, {params, defaults: _defaults, uniforms, uniformDefaults: _uDefa
 	outputs = typeof outputs=='number' ? [outputs] : outputs || []
 	if(outputs.length > Drawable.MAX_TARGETS) throw `Too many shader outputs (Drawable.MAX_TARGETS == ${Drawable.MAX_TARGETS})`
 	const matWidth = 3+vertex.three
-	const fnParams = [], fnBody = [''], vShaderHead = [`#version 300 es\nprecision highp float;precision highp int;layout(location=0)in mat3x${matWidth} m;layout(location=${maxAttribs-1})in uvec4 o0;out vec4 GL_v0;`], vShaderBody = [`void main(){gl_PointSize=1.;gl_Position.z=0.;gl_Position.xyw=vec${matWidth}(1.,GL_v0.xy${vertex.three?'z':''}=uintBitsToFloat(o0.xy${vertex.three?'z':''}))*m;gl_Position.xy=gl_Position.xy*2.-gl_Position.w;`], fShaderHead = [`#version 300 es\nprecision highp float;precision highp int;in vec4 GL_v0;\n#define color color0\n#define pos GL_v0.xy${matWidth>3?'z':''}\n`+outputs.map((o,i) => `layout(location=${i})out ${!o?'':o==16||o==32?'u':'lowp '}vec4 color${i};`).join(';'),'']
+	const fnParams = [], fnBody = [''], vShaderHead = [`#version 300 es\nprecision highp float;precision highp int;layout(location=0)in mat3x${matWidth} m;layout(location=${maxAttribs-1})in uvec4 o0;out vec4 GL_v0;`], vShaderBody = [`void main(){gl_PointSize=1.;gl_Position.xyw=vec${matWidth}(1.,GL_v0.xy${vertex.three?'z':''}=uintBitsToFloat(o0.xy${vertex.three?'z':''}))*m;gl_Position.xy=gl_Position.xy*2.-gl_Position.w;gl_Position.z=0.;`], fShaderHead = [`#version 300 es\nprecision highp float;precision highp int;in vec4 GL_v0;\n#define color color0\n#define i_depth gl_FragCoord.w\n#define pos GL_v0.xy${matWidth>3?'z':''}\n`+outputs.map((o,i) => `layout(location=${i})out ${!o?'':o==16||o==32?'u':'lowp '}vec4 color${i};`).join(';'),'']
 	let used = 0, fCount = 0, iCount = 0, attrs = 0
 	const texCheck = []
 	const addAttr = (sz=0) => {
@@ -1572,16 +1580,16 @@ $.Shader = (src, {params, defaults: _defaults, uniforms, uniformDefaults: _uDefa
 		if(t>=28&&t<32){
 			bindUniTexBody.push(`gl.uniform1i(uniLocs[${uniNames.length}],s${states.length}?Tex.auto(s${states.length},${-(t>29)}):-1)`)
 			uniNames.push('uni'+id)
-			fShaderHead.push(`uniform int uni${id};`)
+			fShaderHead.push(`uniform ${t>29?'u':''}sampler2DArray uni${id};`)
 			uniFnBody.push(`s${states.length}=a${id}.t`)
 			states.push(`,s${states.length}=null`)
 		}else if(t>=12&&t<16){
-			const v = 'GL_u'+id, v2 = 'GL_U'+id
-			bindUniTexBody.push(`gl.uniform1i(uniLocs[${uniNames.length}],(s${states.length}?Tex.auto(s${states.length},${-(t>13)}):-1)|s${states.length+1})`)
-			fShaderHead.push(t>13?`uniform int ${v};uniform uvec4 ${v2}; ${t==14?'i':'u'}vec4 uni${id}(vec2 uv){if(${v}<0)return ${t==14?`ivec4(${v2})`:v2};return ${t==14?'i':'u'}GetColor(${v}&255,vec3(uv*uintBitsToFloat(${v2}.zw)+uintBitsToFloat(${v2}.xy),${v}>>8));}`:`uniform int ${v};uniform vec4 ${v2}; ${t==12?'lowp ':''}vec4 uni${id}(vec2 uv){if(${v}<0)return ${v2};return fGetColor(${v}&255,vec3(uv*${v2}.zw+${v2}.xy,${v}>>8));}`)
-			uniFnBody.push(`if(s${states.length}=a${id}.t){s${states.length+1}=a${id}.l<<8;${t>13?`f4arr[0]=a${id}.x,f4arr[1]=a${id}.y,f4arr[2]=a${id}.w,f4arr[3]=a${id}.h;gl.uniform4ui`:'gl.uniform4f'}(uniLocs[${uniNames.length-1}],${t>13?`i4arr[0],i4arr[1],i4arr[2],i4arr[3]`:`a${id}.x,a${id}.y,a${id}.w,a${id}.h`})}else gl.uniform4${t>13?'ui':'f'}(uniLocs[${uniNames.length-1}],a${id}.x,a${id}.y,a${id}.z,a${id}.w)`)
-			uniNames.push(v, v2)
-			states.push(`,s${states.length}=null,s${states.length+1}=0`)
+			const v = 'GL_u'+id, v2 = 'GL_U'+id, v3 = 'GL_L'+id
+			bindUniTexBody.push(`if(s${states.length})gl.uniform1i(uniLocs[${uniNames.length}],Tex.auto(s${states.length},${-(t>13)}))`)
+			fShaderHead.push(t>13?`uniform usampler2DArray ${v};uniform float ${v3};uniform uvec4 ${v2}; ${t==14?'i':'u'}vec4 uni${id}(vec2 uv){if(${v3}<0.)return ${t==14?`ivec4(${v2})`:v2};return ${t==14?'i':'u'}GetColor(${v},vec3(uv*uintBitsToFloat(${v2}.zw)+uintBitsToFloat(${v2}.xy),${v3}));}`:`uniform sampler2DArray ${v};uniform float ${v3};uniform vec4 ${v2}; ${t==12?'lowp ':''}vec4 uni${id}(vec2 uv){if(${v3}<0.)return ${v2};return texture(${v},vec3(uv*${v2}.zw+${v2}.xy,${v3}));}`)
+			uniFnBody.push(`if(s${states.length}=a${id}.t){gl.uniform1f(uniLocs[${uniNames.length+2}],a${id}.l);${t>13?`f4arr[0]=a${id}.x,f4arr[1]=a${id}.y,f4arr[2]=a${id}.w,f4arr[3]=a${id}.h;gl.uniform4ui`:'gl.uniform4f'}(uniLocs[${uniNames.length+1}],${t>13?`i4arr[0],i4arr[1],i4arr[2],i4arr[3]`:`a${id}.x,a${id}.y,a${id}.w,a${id}.h`})}else gl.uniform1f(uniLocs[${uniNames.length+2}],-1),gl.uniform4${t>13?'ui':'f'}(uniLocs[${uniNames.length+1}],a${id}.x,a${id}.y,a${id}.z,a${id}.w)`)
+			uniNames.push(v, v2, v3)
+			states.push(`,s${states.length}=null`)
 		}else{
 			fShaderHead.push(`uniform ${names[t&3|t>>4<<2]} uni${id};`)
 			let args = `gl.uniform${sz+(t<16?'f':t<32?'i':'ui')}(uniLocs[${uniNames.length}]`
@@ -1599,19 +1607,23 @@ $.Shader = (src, {params, defaults: _defaults, uniforms, uniformDefaults: _uDefa
 	const vlowest = maxAttribs-(vertex._vcount+3>>2)
 	fCount = fCount?iCount?fCount+round(intFrac * (maxTex-fCount-iCount)):maxTex:0
 	iCount = iCount && maxTex - fCount
-	let T = null, head = ''
+	let T = null, head = `precision highp usampler2DArray; precision ${used&2?'highp':'lowp'} sampler2DArray;`
 	// any tex
-	if(used&15) head += `uniform ${used&2?'highp':'lowp'} sampler2DArray GL_f[${fCount}];\
-ivec3 getSize(int u,int l){${switcher(i=>`return textureSize(GL_${i<fCount?'f['+i:'i['+(i-fCount)}],l);`,0,maxTex)}}`
+	if(used&15) head += `uniform sampler2DArray GL_f[${fCount}];\
+ivec3 textureSize(int u,int l){${switcher(i=>`return textureSize(GL_${i<fCount?'f['+i:'i['+(i-fCount)}],l);`,0,maxTex)}}\n#define getSize textureSize\n`
 	// any int tex
-	if(used&12) head += `uniform highp usampler2DArray GL_i[${iCount}];\
+	if(used&12) head += `uniform usampler2DArray GL_i[${iCount}];\
 uvec4 uGetColor(int u,vec3 p){${switcher(i=>`return texture(GL_i[${i-maxTex}],p);`,maxTex,2*maxTex-fCount)}}\
 uvec4 uGetPixel(int u,ivec3 p,int l){${switcher(i=>`return texelFetch(GL_i[${i-maxTex}],p,l);`,maxTex,2*maxTex-fCount)}}\
-\n#define iGetColor(a,b) ivec4(uGetColor(a,b))\n#define iGetPixel(a,b,c) ivec4(uGetPixel(a,b,c))\n`
+uvec4 uGetColor(usampler2DArray u,vec3 p){return texture(u,p);}\
+uvec4 uGetPixel(usampler2DArray u,ivec3 p,int l){return texelFetch(u,p,l);}
+#define iGetColor(a,b) ivec4(uGetColor(a,b))\n#define iGetPixel(a,b,c) ivec4(uGetPixel(a,b,c))\n`
 	// Any float texture
 	if(used&3) head += `vec4 fGetColor(int u,vec3 p){${switcher(i=>`return texture(GL_f[${i}],p);`,0,fCount)}}lowp vec4 GL_lp(vec4 x){return x;}\
-vec4 fGetPixel(int u,ivec3 p,int l){${T||switcher(i=>`return texelFetch(GL_f[${i}],p,l);`,0,fCount)}}\
-\n#define getColor(a,b)GL_lp(fGetColor(a,b))\n#define getPixel(a,b,c)GL_lp(fGetPixel(a,b,c))\n`
+vec4 fGetColor(sampler2DArray t,vec3 p){return texture(t,p);}\
+vec4 fGetPixel(sampler2DArray t,ivec3 p,int l){return texelFetch(t,p,l);}\
+vec4 fGetPixel(int u,ivec3 p,int l){${T||switcher(i=>`return texelFetch(GL_f[${i}],p,l);`,0,fCount)}}
+#define getColor(a,b)GL_lp(fGetColor(a,b))\n#define getPixel(a,b,c)GL_lp(fGetPixel(a,b,c))\n`
 	fShaderHead[1] = head
 	const fMask = 32-fCount&&(-1>>>fCount|0)
 	uniFnBody[0] = `i&&draw(0);if(sh!=s){gl.useProgram(program);switchShader(s,${fCount},${fMask},${matWidth>3 ? attrs+matWidth*(matWidth-1)+')' : `lv==shVao3?${attrs+9}:${attrs+6});switchVao(lv)`}}`
@@ -1676,7 +1688,7 @@ let fdc = 0, fs = 0, fd = 0
 $.Shader.UINT = $.Shader(`void main(){color=param0;}`, {params:$.UVEC4, outputs:$.UINT})
 $.Shader.BLACK = $.Shader(`void main(){color=vec4(0,0,0,1);}`)
 $.Shader.DEFAULT = $.Shader(`void main(){color=param0(pos)*param1;}`, {params:[$.COLOR, $.VEC4], defaults:[void 0, $.vec4.one]})
-$.Shader.COLOR_3D_XZ = $.Shader(`void main(){color=param0(pos.xz);}`, {params:[$.COLOR], defaults:[void 0, $.vec4.one],vertex:Geometry3D.DEFAULT_VERTEX})
+$.Shader.COLOR_3D_XZ = $.Shader(`void main(){color=param0(pos.xz);}`, {params:[$.COLOR],vertex:Geometry3D.DEFAULT_VERTEX})
 $.Shader.SHADED_3D = $.Shader(`void main(){float a=(1.+dot(normalize(cross(dFdx(pos),dFdy(pos))),param1));color=param0(pos.xy);color.rgb*=a;}`, {params:[$.COLOR,$.VEC3], defaults:[void 0,vec3(-.15,-.3,0)],vertex:Geometry3D.DEFAULT_VERTEX})
 let lastClr = 0
 $.flush = () => {

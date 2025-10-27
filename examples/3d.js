@@ -42,6 +42,9 @@ onKey(MOUSE.LEFT, () => {
 	pointerLock = true
 })
 let pos = vec3(0, 0, -6), vel = vec3(), look = vec2()
+globalThis.pos = pos
+globalThis.vel = vel
+globalThis.look = look
 
 Shader.AA_CIRCLE ??= Shader(`
 void main(){
@@ -112,10 +115,9 @@ function drawText(ctx){
 	ctx.drawRect(-1.5, -.75, label.width+2, 1.5, vec4(0,0,0,.5))
 	ctx.mask = RGBA
 	let ctx3 = ctx.sub(); ctx3.translate(-.75, 0)
-	ctx3 = ctx3.sub3dProj()
+	ctx3 = ctx3.sub3dProj(4, 1)
 		ctx3.shader = Shader.SHADED_3D
 		ctx3.geometry = Geometry3D.CUBE
-		ctx3.translate(0, 0, 4)
 		ctx3.rotateXZ(t)
 		ctx3.rotateXY(t)
 		ctx3.drawCube(-1, -1, -1, 2, 2, 2, vec4(.8,0,0,1))
@@ -132,13 +134,25 @@ let FOV = 90, targetFov = 90
 const ctx2 = Drawable(true)
 
 const bulgeShader = Shader(`void main(){
-	vec2 uv = pos-.5;
-	uv *= 2.-length(uv)*1.8;
-	color = getColor(param0, vec3(uv+.5,0.));
-}`, {params: TEXTURE})
+	vec2 uv = pos-.5; float j = 0.;
+	color = vec4(0);
+	for(float i = .5; i <= 1.; i += .03){
+		j++;
+		vec2 uv = uv * (i + 1. - length(uv)*i*2.);
+		color += getColor(uni0, vec3(uv+.5, 0.));
+	}
+	color /= j;
+	color.rgb = color.rgb*mat3(.393,.769,.189,.349,.686,.168,.272,.534,.131);
+}`, {uniforms: TEXTURE})
+
+let sfx = 0
+let frames = []
+
+const fogXzShader = Shader(`void main(){ color = param0(pos.xz)*(1.-1./(i_depth*i_depth)); }`, {params: COLOR, vertex: Geometry3D.DEFAULT_VERTEX})
 
 render = () => {
-	const warp = keys.has(KEY.Q)
+	ctxSupersample = keys.has(KEY.V) ? 0.125/devicePixelRatio : 1 + (devicePixelRatio < 2)
+	sfx = +keys.has(KEY.Q)
 	if(keys.has(KEY.C)) targetFov = min(targetFov / SQRT2**dt, 15)
 	else targetFov = 90
 	FOV += (targetFov - FOV) * min(1, dt*20)
@@ -147,17 +161,21 @@ render = () => {
 	let scene = ctx
 	if(!surface || surface.width != width || surface.height != height){
 		surface?.delete()
-		surface = Texture(width, height, 1, SMOOTH, Formats.RGBA4)
+		surface = Texture(width, height, 1, SMOOTH, Formats.RGB565)
 		ctx2.setTarget(0, surface)
+		bulgeShader.uniforms(surface)
 	}
-	if(warp){
+	if(sfx){
 		scene = ctx2
 		scene.clearStencil()
 	}
-	scene.reset(.05*height/width, 0, 0, .05, .5, .5)
+	scene.reset(.025*height/width, 0, 0, .025, .5, .5)
+	const h = 40, w = width/height*40
 
-	let ctx3 = scene.sub3dProj(0, .125*tan(FOV * PI/360))
-
+	let ctx3 = scene.sub3dProj(0, 1)
+	const sc = .16/tan(FOV * PI/360)
+	// Scale FOV without changing depth values (used for fog)
+	ctx3.scale(sc, sc, .01)
 
 	if(pointerLock){
 		look.x = (look.x + rawMouse.x*.00003*FOV) % PI2
@@ -183,8 +201,8 @@ render = () => {
 	ctx3.translate(-pos.x, -pos.y, -pos.z)
 
 	ctx3.geometry = Geometry3D.XZ_FACE
-	ctx3.shader = Shader.COLOR_3D_XZ
-	ctx3.drawCube(-250, -2, -250, 500, 10, 500, ground)
+	ctx3.shader = fogXzShader
+	ctx3.drawCube(floor(pos.x*.2)*5-250, -2, floor(pos.z*.2)*5-250, 500, 0, 500, ground)
 	
 	ctx3.geometry = cyl
 	ctx3.shader = Shader.SHADED_3D
@@ -205,15 +223,24 @@ render = () => {
 		drawText(ctx3.sub2dXY())
 	
 	if(!pointerLock){
-		scene.scale(0.5)
-		scene.translate(fonts.ubuntu.measure('Click anywhere to lock pointer')*-.5, -18)
-		scene.shader = Shader.MSDF
-		fonts.ubuntu.draw(scene, 'Click anywhere to lock pointer', [vec4(.3+sin(t*PI)*.2)])
+		const sc2 = scene.sub()
+		sc2.translate(fonts.ubuntu.measure('Click anywhere to lock pointer')*-.5, -18)
+		sc2.shader = Shader.MSDF
+		fonts.ubuntu.draw(sc2, 'Click anywhere to lock pointer', [vec4(.3+sin(t*PI)*.2)])
 	}
-	ctxSupersample = keys.has(KEY.V) ? 0.125/devicePixelRatio : 1 + (devicePixelRatio < 2)
-
-	if(warp){
+	if(sfx){
 		ctx.shader = bulgeShader
-		ctx.draw(surface)
+		ctx.draw()
 	}
+	ctx.resetTo(scene)
+	ctx.translate(-.5*w, .5*h - 1)
+	ctx.shader = Shader.MSDF
+	let i = 0
+	frames.push(t+1)
+	const fps = (frames.length-1)/(t+1-frames[0])
+	while(frames[i] < t) i++
+	if(i) frames.splice(0, i)
+	const str = `FPS: ${fps==fps?fps.toFixed(1):'-'}`
+	fonts.ubuntu.draw(ctx.sub(), str, [vec4(0,0,0,1)], -.03, .07)
+	fonts.ubuntu.draw(ctx, str, [], -.03)
 }

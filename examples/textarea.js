@@ -17,6 +17,7 @@ input.transformer = txt => {
 	const r = RichText(font)
 	if(!txt){
 		r.addTextPass(0, [vec4(.4)])
+		r.add('')
 		r.index = false
 		r.skew = .2
 		r.add(`Let's get writing!`)

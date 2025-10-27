@@ -782,6 +782,10 @@ namespace GammaInstance{
 	namespace Drawable{
 		/** Maximum number of targets that can be set with `Drawable.setTarget()`. The targets are differentiated by their IDs (0, 1, 2, ..., up to this value) */
 		const MAX_TARGETS: number
+		/** Whether the hardware supports adding an xxx32F texture as a draw target */
+		const DRAW_32F: boolean
+		/** Whether the hardware supports adding an xxx16F texture as a draw target */
+		const DRAW_16F: boolean
 	}
 
 	interface Transformable2D{
@@ -1618,10 +1622,12 @@ namespace GammaInstance{
 			/** Boolean indicating that this is a 3D Vertex format */
 			readonly three: true
 		}
-		/** The default geometry, with no additional per-vertex parameters, constructing a cube from (0,0,0) to (1,1,1), with the faces only visible from the outside */
+		/** The default geometry, with no additional per-vertex parameters, a cube from (0,0,0) to (1,1,1), with the faces only visible from the outside */
 		const CUBE: Geometry3D
-		/** Much like the default geometry, with no additional per-vertex parameters, constructing a cube from (0,0,0) to (1,1,1), but the faces are inverted and only visible from the inside */
-		const INNER_CUBE: Geometry3D
+		/** Much like the default geometry, with no additional per-vertex parameters, a cube from (0,0,0) to (1,1,1), but the faces are inverted and only visible from the inside */
+		const INSIDE_CUBE: Geometry3D
+		/** No additional per-vertex parameters, a flat square from (0,0,0) to (1,0,1), with the face only visible from the mesh's top */
+		const XZ_FACE: Geometry3D
 	}
 	/** See `Geometry()` */ const TRIANGLE_STRIP = 5
 	/** See `Geometry()` */ const TRIANGLES = 4
