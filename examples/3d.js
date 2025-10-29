@@ -146,12 +146,43 @@ vec4 texture2(sampler2DArray sampler, vec2 texCoords, int m){
 	, sy);
 }
 
+// three-point filter convolution
+vec3 tpfc(vec3 x){
+	vec3 xx = x*x;
+	x = abs(x);
+	vec3 v = step(.5, x);
+	return ((v*-1.5+1.)*xx+(v*2.)*x+v*-.75-1.5)*xx+.8125+.03125*v;
+}
+
+vec4 texture9(sampler2DArray img, vec2 uv, int m){
+	vec2 sz = vec2(textureSize(img, m));
+	vec2 uv1 = fract(uv*sz);
+	uv1 -= .5;
+	vec3 uv0 = vec3(uv-uv1/sz,0.);
+	float m1 = float(m);
+	vec4 aa = textureLodOffset(img, uv0, m1, ivec2(-1,-1));
+	vec4 ab = textureLodOffset(img, uv0, m1, ivec2(-1,0));
+	vec4 ac = textureLodOffset(img, uv0, m1, ivec2(-1,1));
+	 vec4 ba = textureLodOffset(img, uv0, m1, ivec2(0,-1));
+	 vec4 bb = textureLodOffset(img, uv0, m1, ivec2(0));
+	 vec4 bc = textureLodOffset(img, uv0, m1, ivec2(0,1));
+	  vec4 ca = textureLodOffset(img, uv0, m1, ivec2(1,-1));
+	  vec4 cb = textureLodOffset(img, uv0, m1, ivec2(1,0));
+	  vec4 cc = textureLodOffset(img, uv0, m1, ivec2(1,1));
+
+	vec3 lmr = tpfc(uv1.x+vec3(1.,0.,-1.)), dmu = tpfc(uv1.y+vec3(1.,0.,-1.));
+	vec4 a = lmr.x*aa+lmr.y*ba+lmr.z*ca;
+	vec4 b = lmr.x*ab+lmr.y*bb+lmr.z*cb;
+	vec4 c = lmr.x*ac+lmr.y*bc+lmr.z*cc;
+	return dmu.x*a+dmu.y*b+dmu.z*c;
+}
+
 void main(){
-	color = texture2(uni0, pos, 0);
-	float a = 0., m = 16.;
+	color = texture(uni0, vec3(pos,0.));
+	float a = 0., m = 1.;
 	for(int i = 2; i < 10; i++){
-		a += length(fwidth(texture2(uni0, pos, i).rgb)) * m;
-		m *= 1.;
+		a += length(fwidth(texture9(uni0, pos, i).rgb)) * m;
+		m *= 2.;
 	}
 	color.rgb *= a;
 }`, {uniforms: TEXTURE})
