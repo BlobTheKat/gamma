@@ -501,8 +501,6 @@ declare global{
 		const MAX_TARGETS: number
 		/** Whether the hardware supports adding an xxx32F texture as a draw target */
 		const DRAW_32F: boolean
-		/** Whether the hardware supports adding an xxx16F texture as a draw target */
-		const DRAW_16F: boolean
 	}
 
 	interface Transformable2D{

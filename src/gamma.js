@@ -438,7 +438,6 @@ class Tex{
 $.Drawable = (stencil = false) => new Drw2D({ _fb: gl.createFramebuffer(), _stencil: 0, _stenBuf: stencil ? gl.createRenderbuffer() : null, w: 0, h: 0, u: 0 })
 $.Drawable.MAX_TARGETS = gl.getParameter(gl.MAX_COLOR_ATTACHMENTS)
 $.Drawable.DRAW_32F = !!gl.getExtension('EXT_color_buffer_float')
-$.Drawable.DRAW_16F = !!gl.getExtension('EXT_color_buffer_half_float')
 let arr = new Float32Array(1024), iarr = new Int32Array(arr.buffer), i = 0
 $.Texture = (w = 0, h = 0, d = 1, o = 0, f = Formats.RGBA, mips = 0) => {
 	mips = min((mips>>>0)||1, floor(log2(max(w, h)))+1)
