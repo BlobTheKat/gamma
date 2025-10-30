@@ -1277,7 +1277,7 @@ const vfgen = (three, vparams, _defaults = []) => {
 		vFnParams.push(`${id}:a${id}=_defaults[${id}]`)
 		const A = (t&63)>13?'iarr[i+':'arr[i+'
 		if(sz==1) vFnBody.push(A+_vcount+']=a'+id)
-		else for(let j=0;j<sz;j++) fnBody.push(A+(_vcount+j)+']=a'+id+'.'+'xyzw'[j])
+		else for(let j=0;j<sz;j++) vFnBody.push(A+(_vcount+j)+']=a'+id+'.'+'xyzw'[j])
 		const vid = ''+(vattrs>>2)
 		const oStart = vattrs&3, oEnd = ((vattrs += sz)&3)||4
 		let vvarys = flat ? flatvarys : lerpvarys
@@ -1297,12 +1297,12 @@ const vfgen = (three, vparams, _defaults = []) => {
 		if(!flat) nm = `uintBitsToFloat(${nm})`
 		const start = `GL_${flat?'V':'v'}${vid}.`
 		if(vEnd <= (vStart||4))
-			vShaderHead.push(`${flat?'flat out u':'out '}vec4 ${(flat?'GL_V':'GL_v')+((vvarys>>2)-!((sz==4+vStart)))};`)
+			vShaderHead.push(`${flat?'flat out u':'out '}vec4 ${(flat?'GL_V':'GL_v')+((vvarys>>2)-(sz==4+vStart))};`)
 		if(vEnd <= vStart){
 			const name1 = (flat?'GL_V':'GL_v')+(vvarys>>2)
-			const v = `${flat?'u':''}vec${sz}(${start+'xyzw'.slice(vStart)},${start+'xyzw'.slice(0, vEnd)})`
+			const v = `${flat?'u':''}vec${sz}(${start+'xyzw'.slice(vStart)},${name1+'.'+'xyzw'.slice(0, vEnd)})`
 			fShaderHead.push(`${flat?'flat in u':'in '}vec4 ${name1};\n#define vparam${vid} ${t>=64&&t<80?`uintBitsToFloat(${v})`:v}\n`)
-			vShaderBody.push(`${n} t${id}=${nm};${start+'xyzw'.slice(vStart,vEnd)}=t${id}.${'xyzw'.slice(0, 4-vStart)};${name1}.${'xyzw'.slice(0, vEnd)}=t${id}.${'xyzw'.slice(4-vStart,sz)};`)
+			vShaderBody.push(`${n} t${id}=${nm};${start+'xyzw'.slice(vStart)}=t${id}.${'xyzw'.slice(0, 4-vStart)};${name1}.${'xyzw'.slice(0, vEnd)}=t${id}.${'xyzw'.slice(4-vStart,sz)};`)
 		}else{
 			const v = start + 'xyzw'.slice(vStart, vEnd)
 			fShaderHead.push(`\n#define vparam${vid} ${t>=64&&t<80?`uintBitsToFloat(${v})`:v}\n`)
@@ -1546,6 +1546,24 @@ const y = Object.getOwnPropertyDescriptors({
 		while(i < l)
 			iarr[i++] = f[j++]<<24|f[j++]<<16|f[j++]<<8|f[j++]
 		t.i = l
+	},
+	dup(){
+		const {t} = this
+		if(!t.i) return -1
+		let i = t.i, oi = i-t._vcount
+		let {iarr} = t, end = t.i = i+t._vcount
+		if(iarr.length < end){
+			if(ArrayBuffer.prototype.transfer){
+				iarr = t.iarr = new Int32Array(iarr.buffer.transfer(end*8))
+			}else{
+				const oa = t.iarr
+				iarr = t.iarr = new Int32Array(end*2)
+				t.iarr.set(oa, 0)
+			}
+			t.arr = new Float32Array(t.iarr.buffer)
+		}
+		while(i<end) iarr[i++] = iarr[oi++]
+		return t._size++
 	}
 })
 const empty = new Float32Array(), iempty = new Int32Array(empty.buffer)
@@ -1555,14 +1573,14 @@ Object.defineProperties(Geo3t2D.prototype, y)
 Object.defineProperties(Geo3D.prototype, y)
 $.Geometry2D = (v = null, type=5) => {
 	if(typeof v == 'number') type = v, v = null
-	const {_pack, _vcount, three} = v ?? $.Geometry2D.DEFAULT_VERTEX
+	const {_pack, _vcount, three} = v ?? $.Geometry2D.Vertex.DEFAULT
 	if(three) return null
 	const arr = new Float32Array(16)
 	return new Geo2D({arr, iarr: new Int32Array(arr.buffer), i: 0, vtx: v, b: gl.createBuffer(), _pack, _vcount, _size: 0, _usize: 0, v: null, _elB: null, _elT: 0},0,0,type)
 }
 $.Geometry3D = (v = null, type=5) => {
 	if(typeof v == 'number') type = v, v = null
-	const {_pack, _vcount, three} = v ?? $.Geometry3D.DEFAULT_VERTEX
+	const {_pack, _vcount, three} = v ?? $.Geometry3D.Vertex.DEFAULT
 	if(!three) return null
 	const arr = new Float32Array(16)
 	return new Geo3D({arr, iarr: new Int32Array(arr.buffer), i: 0, vtx: v, b: gl.createBuffer(), _pack, _vcount, _size: 0, _usize: 0, v: gl.createVertexArray(), L: null, Ls: 0, _elB: null, _elT: 0},0,0,type)
@@ -1570,14 +1588,15 @@ $.Geometry3D = (v = null, type=5) => {
 
 $.Geometry2D.Vertex = vfgen.bind(null, false)
 $.Geometry3D.Vertex = vfgen.bind(null, true)
-const geo2 = $.Geometry2D.SQUARE = $.Geometry2D($.Geometry2D.DEFAULT_VERTEX = vfgen(false, []), 5)
-const geo3 = $.Geometry3D.CUBE = $.Geometry3D($.Geometry3D.DEFAULT_VERTEX = vfgen(true, []), 21)
+const geo2 = $.Geometry2D.SQUARE = $.Geometry2D($.Geometry2D.Vertex.DEFAULT = vfgen(false, []), 5)
+const geo3 = $.Geometry3D.CUBE = $.Geometry3D($.Geometry3D.Vertex.DEFAULT = vfgen(true, []), 21)
+$.Geometry3D.Vertex.WITH_NORMALS = vfgen(true, [$.VEC3])
 for(let i=0;i<4;i++) geo2.addPoint(i&1,i>>1&1), geo3.addPoint(0,i&1,i>>1&1), geo3.addPoint(1,i&1,i>>1&1)
 geo2.upload()
 geo3.upload(new Uint8Array([4, 6, 0, 2, 3, 6, 7, 4, 5, 0, 1, 3, 5, 7]))
 $.Geometry3D.INSIDE_CUBE = geo3.sub(0, 14, 37)
 $.Geometry3D.XZ_FACE = geo3.sub(7, 4, 21)
-$.Shader = (src, {params, defaults: _defaults, uniforms, uniformDefaults: _uDefaults, outputs=4, vertex = $.Geometry2D.DEFAULT_VERTEX, intFrac=0.5}={}) => {
+$.Shader = (src, {params, defaults: _defaults, uniforms, uniformDefaults: _uDefaults, outputs=4, vertex = $.Geometry2D.Vertex.DEFAULT, intFrac=0.5}={}) => {
 	params = typeof params=='number' ? [params] : params || []
 	uniforms = typeof uniforms=='number' ? [uniforms] : uniforms || []
 	_defaults = _defaults !== undefined ? Array.isArray(_defaults) ? [..._defaults] : [_defaults] : []
@@ -1754,6 +1773,7 @@ vec4 fGetPixel(int u,ivec3 p,int l){${T||switcher(i=>`return texelFetch(GL_f[${i
 	gl.attachShader(program, f)
 	if(T=gl.getShaderInfoLog(f)) throw 'GLSL Error:\n'+T
 	gl.linkProgram(program)
+	if(T=gl.getShaderInfoLog(v)) throw 'GLSL Error:\n'+vShaderHead.join('')+vShaderBody.join('')
 	gl.useProgram(program)
 	const uniLocs = uniNames.map(n => gl.getUniformLocation(program, n))
 	for(let i = 0; i < maxTex; i++)
@@ -1766,8 +1786,8 @@ let fdc = 0, fs = 0, fd = 0
 $.Shader.UINT = $.Shader(`void main(){color=param0;}`, {params:$.UVEC4, outputs:$.UINT})
 $.Shader.BLACK = $.Shader(`void main(){color=vec4(0,0,0,1);}`)
 $.Shader.DEFAULT = $.Shader(`void main(){color=param0(pos)*param1;}`, {params:[$.COLOR, $.VEC4], defaults:[void 0, $.vec4.one]})
-$.Shader.COLOR_3D_XZ = $.Shader(`void main(){color=param0(pos.xz);}`, {params:[$.COLOR],vertex:Geometry3D.DEFAULT_VERTEX})
-$.Shader.SHADED_3D = $.Shader(`void main(){float a=(1.+dot(normalize(cross(dFdx(pos),dFdy(pos))),param1));color=param0(pos.xy);color.rgb*=a;}`, {params:[$.COLOR,$.VEC3], defaults:[void 0,vec3(-.15,-.3,0)],vertex:Geometry3D.DEFAULT_VERTEX})
+$.Shader.COLOR_3D_XZ = $.Shader(`void main(){color=param0(pos.xz);}`, {params:[$.COLOR],vertex:Geometry3D.Vertex.DEFAULT})
+$.Shader.SHADED_3D = $.Shader(`void main(){color=param0(pos.xy);color.rgb*=1.+dot(normalize(cross(dFdx(pos),dFdy(pos))),param1);}`, {params:[$.COLOR,$.VEC3], defaults:[void 0,vec3(-.15,-.3,0)],vertex:Geometry3D.Vertex.DEFAULT})
 let lastClr = 0
 $.flush = () => {
 	i&&draw()

@@ -1670,6 +1670,10 @@ namespace GammaInstance{
 			/** Boolean indicating that this is a 2D Vertex format */
 			readonly three: false
 		}
+		namespace Vertex{
+			/** Default vertex format with no additional properties */
+			const DEFAULT: Vertex
+		}
 		/** The default geometry, with no additional per-vertex parameters, constructing a square from (0,0) to (1,1) */
 		const SQUARE: Geometry2D
 	}
@@ -1750,6 +1754,12 @@ namespace GammaInstance{
 		interface Vertex{
 			/** Boolean indicating that this is a 3D Vertex format */
 			readonly three: true
+		}
+		namespace Vertex{
+			/** Default vertex format with no additional properties */
+			const DEFAULT: Vertex
+			/** Vertex format with one additional property for supplying normals (VEC3) */
+			const WITH_NORMALS: Vertex
 		}
 		/** The default geometry, with no additional per-vertex parameters, a cube from (0,0,0) to (1,1,1), with the faces only visible from the outside */
 		const CUBE: Geometry3D

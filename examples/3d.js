@@ -24,22 +24,41 @@ const ground = Texture(2, 2, 1, DOWNSCALE_SMOOTH | MIPMAP_SMOOTH | REPEAT, Forma
 	.pasteData(Uint16Array.fromHex('A529 C631 C631 A529')).super(.5,.5,.01,.01)
 ground.genMipmaps()
 
-const cyl = Geometry3D()
+const cyl = Geometry3D(Geometry3D.Vertex.WITH_NORMALS)
 cyl.type = TRIANGLE_STRIP | CW_ONLY
 const top = [], bottom = [], ring = [], ring2 = []
-for(let i = PI/32; i < PI; i += PI/16){
-	const dx = sin(i), dz = cos(i)
-	const a = cyl.addPoint(dx, 1, dz)
-	cyl.addPoint(-dx, 1, dz)
-	cyl.addPoint(dx, -1, dz)
-	cyl.addPoint(-dx, -1, dz)
-	top.push(a+1, a)
-	bottom.push(a+2, a+3)
-	ring.push(a, a+2)
-	ring2.push(a+3, a+1)
+{
+	const PRECISION = PI/16
+	const sp2 = sin(PRECISION/2), cp2 = cos(PRECISION/2)
+	const up = vec3(0,1,0), down = vec3(0,-1,0)
+	for(let theta = PRECISION/2; theta < PI; theta += PRECISION){
+		const dx = sin(theta), dz = cos(theta)
+		cyl.addPoint(-dx, 1, dz, up)
+		cyl.addPoint(dx, 1, dz, up)
+	}
+	cyl.dup()
+	cyl.addPoint(sp2, -1, cp2)
+	for(let theta = PRECISION/2; theta < PI; theta += PRECISION){
+		const dx = sin(theta), dz = cos(theta)
+		cyl.addPoint(dx, -1, dz, down)
+		cyl.addPoint(-dx, -1, dz, down)
+	}
+	cyl.dup()
+	cyl.addPoint(-sp2, 1, cp2, vec3(-sp2, 0, cp2))
+	for(let theta = PRECISION/-2; theta < PI2; theta += PRECISION){
+		const dx = sin(theta), dz = cos(theta)
+		const norm = vec3(dx, 0, dz)
+		cyl.addPoint(dx, 1, dz, norm)
+		cyl.addPoint(dx, -1, dz, norm)
+	}
+	cyl.upload()
 }
-ring2.reverse()
-cyl.upload(new Uint8Array([...top, top[top.length-1], bottom[0], ...bottom, bottom[bottom.length-1], ring[0], ...ring, ...ring2, 0, 2]))
+
+const smoothNormalShader = Shader(`void main(){
+	float a = 1. + dot(normalize(-vparam0),param1);
+	color = param0(pos.xy);
+	color.rgb *= a;
+}`, {params: [COLOR, VEC3], defaults:[void 0,vec3(-.15,-.3,0)],vertex:Geometry3D.Vertex.WITH_NORMALS})
 
 onKey(MOUSE.LEFT, () => {
 	pointerLock = true
@@ -73,7 +92,7 @@ void main(){
 		color.rgb = lerp(color.rgb, vec3(.8+abs(v.x-.75)*.3+v.y*.2), clamp(0., v.x*min(2.,a.y*d-.6)-.5, 1.));
 	}
 }
-`, {uniforms: [FLOAT, FLOAT], uniformDefaults: [0, .05], vertex: Geometry3D.DEFAULT_VERTEX})
+`, {uniforms: [FLOAT, FLOAT], uniformDefaults: [0, .05], vertex: Geometry3D.Vertex.DEFAULT})
 
 function drawText(ctx){
 	ctx.translate(label.width*-.5 + .5, 0)
@@ -201,7 +220,7 @@ void main(){
 let sfx = 0
 let frames = []
 
-const fogXzShader = Shader(`void main(){ color = param0(pos.xz)*(1.-1./(i_depth*i_depth)); }`, {params: COLOR, vertex: Geometry3D.DEFAULT_VERTEX})
+const fogXzShader = Shader(`void main(){ color = param0(pos.xz)*(1.-1./(i_depth*i_depth)); }`, {params: COLOR, vertex: Geometry3D.Vertex.DEFAULT})
 
 render = () => {
 	ctxSupersample = keys.has(KEY.V) ? 0.125/devicePixelRatio : 1 + (devicePixelRatio < 2)
@@ -271,7 +290,7 @@ render = () => {
 	ctx3.drawCube(floor(pos.x*.2)*5-250, -2, floor(pos.z*.2)*5-250, 500, 0, 500, ground)
 	
 	ctx3.geometry = cyl
-	ctx3.shader = Shader.SHADED_3D
+	ctx3.shader = smoothNormalShader
 	
 	const cubeCtx = ctx3.sub()
 		cubeCtx.rotateXZ(t*.1)
