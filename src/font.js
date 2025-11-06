@@ -3,14 +3,16 @@
 Gamma.font = $ => {
 	const vec4one = $.vec4.one, vec2l = {x:0,y:1}, dfgeo = $.Geometry2D.SQUARE
 	const msdfShader = $.Shader.MSDF = $.Shader("void main(){vec3 c=param0(pos).rgb;color=param2*clamp(param1.y*(max(min(c.r,c.g),min(max(c.r,c.g),c.b))-.5+param1.x)+.5,0.,1.);}", {params: [$.COLOR, $.VEC2, $.VEC4], defaults: [null, {x:0,y:1}, vec4one]})
-$.Shader.font = (src, o={}) => {
+$.Shader.sdf = (src, o={}) => {
 	let pr = 'float field(vec2 uv){vec3 c=param0(uv).rgb;return max(min(c.r, c.g), min(max(c.r, c.g), c.b)); }\n#define scale param1\n'
 	if(!Array.isArray(o.params)) o.params = typeof o.params == 'number' ? [o.params] : []
 	if(!Array.isArray(o.defaults)) o.defaults = o.defaults === undefined ? [] : [o.defaults]
 	for(let i = 0; i < o.params.length; i++)
 		pr += `#define value${i} param${i+2}\n`
 	o.params.unshift($.COLOR, $.VEC2); o.defaults.unshift(undefined, {x:0,y:1})
-	return $.Shader(pr+src, o)
+	const sh = $.Shader(pr+src, o)
+	sh.sdf = true
+	return sh
 }
 	const BreakToken = $.BreakToken = (regex, type = 0, sep = '', next = undefined) => {
 		if(regex instanceof RegExp){
@@ -62,7 +64,7 @@ $.Shader.font = (src, o={}) => {
 
 	const defaultSet = [BreakToken(/\r\n?|\n/y, BreakToken.WRAP_AFTER | BreakToken.INVISIBLE, ''), BreakToken(/[$£"+]?[\w'-]+[,.!?:;"^%€*]?/yi, BreakToken.NORMAL, '-'), BreakToken(/[ \t]+/y, BreakToken.VANISH)]
 	const defaultToken = BreakToken(/[^]/y, BreakToken.ALWAYS_BREAK)
-	const V = {x: 0, y: 0}, O = {off:0,spr:-1,0:null,1:V}, DEFAULT_PASSES = [0,0,0,O]
+	const V = {x: 0, y: 0}, O = {n: {0: null}, off:0,spr:-1,0:null,1:V}, DEFAULT_PASSES = [0,0,0,O]
 	// Advance. Shader. Scale. Y offset. Stretch. Skew. Letter spacing. Curve
 	const ADV = 1, SH = 2, GEO = 3, SC = 4, YO = 5, ST = 6, SK = 7, LSB = 8, ARC = 9
 	const getSepW = (t, cmap, arc, lsb = 0) => {
@@ -232,8 +234,8 @@ $.Shader.font = (src, o={}) => {
 			}
 			#v = DEFAULT_PASSES
 			addTextPass(ord, a, x=0, y=0, off=0, spr=-0.5){
-				const o = {off, spr: .5/spr, 0: null, 1: V}
-				if(a) for(let i=0;i<a.length;i++) o[i+2] = a[i]
+				const o = {n: {0: null}, off, spr: .5/spr, 0: null, 1: V}
+				if(a) for(let i=0;i<a.length;i++) o[i+2] = o.n[i+1] = a[i]
 				const v = this.#v, v2 = this.#v = []
 				let i = 0
 				for(; i < v.length; i += 4) if(v[i] < ord){
@@ -266,8 +268,8 @@ $.Shader.font = (src, o={}) => {
 			}
 
 			insertTextPass(ord, a, x=0, y=0, off=0, spr=-.5){
-				const o = {off, spr: .5/spr, 0:null,1: V}
-				if(a) for(let i=0;i<a.length;i++) o[i+2] = a[i]
+				const o = {n: {0: null}, off, spr: .5/spr, 0:null,1: V}
+				if(a) for(let i=0;i<a.length;i++) o[i+2] = o.n[i+1] = a[i]
 				const q = this.#q, len = q.length
 				let idx = 0, p = 0
 				while(idx < len){
@@ -594,9 +596,12 @@ $.Shader.font = (src, o={}) => {
 							case LSB: lsb = v; break
 							case ARC: ar1 = 1/v; ar = v; break
 						}
-					}else if(typeof s == 'string'){
-						if(cmap) for(const ch of s){
-							const c = ch.codePointAt()
+					}else a: if(typeof s == 'string'){
+						if(!cmap) break a
+						let i = 0
+						while(i < s.length){
+							const c = s.codePointAt(i)
+							i += 1+(c>65535)
 							const g = cmap.get(~c) ?? cmap._default
 							if(!g) continue
 							const ker = (cmap.get(c+last*1114112) ?? 0) * min(chw, lastCw)
@@ -649,18 +654,22 @@ $.Shader.font = (src, o={}) => {
 							case ARC: ar1 = 1/v; ar = v; break
 						}
 					}else if(typeof s == 'string'){
-						if(cmap) for(const ch of s){
-							const c = ch.codePointAt()
-							const g = cmap.get(~c) ?? cmap._default
-							if(!g){ if(mask) li = i += ch.length; continue }
-							const ker = (cmap.get(c+last*1114112) ?? 0) * min(chw, lastCw)
-							last = c; lastCw = chw
-							const w = (g._xadv+lsb)*chw + ker
-							const fw = ar ? asin(w*ar)*ar1||w : w
-							x -= fw
-							if(!mask) continue
-							if(x <= fw*thr) return li
-							li = i += ch.length
+						if(cmap){
+							let j = 0
+							while(j < s.length){
+								const c = s.codePointAt(j), l = 1+(c>65535)
+								j += l
+								const g = cmap.get(~c) ?? cmap._default
+								if(!g){ if(mask) li = i += l; continue }
+								const ker = (cmap.get(c+last*1114112) ?? 0) * min(chw, lastCw)
+								last = c; lastCw = chw
+								const w = (g._xadv+lsb)*chw + ker
+								const fw = ar ? asin(w*ar)*ar1||w : w
+								x -= fw
+								if(!mask) continue
+								if(x <= fw*thr) return li
+								li = i += l
+							}
 						}else if(mask) i += s.length
 					}else if(typeof s == 'object'){
 						if(!s){ cmap = null; continue }
@@ -677,7 +686,7 @@ $.Shader.font = (src, o={}) => {
 				let sc = 1, sc1 = 1, st = 1, lsb = 0, sk = 0, yo = 0, xo = 0, ar = 0
 				ctx.shader = msdfShader
 				ctx.geometry = dfgeo
-				let vs = DEFAULT_PASSES, vlen = 3, font = null, dsc = 0
+				let vs = DEFAULT_PASSES, vlen = 3, font = null, dsc = 0, isSdf = true
 				let last = -1, lastSt = 1
 				let recalc = ctx.projection
 				let pxr0 = -2*ctx.pixelRatio(), pxr = 1, rf = 1, rf1 = 1
@@ -705,7 +714,7 @@ $.Shader.font = (src, o={}) => {
 								last = -1
 								continue w
 							case YO: yo = v*sc1; xo = yo*sk; last = -1; continue w
-							case SH: ctx.shader = v; break
+							case SH: ctx.shader = v; isSdf = !!v.sdf; break
 							case GEO: ctx.geometry = v; break
 							case ST: st = v; last = -1; continue w
 							case SK: ctx.skew(v-sk, 0); sk = v; xo = yo*v; last = -1; continue w
@@ -714,8 +723,11 @@ $.Shader.font = (src, o={}) => {
 							default: continue w
 						}
 					}else if(typeof s == 'string'){
-						if(cmap) for(const ch of s){
-							const c = ch.codePointAt()
+						if(!cmap) continue
+						let i = 0
+						while(i < s.length){
+							const c = s.codePointAt(i)
+							i += 1+(c>65535)
 							const g = cmap.get(~c) ?? cmap._default
 							if(!g) continue
 							if(recalc) pxr0 = -2*ctx.pixelRatio(), pxr = pxr0*sc*font.rangeFactor
@@ -728,15 +740,18 @@ $.Shader.font = (src, o={}) => {
 								if(sk) ctx.skew(sk,0)
 							}
 							for(let i = 0; i < vlen; i+=4){
-								const x = vs[i+1], y = vs[i+2]+yo, v1 = vs[i+3]
+								let x = vs[i+1], y = vs[i+2]+yo, v1 = vs[i+3]
+								if(!isSdf) v1 = v1.n
 								if(typeof x == 'object'){
 									const ox = ar*w*(y+dsc)
 									ctx.drawRectv(xr+ox,y+dsc,w-ox-ox,v1,x)
 								}else if(g._tex){
 									v1[0] = g._tex
-									V.x = v1.off*rf1
-									const {spr} = v1
-									V.y = (spr<0?pxr:rf)*spr
+									if(isSdf){
+										V.x = v1.off*rf1
+										const {spr} = v1
+										V.y = (spr<0?pxr:rf)*spr
+									}
 									ctx.drawRectv((g.x+lsb)*st+x+xr,g.y+y,g.w*st,g.h,v1)
 								}
 							}
@@ -877,19 +892,23 @@ $.Shader.font = (src, o={}) => {
 								}
 							}else if(typeof s == 'string'){
 								i1 = 0
-								if(cmap) for(const ch of s){
-									const c = ch.codePointAt()
-									const g = cmap.get(~c) ?? cmap._default; i1 += ch.length
-									if(m) len += ch.length
-									if(!g) continue
-									const ker = (cmap.get(c + last*1114112) ?? 0) * min(chw, lastCw)
-									lastCw = chw; last = c
-									const cw = (g._xadv+tlsb)*chw + ker
-									w += tarc ? asin(cw*tarc)*ar1||cw : cw
-									if(w <= (maxW - (sepw - (cmap.get(t.sep.codePointAt() + c*1114112)??0))*chw) && canBreak){
-										ptext = true
-										_i0 = i0-1, _i1 = i1
-										_w = w, _sh = sh, _geo = geo, _sc = sc, _yo = yo, _st = st, _sk = sk, _lsb = lsb, _f = f, _arc = arc, _v = v, _m = m, _len = len
+								if(cmap){
+									let i = 0
+									while(i < s.length){
+										const c = s.codePointAt(i), l = 1+(c>65535)
+										i += l
+										const g = cmap.get(~c) ?? cmap._default; i1 += l
+										if(m) len += l
+										if(!g) continue
+										const ker = (cmap.get(c + last*1114112) ?? 0) * min(chw, lastCw)
+										lastCw = chw; last = c
+										const cw = (g._xadv+tlsb)*chw + ker
+										w += tarc ? asin(cw*tarc)*ar1||cw : cw
+										if(w <= (maxW - (sepw - (cmap.get(t.sep.codePointAt() + c*1114112)??0))*chw) && canBreak){
+											ptext = true
+											_i0 = i0-1, _i1 = i1
+											_w = w, _sh = sh, _geo = geo, _sc = sc, _yo = yo, _st = st, _sk = sk, _lsb = lsb, _f = f, _arc = arc, _v = v, _m = m, _len = len
+										}
 									}
 								}else if(m) len += s.length
 							}else if(Array.isArray(s)) v = s
@@ -1035,12 +1054,12 @@ $.Shader.font = (src, o={}) => {
 	}
 	$.RichText = itxtstream.public.ctor
 	const defaultChar = Texture(4, 6, 1, 0, Formats.RGBA4).pasteData(Uint8Array.fromHex(`\
-ffff\ ffff\ ffff\ ffff\
-ffff\ 0000\ 0000\ ffff\
-ffff\ 0000\ 0000\ ffff\
-ffff\ 0000\ 0000\ ffff\
-ffff\ 0000\ 0000\ ffff\
-ffff\ ffff\ ffff\ ffff\
+ffffffffffffffff\
+ffff00000000ffff\
+ffff00000000ffff\
+ffff00000000ffff\
+ffff00000000ffff\
+ffffffffffffffff\
 `))
 	class font extends Map{
 		rangeFactor = 0; ascend = 0; #cb = []
@@ -1066,7 +1085,21 @@ ffff\ ffff\ ffff\ ffff\
 				else super.set(~char, { x: +x, y: +y, w: +w, h: +h, _xadv: +adv, _tex: tex })
 			}
 		}
-		getAdvance(char = -1){
+		setLigature(a = -1, b = -1, adv = 0, tex = null, x=0, y=0, w=0, h=0){
+			let code = 0
+			if(typeof a == 'string'){
+				const a0 = a.codePointAt()
+				code = a0*1114112
+				if(typeof b == 'number'){
+					h = w, w = y, y = x, x = tex||0, tex = adv||null, adv = b
+					code += a.codePointAt(1+(a0>65535))||0
+				}else code += b.codePointAt()
+			}else code = a*1114112+b
+			if(code < 0) return
+			if(!tex && !adv) return super.delete(-1114112-char)
+			else super.set(-1114112-char, { x: +x, y: +y, w: +w, h: +h, _xadv: +adv, _tex: tex }), super.set(char, 0)
+		}
+		getWidth(char = -1){
 			if(typeof char == 'string') char = char.codePointAt()
 			return (char < 0 ? this._default : (this.get(~char) ?? this._default))._xadv
 		}
@@ -1077,7 +1110,7 @@ ffff\ ffff\ ffff\ ffff\
 				code = a0*1114112
 				if(typeof b == 'number'){
 					adv = b
-					code += a.codePointAt(1+(a0>65535))
+					code += a.codePointAt(1+(a0>65535))||0
 				}else code += b.codePointAt()
 			}else code = a*1114112+b
 			if(adv) super.set(code, adv)
@@ -1088,14 +1121,14 @@ ffff\ ffff\ ffff\ ffff\
 			if(typeof a == 'string'){
 				const a0 = a.codePointAt()
 				code = a0*1114112
-				if(typeof b == 'string') code += b.codePointAt()
+				if(typeof b == 'string') code += b.codePointAt()||0
 				else if(typeof b != 'undefined') code += b&0xffffff
 				else code += a.codePointAt(1+(a0>65535))
 			}else code = (a&0xffffff)*1114112+(b&0xffffff)
 			return this.get(code) ?? 0
 		}
 		chlumsky(src, atlas = 'atlas.png', opts = $.ANISOTROPY | $.SMOOTH, mips = 1){ if(src.endsWith('/')) src += 'index.json'; fetch(src).then(a => (src=a.url,a.json())).then(d => {
-			const {atlas:{type,distanceRange,size,width,height},metrics:{ascender,descender},glyphs,kerning} = d
+			const {atlas:{type,distanceRange,size,width,height},metrics:{ascender,descender},glyphs,kerning,ligatures} = d
 			this.rangeFactor = distanceRange/size
 			const img = $.Texture.from(new URL(atlas, src).href, opts, type.toLowerCase().endsWith('msdf') ? $.Formats.RGB : $.Formats.RG, mips)
 			this.ascend = ascender/(ascender-descender)
@@ -1122,30 +1155,35 @@ ffff\ ffff\ ffff\ ffff\
 			})
 			this.done()
 		}, this.error.bind(this)); return this}
-		draw(ctx, txt, v=[], off=0, spr=-0.5, lsb = 0, last = -1){
+		draw(ctx, txt, v=[], off=0, spr=-0.5, lsb = 0, last = -1, next = -1){
 			if(this.#cb) return
 			lsb *= .5
 			off /= this.rangeFactor
-			const recalc = spr<0&&ctx.projection
+			const isSdf = ctx.shader.sdf, recalc = spr<0&&ctx.projection&&isSdf
 			let aspr = spr = 1/spr
 			if(!recalc) aspr *= (spr<0 ? -ctx.pixelRatio() : .5)*this.rangeFactor
-			for(const ch of txt){
-				const c = ch.codePointAt()
+			let i = 0
+			while(i < txt.length){
+				const c = txt.codePointAt(i)
+				i += 1+(c>65535)
 				const g = this.get(~c) ?? this._default
 				if(!g) continue
 				if(recalc) aspr = -ctx.pixelRatio()*this.rangeFactor*spr
 				const ker = this.get(c+last*1114112) ?? 0; last = c
 				const w = g._xadv + lsb + lsb + ker
-				if(g._tex) V.x = off, V.y = aspr, ctx.drawRect(g.x+lsb+ker,g.y,g.w,g.h,g._tex,V,...v)
+				if(g._tex){
+					if(isSdf) V.x = off, V.y = aspr, ctx.drawRect(g.x+lsb+ker,g.y,g.w,g.h,g._tex,V,...v)
+					else ctx.drawRect(g.x+lsb+ker,g.y,g.w,g.h,g._tex,...v)
+				}
 				ctx.translate(w, 0)
 			}
-			return last
 		}
-		measure(txt, lsb = 0, last = -1){
-			if(this.#cb) return
-			let w = 0
-			for(const ch of txt){
-				const c = ch.codePointAt()
+		measure(txt, lsb = 0, last = -1, next = -1){
+			if(this.#cb) return 0
+			let w = 0, i = 0
+			while(i < txt.length){
+				const c = txt.codePointAt(i)
+				i += 1+(c>65535)
 				const g = this.get(~c) ?? this._default
 				if(!g) continue
 				const ker = this.get(c+last*1114112) ?? 0; last = c

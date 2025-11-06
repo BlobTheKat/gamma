@@ -44,8 +44,11 @@ const top = [], bottom = [], ring = [], ring2 = []
 		cyl.addPoint(-dx, -1, dz, down)
 	}
 	cyl.dup()
-	cyl.addPoint(-sp2, 1, cp2, vec3(-sp2, 0, cp2))
-	for(let theta = PRECISION/-2; theta < PI2; theta += PRECISION){
+	const norm = vec3(-sp2, 0, cp2)
+	cyl.addPoint(-sp2, 1, cp2, norm)
+	cyl.dup()
+	cyl.addPoint(-sp2, -1, cp2, norm)
+	for(let theta = PRECISION/2; theta < PI2; theta += PRECISION){
 		const dx = sin(theta), dz = cos(theta)
 		const norm = vec3(dx, 0, dz)
 		cyl.addPoint(dx, 1, dz, norm)
@@ -221,7 +224,6 @@ let sfx = 0
 let frames = []
 
 const fogXzShader = Shader(`void main(){ color = param0(pos.xz)*(1.-1./(i_depth*i_depth)); }`, {params: COLOR, vertex: Geometry3D.Vertex.DEFAULT})
-
 render = () => {
 	ctxSupersample = keys.has(KEY.V) ? 0.125/devicePixelRatio : 1 + (devicePixelRatio < 2)
 	sfx = 0

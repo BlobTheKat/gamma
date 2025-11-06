@@ -21,7 +21,7 @@ declare global{
 		 * @param options.outputs Shader output type. See `Shader()`
 		 * @param options.intFrac Integer texture share. See `Shader()`
 		 */
-		function font(glsl: string, options?: { params?: number | number[], defaults?: number | number[], uniforms?: number | number[], uniformDefaults?: number | number[], output?: number, intFrac?: number }): Shader
+		function sdf(glsl: string, options?: { params?: number | number[], defaults?: number | number[], uniforms?: number | number[], uniformDefaults?: number | number[], output?: number, intFrac?: number }): Shader & { sdf: true }
 	}
 	/**
 	 * Create a BreakToken. Group many `BreakToken`s into an array (a "token class") to fully specify how a piece of text should be tokenized, which defines how and where text can be broken by the `RichText.break()` function. 
@@ -80,7 +80,7 @@ declare global{
 		reset(font?: Font | null): void
 		/** The font to be used when adding new text segments. Default: as passed to the constructor, or null (must be set or else no text is displayed) */
 		font: Font | null
-		/** The shader to be used when adding new text segments. See `Shader.font()`. Default: `Shader.MSDF` */
+		/** The shader to be used when adding new text segments. See `Shader.sdf()`. Default: `Shader.MSDF` */
 		shader: Shader
 		/**
 		 * Text scaling for new text segments. By default, text is **1 unit** in height, so this value defaults to `1`
@@ -280,7 +280,7 @@ declare global{
 		set(char: number, advance: number, tex?: null): void
 
 		/** Get the advance value of a specific character. See `Font.set()` */
-		getAdvance(char: string | number): number
+		getWidth(char: string | number): number
 
 		/**
 		 * Add a kerning adjustment for a pair of characters

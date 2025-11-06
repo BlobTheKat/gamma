@@ -85,7 +85,7 @@ declare global{
 		reset(font?: Font | null): void
 		/** The font to be used when adding new text segments. Default: as passed to the constructor, or null (must be set or else no text is displayed) */
 		font: Font | null
-		/** The shader to be used when adding new text segments. See `Shader.font()`. Default: `Shader.MSDF` */
+		/** The shader to be used when adding new text segments. See `Shader.sdf()`. Default: `Shader.MSDF` */
 		shader: Shader
 		/**
 		 * Text scaling for new text segments. By default, text is **1 unit** in height, so this value defaults to `1`
@@ -285,7 +285,7 @@ declare global{
 		set(char: number, advance: number, tex?: null): void
 
 		/** Get the advance value of a specific character. See `Font.set()` */
-		getAdvance(char: string | number): number
+		getWidth(char: string | number): number
 
 		/**
 		 * Add a kerning adjustment for a pair of characters
@@ -349,17 +349,18 @@ declare global{
 		 * @param spr SDF spread. See `RichText.addTextPass()`
 		 * @param letterSpacing Additional spacing to apply between each pair of characters
 		 * @param lastChar The previous character to the left (if any), used to apply kerning that crosses multiple blocks of text. Omit or pass `-1` if this is the first block of text or you do not wish for kerning to carry over
-		 * @returns The last character drawn. If you are drawing more text and need kerning to apply across multiple `draw()`n blocks, pass this value to the next call to `.draw()`, as the `lastChar` argument
+		 * @param nextChar The next character to the right (if any), used to apply ligatures that crosses multiple blocks of text. Omit or pass `-1` if this is the last block of text or you do not wish for ligatures to carry over. When ligatures carry over, this `draw()` call will draw the first half of the ligature, and the next `draw()` call will draw the other half (based on the value passed to `lastChar`)
 		 */
-		draw(ctx: Drawable, text: string, values?: any[], offset?: number, spread?: number, letterSpacing?: number, lastChar?: number): number
+		draw(ctx: Drawable, text: string, values?: any[], offset?: number, spread?: number, letterSpacing?: number, lastChar?: number, nextChar?: number)
 
 		/**
 		 * Measure the width of some text using this font.
 		 * 
 		 * @param letterSpacing Additional spacing to apply between each pair of characters when measuring
 		 * @param lastChar The previous character to the left (if any), used to apply kerning that crosses multiple blocks of text. Omit or pass `-1` if this is the first block of text or you do not wish for kerning to carry over
+		 * @param nextChar The next character to the right (if any), used to apply ligatures that crosses multiple blocks of text. Omit or pass `-1` if this is the last block of text or you do not wish for ligatures to carry over. When ligatures carry over, this `measure()` call will measure the first half of the ligature, and the next `measure()` call will measure the other half (based on the value passed to `lastChar`)
 		 */
-		measure(text: string, letterSpacing?: number, lastChar?: number): number
+		measure(text: string, letterSpacing?: number, lastChar?: number, nextChar?: number): number
 	}
 	/** Construct a new, empty font. See its methods for how to build your own font or import one. */
 	function Font(): Font & Promise<Font>
