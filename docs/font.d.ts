@@ -349,18 +349,16 @@ declare global{
 		 * @param spr SDF spread. See `RichText.addTextPass()`
 		 * @param letterSpacing Additional spacing to apply between each pair of characters
 		 * @param lastChar The previous character to the left (if any), used to apply kerning that crosses multiple blocks of text. Omit or pass `-1` if this is the first block of text or you do not wish for kerning to carry over
-		 * @param nextChar The next character to the right (if any), used to apply ligatures that crosses multiple blocks of text. Omit or pass `-1` if this is the last block of text or you do not wish for ligatures to carry over. When ligatures carry over, this `draw()` call will draw the first half of the ligature, and the next `draw()` call will draw the other half (based on the value passed to `lastChar`)
 		 */
-		draw(ctx: Drawable, text: string, values?: any[], offset?: number, spread?: number, letterSpacing?: number, lastChar?: number, nextChar?: number)
+		draw(ctx: Drawable, text: string, values?: any[], offset?: number, spread?: number, letterSpacing?: number, lastChar?: number)
 
 		/**
 		 * Measure the width of some text using this font.
 		 * 
 		 * @param letterSpacing Additional spacing to apply between each pair of characters when measuring
 		 * @param lastChar The previous character to the left (if any), used to apply kerning that crosses multiple blocks of text. Omit or pass `-1` if this is the first block of text or you do not wish for kerning to carry over
-		 * @param nextChar The next character to the right (if any), used to apply ligatures that crosses multiple blocks of text. Omit or pass `-1` if this is the last block of text or you do not wish for ligatures to carry over. When ligatures carry over, this `measure()` call will measure the first half of the ligature, and the next `measure()` call will measure the other half (based on the value passed to `lastChar`)
 		 */
-		measure(text: string, letterSpacing?: number, lastChar?: number, nextChar?: number): number
+		measure(text: string, letterSpacing?: number, lastChar?: number): number
 	}
 	/** Construct a new, empty font. See its methods for how to build your own font or import one. */
 	function Font(): Font & Promise<Font>

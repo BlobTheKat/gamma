@@ -76,7 +76,7 @@ $.Shader.sdf = (src, o={}) => {
 		for(const ch of t.sep){
 			const c = ch.codePointAt()
 			const g = cmap.get(~c) ?? cmap._default
-			const cw = g._xadv + lsb + (cmap.get(c+last*1114112) ?? 0)
+			const cw = g._xadv + lsb + (cmap.get(c+last*16777216) ?? 0)
 			w += arc ? asin(cw*arc)*ar1||cw : cw
 		}
 		cmap.then?.(() => t.sepL==cmap&&(t.sepL=null,t.sepW=0))
@@ -605,7 +605,7 @@ $.Shader.sdf = (src, o={}) => {
 							i += 1+(c>65535)
 							const g = cmap.get(~c) ?? cmap._default
 							if(!g) continue
-							const ker = (cmap.get(c+last*1114112) ?? 0) * min(chw, lastCw)
+							const ker = (cmap.get(c+last*16777216) ?? 0) * min(chw, lastCw)
 							last = c; lastCw = chw
 							const cw = (g._xadv+lsb)*chw + ker
 							w += ar ? asin(cw*ar)*ar1||cw : cw
@@ -662,7 +662,7 @@ $.Shader.sdf = (src, o={}) => {
 								j += l
 								const g = cmap.get(~c) ?? cmap._default
 								if(!g){ if(mask) li = i += l; continue }
-								const ker = (cmap.get(c+last*1114112) ?? 0) * min(chw, lastCw)
+								const ker = (cmap.get(c+last*16777216) ?? 0) * min(chw, lastCw)
 								last = c; lastCw = chw
 								const w = (g._xadv+lsb)*chw + ker
 								const fw = ar ? asin(w*ar)*ar1||w : w
@@ -732,7 +732,7 @@ $.Shader.sdf = (src, o={}) => {
 							const g = cmap.get(~c) ?? cmap._default
 							if(!g) continue
 							if(recalc) pxr0 = -2*ctx.pixelRatio(), pxr = pxr0*sc*font.rangeFactor
-							const ker = (cmap.get(c+last*1114112) ?? 0) * min(lastSt, st)
+							const ker = (cmap.get(c+last*16777216) ?? 0) * min(lastSt, st)
 							last = c; lastSt = st
 							const w = (g._xadv+lsb+lsb)*st + ker, xr = ker-xo
 							if(ar){
@@ -878,7 +878,7 @@ $.Shader.sdf = (src, o={}) => {
 									case ADV:
 										w += s1
 										last = -1
-										if(w > (maxW - (sepw - (cmap?.get(t.sep.codePointAt() + last*1114112)??0))*chw) || !canBreak) break
+										if(w > (maxW - (sepw - (cmap?.get(t.sep.codePointAt() + last*16777216)??0))*chw) || !canBreak) break
 										_i0 = i0-2, _i1 = 0; ptext = true
 										_w = w, _sh = sh, _geo = geo, _sc = sc, _yo = yo, _st = st, _sk = sk, _lsb = lsb, _f = f, _arc = arc, _v = v, _m = m, _len = len
 										break
@@ -901,11 +901,11 @@ $.Shader.sdf = (src, o={}) => {
 										const g = cmap.get(~c) ?? cmap._default; i1 += l
 										if(m) len += l
 										if(!g) continue
-										const ker = (cmap.get(c + last*1114112) ?? 0) * min(chw, lastCw)
+										const ker = (cmap.get(c + last*16777216) ?? 0) * min(chw, lastCw)
 										lastCw = chw; last = c
 										const cw = (g._xadv+tlsb)*chw + ker
 										w += tarc ? asin(cw*tarc)*ar1||cw : cw
-										if(w <= (maxW - (sepw - (cmap.get(t.sep.codePointAt() + c*1114112)??0))*chw) && canBreak){
+										if(w <= (maxW - (sepw - (cmap.get(t.sep.codePointAt() + c*16777216)??0))*chw) && canBreak){
 											ptext = true
 											_i0 = i0-1, _i1 = i1
 											_w = w, _sh = sh, _geo = geo, _sc = sc, _yo = yo, _st = st, _sk = sk, _lsb = lsb, _f = f, _arc = arc, _v = v, _m = m, _len = len
@@ -1086,54 +1086,28 @@ ffffffffffffffff\
 				else super.set(~char, { x: +x, y: +y, w: +w, h: +h, _xadv: +adv, _tex: tex })
 			}
 		}
-		setLigature(a = -1, b = -1, adv = 0, tex = null, x=0, y=0, w=0, h=0){
-			let code = 0
-			if(typeof a == 'string'){
-				const a0 = a.codePointAt()
-				code = a0*1114112
-				if(typeof b == 'number'){
-					h = w, w = y, y = x, x = tex||0, tex = adv||null, adv = b
-					code += a.codePointAt(1+(a0>65535))||0
-				}else code += b.codePointAt()
-			}else code = a*1114112+b
-			if(code < 0) return
-			if(!tex && !adv) return super.delete(-1114112-char)
-			else super.set(-1114112-char, { x: +x, y: +y, w: +w, h: +h, _xadv: +adv, _tex: tex }), super.set(char, 0)
-		}
 		getWidth(char = -1){
 			if(typeof char == 'string') char = char.codePointAt()
 			return (char < 0 ? this._default : (this.get(~char) ?? this._default))._xadv
 		}
 		setKerning(a, b, adv = 0){
-			let code = 0
-			if(typeof a == 'string'){
-				const a0 = a.codePointAt()
-				code = a0*1114112
-				if(typeof b == 'number'){
-					adv = b
-					code += a.codePointAt(1+(a0>65535))||0
-				}else code += b.codePointAt()
-			}else code = a*1114112+b
-			if(adv) super.set(code, adv)
-			else super.delete(code)
+			if(typeof a == 'string') a = a.codePointAt()
+			if(typeof b == 'string') b = b.codePointAt()
+			if(adv) super.set(a*16777216+b, adv)
+			else super.delete(a*16777216+b)
 		}
 		getKerning(a, b){
-			let code = 0
-			if(typeof a == 'string'){
-				const a0 = a.codePointAt()
-				code = a0*1114112
-				if(typeof b == 'string') code += b.codePointAt()||0
-				else if(typeof b != 'undefined') code += b&0xffffff
-				else code += a.codePointAt(1+(a0>65535))
-			}else code = (a&0xffffff)*1114112+(b&0xffffff)
-			return this.get(code) ?? 0
+			if(typeof a == 'string') a = a.codePointAt()
+			if(typeof b == 'string') b = b.codePointAt()
+			const k = this.get(a*16777216+b)
+			return typeof k == 'number' ? k : 0
 		}
 		chlumsky(src, atlas = 'atlas.png', opts = $.ANISOTROPY | $.SMOOTH, mips = 1){ if(src.endsWith('/')) src += 'index.json'; fetch(src).then(a => (src=a.url,a.json())).then(d => {
 			const {atlas:{type,distanceRange,size,width,height},metrics:{ascender,descender},glyphs,kerning,ligatures} = d
 			this.rangeFactor = distanceRange/size
 			const img = $.Texture.from(new URL(atlas, src).href, opts, type.toLowerCase().endsWith('msdf') ? $.Formats.RGB : $.Formats.RG, mips)
 			this.ascend = ascender/(ascender-descender)
-			for(const {unicode1,unicode2,advance} of kerning) super.set(unicode2+unicode1*1114112, advance)
+			for(const {unicode1,unicode2,advance} of kerning) super.set(unicode2+unicode1*16777216, advance)
 			for(const {unicode,advance,planeBounds:pb,atlasBounds:ab} of glyphs) super.set(~unicode, pb ? {
 				x: +pb.left, y: +pb.bottom,
 				w: (pb.right-pb.left), h: (pb.top-pb.bottom),
@@ -1147,7 +1121,7 @@ ffffffffffffffff\
 			this.rangeFactor = df.distanceRange/sc
 			const b = this.ascend = base/sc
 			const p = pages.map(a => $.Texture.from(new URL(a,src).href, opts, df.fieldType.toLowerCase().endsWith('msdf') ? $.Formats.RGB : $.Formats.RG, mips))
-			for(const {first,second,amount} of kernings) super.set(second+first*1114112, amount/s)
+			for(const {first,second,amount} of kernings) super.set(second+first*16777216, amount/s)
 			for(const {id,x,y,width,height,xoffset,yoffset,xadvance,page} of chars) super.set(id, {
 				x: xoffset*s, y: b-(yoffset-baselineOffset+height)*s,
 				w: width*s, h: height*s,
@@ -1156,7 +1130,7 @@ ffffffffffffffff\
 			})
 			this.done()
 		}, this.error.bind(this)); return this}
-		draw(ctx, txt, v=[], off=0, spr=-0.5, lsb = 0, last = -1, next = -1){
+		draw(ctx, txt, v=[], off=0, spr=-0.5, lsb = 0, last = -1){
 			if(this.#cb) return
 			lsb *= .5
 			off /= this.rangeFactor
@@ -1179,7 +1153,7 @@ ffffffffffffffff\
 				ctx.translate(w, 0)
 			}
 		}
-		measure(txt, lsb = 0, last = -1, next = -1){
+		measure(txt, lsb = 0, last = -1){
 			if(this.#cb) return 0
 			let w = 0, i = 0
 			while(i < txt.length){
