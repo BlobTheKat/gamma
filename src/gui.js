@@ -1,5 +1,51 @@
 {Gamma.gui = $ => {
-	if(!$.RichText) throw 'Initialize Gamma.font before Gamma.gui'
+	if(!$.Font) throw 'Initialize Gamma.font before Gamma.gui'
+	class GUIElement{
+		
+	}
+	const zdraw = function(ctx, w, h){
+		for(let i = 0; i < this.children.length; i += 2){
+			const el = this.children[i], opts = this.children[i + 1]
+			const ct2 = ctx.sub()
+			if(opts&3){
+				if(opts&2) ct2.translate(w - el.width, 0)
+				else if(opts&1) ct2.translate((w - el.width)*.5, 0)
+			}
+			if(opts&12){
+				if(opts&8) ct2.translate(0, h - el.height)
+				else if(opts&4) ct2.translate(0, (h - el.height)*.5)
+			}
+			el.draw(ct2)
+		}
+	}
+	class list extends GUIElement{
+		children = []
+		add(el, opts = 15){ this.children.push(el, opts); return this }
+		constructor(drawFn){ super(); this.draw = drawFn }
+	}
+	class Img extends GUIElement{
+		#tex
+		constructor(tex){ super(); this.#tex = tex }
+		get width(){ return this.#tex.width }
+		get height(){ return this.#tex.height }
+		draw(ctx){ ctx.drawTexture(this.#tex, 0, 0) }
+	}
+	class Text extends GUIElement{
+		constructor(rt){ super(); this.text = rt }
+	}
+	$.GUI = {
+		CENTERED: 15,
+		CENTERED_X: 3,
+		CENTERED_Y: 12,
+		LEFT: 1,
+		RIGHT: 2,
+		BOTTOM: 4,
+		TOP: 8,
+		ZStack: () => new list(zdraw),
+		Img: (tex, szFn, posFn) => new Img(tex, szFn, posFn),
+		Text: (str, scale) => new Text(str)
+	}
+
 	const rem = ({target:t}) => (t._field._f&256||(t._field._f|=256,setImmediate(t._field.recalc)), t.remove(), curf = null)
 	const keydown = e => {
 		const i = e.target, tf = i._field
