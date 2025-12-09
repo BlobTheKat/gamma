@@ -47,21 +47,16 @@
 		TOP: 8,
 		ZStack: () => new list(zdraw),
 		Img: (tex, szFn, posFn) => new img(tex, szFn, posFn),
-		Text: (str) => new text(str)
+		Text: (str) => new text(str),
+		Button: (cb = null) => new btn(cb),
 	}
-	class accessible{
-		constructor(t){ this.type = t }
-		draw = null
-	}
-	class btn extends accessible{
-		constructor(cb){ super('button'); this.cb = cb }
-	}
-	class hoverable extends accessible{
-		constructor(enterCb, exitCb){ super('hoverable'); this.enterCb = enterCb; this.exitCb = exitCb }
-	}
-	$.A11Y = {
-		Button: cb => new btn(cb),
-		Hoverable: (enterCb, exitCb) => new hoverable(enterCb, exitCb)
+	class btn{
+		hoverOverCb = null
+		hoverOutCb = null
+		constructor(cb = null){ this.cb = cb }
+		onClick(cb = null){ this.cb = cb; return this }
+		onHover(cb = null){ this.hoverOverCb = cb; return this }
+		onHoverRelease(cb = null){ this.hoverOutCb = cb; return this }
 	}
 
 	const rem = ({target:t}) => (t._field._f&256||(t._field._f|=256,setImmediate(t._field.recalc)), t.remove(), curf = null)

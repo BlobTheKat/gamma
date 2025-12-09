@@ -26,7 +26,7 @@ declare global{
 		 * @param options.outputs Shader output type. See `Shader()`
 		 * @param options.intFrac Integer texture share. See `Shader()`
 		 */
-		function font(glsl: string, options?: { params?: number | number[], defaults?: number | number[], uniforms?: number | number[], uniformDefaults?: number | number[], output?: number, intFrac?: number }): Shader
+		function sdf(glsl: string, options?: { params?: number | number[], defaults?: number | number[], uniforms?: number | number[], uniformDefaults?: number | number[], output?: number, intFrac?: number }): Shader & { sdf: true }
 	}
 	/**
 	 * Create a BreakToken. Group many `BreakToken`s into an array (a "token class") to fully specify how a piece of text should be tokenized, which defines how and where text can be broken by the `RichText.break()` function. 
@@ -349,8 +349,9 @@ declare global{
 		 * @param spr SDF spread. See `RichText.addTextPass()`
 		 * @param letterSpacing Additional spacing to apply between each pair of characters
 		 * @param lastChar The previous character to the left (if any), used to apply kerning that crosses multiple blocks of text. Omit or pass `-1` if this is the first block of text or you do not wish for kerning to carry over
+		 * @returns The last character drawn. If you are drawing more text and need kerning to apply across multiple `draw()`n blocks, pass this value to the next call to `.draw()`, as the `lastChar` argument
 		 */
-		draw(ctx: Drawable, text: string, values?: any[], offset?: number, spread?: number, letterSpacing?: number, lastChar?: number)
+		draw(ctx: Drawable, text: string, values?: any[], offset?: number, spread?: number, letterSpacing?: number, lastChar?: number): number
 
 		/**
 		 * Measure the width of some text using this font.

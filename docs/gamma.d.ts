@@ -1598,6 +1598,9 @@ namespace GammaInstance{
 		end: number
 		/** Size of the entire geometry in vertices */
 		readonly size: number
+
+		/** Duplicate the last vertex, copying the exact position and values. The current transform is ignored for this operation. */
+		dup(): void
 		/**
 		 * Upload all points added so far to the GPU, clearing any previously uploaded geometry. This method must be called prior to using the geometry
 		 * This method also clears all points on the CPU, so that you can use the same object to start constructing a new shape, without having to hold on to or manually clear the memory used by the last geometry

@@ -3,9 +3,9 @@
 const font = Font.chlumsky('/fonts/ubuntu/')
 
 const ui = GUI.ZStack()
-	.add(GUI.Img(Texture.from('./mountain.jpeg')))
+	.add(GUI.Img(Texture.from('/examples/mountains.jpeg')))
 	.add(GUI.Text('Hello World', font, 32), GUI.CENTERED)
-	.add(A11Y.Button(() => {
+	.add(GUI.Button(() => {
 		console.log('Button Pressed')
 	}))
 

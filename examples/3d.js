@@ -61,26 +61,16 @@ const smoothNormalShader = Shader(`void main(){
 	float a = 1. + dot(normalize(-vparam0),param1);
 	color = param0(pos.xy);
 	color.rgb *= a;
-}`, {params: [COLOR, VEC3], defaults:[void 0,vec3(-.15,-.3,0)],vertex:Geometry3D.Vertex.WITH_NORMALS})
+}`, {
+	params: [COLOR, VEC3],
+	defaults: [void 0,vec3(-.15,-.3,0)],
+	vertex: Geometry3D.Vertex.WITH_NORMALS
+})
 
-onKey(MOUSE.LEFT, () => {
+ictx.onKey(MOUSE.LEFT, () => {
 	pointerLock = true
 })
-let pos = vec3(0, 0, -6), vel = vec3(), look = vec2()
-globalThis.pos = pos
-globalThis.vel = vel
-globalThis.look = look
 
-Shader.AA_CIRCLE ??= Shader(`
-void main(){
-	float dist = 0.5 - length(pos - 0.5);
-
-	// Make [0, 1] the range covered by one pixel
-	float alpha = clamp(dist/fwidth(dist) + 0.5, 0.0, 1.0);
-
-	color = param0(pos) * alpha;
-}
-`, {params: COLOR})
 const skyShader = Shader(`${libnoise}
 void main(){
 	vec3 p = pos*2.-1.;
@@ -96,6 +86,11 @@ void main(){
 	}
 }
 `, {uniforms: [FLOAT, FLOAT], uniformDefaults: [0, .05], vertex: Geometry3D.Vertex.DEFAULT})
+
+let pos = vec3(0, 0, -6), vel = vec3(), look = vec2()
+globalThis.pos = pos
+globalThis.vel = vel
+globalThis.look = look
 
 function drawText(ctx){
 	ctx.translate(label.width*-.5 + .5, 0)
@@ -232,6 +227,7 @@ render = () => {
 	if(keys.has(KEY.C)) targetFov = min(targetFov / SQRT2**dt, 15)
 	else targetFov = 90
 	FOV += (targetFov - FOV) * min(1, dt*20)
+	
 	skyShader.uniforms(t)
 	const {width, height} = ctx
 	let scene = ctx

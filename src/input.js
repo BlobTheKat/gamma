@@ -29,38 +29,116 @@ globalThis.BitField ??= class BitField extends Array{
 		for(const i of n) b.set(i)
 		return b
 	}
-	set(pos){
+	set(pos=0){
 		const i = pos >>> 5
 		while(i >= this.length) this.push(0)
 		this[i] |= 1 << (pos & 31)
 	}
-	unset(pos){
+	unset(pos=0){
 		let i = this.length
 		const j = pos >>> 5
 		if(j >= i) return
 		this[j] &= ~(1 << (pos & 31))
 		while(i && !this[--i]) super.pop()
 	}
-	toggle(pos){
+	setRange(from=0, to=0){
+		if(from > to) return
+		let i = from >>> 5, j = to >>> 5, l = to+31 >>> 5
+		while(l >= this.length) this.push(0)
+		if(i == j){
+			this[i] |= -1<<(from&31) & ~(-1<<(to&31))
+			return
+		}
+		this[i] |= -1<<(from&31)
+		while(++i < j) this[i] = -1
+		if(l = to&31) this[j] |= ~(-1<<l)
+	}
+	unsetRange(from=0, to){
+		if(to === undefined){
+			let i = from+31 >>> 5
+			while(i > 0 && !this[i-1]) i--;
+			this.length = i
+			if(i && (from&31)) this[i-1] &= ~(-1<<(from&31))
+			return
+		}
+		if(from > to) return
+		let i = from >>> 5, j = to >>> 5
+		if(i >= this.length) return
+		if(i == j){
+			this[i] &= ~(-1<<(from&31)) | (-1<<(to&31))
+			return
+		}
+		let end = this.length
+		if(j < end) this[j] &= -1<<(to&31), end = j
+		this[i] &= ~(-1<<(from&31))
+		while(++i < end) this[i] = 0
+		if(end == this.length) while(end && !this[--end]) super.pop()
+	}
+	anyIn(from=0, to){
+		let i = from >>> 5
+		if(i >= this.length) return false
+		if(to === undefined){
+			if(from&31){
+				if(this[i] & -1<<(from&31)) return true
+				i++
+			}
+			while(i < this.length)
+				if(this[i++]) return true
+			return false
+		}
+		let j = to >>> 5
+		if(i == j){
+			return !!(this[i] & (-1<<(from&31) & ~(-1<<(to&31))))
+		}else if(from&31){
+			if(this[i] & -1<<(from&31)) return true
+			i++
+		}
+		let end = this.length
+		if(j < end){
+			if(this[j] & ~(-1<<(to&31))) return true
+			else end = j
+		}
+		while(++i < end) if(this[i]) return true
+		return false
+	}
+	allIn(from=0, to=0){
+		let i = from >>> 5
+		if(i >= this.length) return false
+		let j = to >>> 5
+		if(i == j){
+			return (this[i]|~(-1<<(from&31))|-1<<(to&31))==-1
+		}else if(from&31){
+			if(~this[i]&(-1<<(from&31))) return false
+			i++
+		}
+		let end = this.length
+		if(j < end){
+			if(~(this[j]|(-1<<(to&31)))) return false
+			else end = j
+		}
+		while(i < end) if(~this[i++]) return false
+		return true
+	}
+	toggle(pos=0){
 		let i = this.length
 		const j = pos >>> 5
 		while(j >= i) this.push(0), i++
 		this[j] ^= 1 << (pos & 31)
 		while(i && !this[--i]) super.pop()
 	}
-	has(pos){
+	has(pos=0){
 		const i = pos >>> 5
 		if(i >= this.length) return false
 		return !!(this[i] & (1 << (pos & 31)))
 	}
-	pop(pos){
+	pop(pos=0){
 		let i = pos >>> 5
 		if(i >= this.length) return false
 		let a = this[i]; a ^= (this[i] = a&~(1 << (pos & 31)))
 		if(i == this.length - 1) while(i >= 0 && !this[i--]) super.pop()
 		return !!a
 	}
-	put(pos){
+	put(pos=0){
 		let i = pos >>> 5
 		while(i >= this.length) this.push(0)
 		return !!(this[i] ^ (this[i] |= 1 << (pos & 31)))
@@ -193,13 +271,13 @@ globalThis.BitField ??= class BitField extends Array{
 if(!('remove' in Array.prototype)) Object.defineProperty(Array.prototype, 'remove', { value(a){
 	let i = this.indexOf(a)
 	if(i >= 0){
-		while(i<b.length) b[i] = b[++i]
-		b.pop()
+		while(i<this.length) this[i] = this[++i]
+		this.pop()
 	}
 	return i
 }, enumerable: false, configurable: true })
 
-{let _keys=null,_dcbs=null
+{let _keys=null,_kcbs=null
 const overrides = {__proto__: null,
 	ContextMenu: 93, Help: 26, Semicolon: 186, Quote: 222, BracketLeft: 219, BracketRight: 221,
 	Backquote: 192, Backslash: 220, Minus: 189, EQUAL: 187, IntlRo: 193, IntlYen: 255, MetaLeft: 91,
@@ -238,7 +316,7 @@ Gamma.input = ($, can = $.canvas) => {
 		set: v => {
 			if(!v){
 				if(document.pointerLockElement === can) document.exitPointerLock()
-			}else if(document.pointerLockElement !== can) can.requestPointerLock()?.catch(_=>null)
+			}else if(document.pointerLockElement !== can) can.requestPointerLock(ptrlockOpts)?.catch(_=>null)
 		}
 	})
 	Object.defineProperty($, 'fullscreen', {
@@ -250,58 +328,113 @@ Gamma.input = ($, can = $.canvas) => {
 		}
 	})
 
-	const dcbs = new Map
-	;($.onKey = (key, fn) => {
-		if(Array.isArray(key)){for(const k of key) $.onKey(k,fn);return}
-		const a = dcbs.get(key&=0xffff)
-		if(a) a.push(fn)
-		else dcbs.set(key, [fn])
-	}).remove = (key, fn) => {
-		if(Array.isArray(key)){for(const k of key) $.onKey.remove(k,fn);return}
-		const a = dcbs.get(key&=0xffff)
-		if(a && !(a.remove(fn),a.length)) dcbs.delete(key)
+	$.GAMEPAD_STICKS = 2
+	$.GAMEPAD_BUTTONS = 4
+	$.KEYBOARD = 8
+	$.MOUSE_BUTTONS = 16
+	$.MOUSE_WHEEL = 32
+	$.MOUSE_POINTER = 64
+	$.OTHER_POINTERS = 128
+
+	$.GAMEPAD = 6
+	$.MOUSE = 112
+	$.ANY_POINTER = 192
+	$.ANY_INPUT = -2
+
+	class Ictx extends BitField{
+		wheel = {x: 0, y: 0} // accumulated wheel delta
+		mouse = {x: 0, y: 0} // accumulated mouse delta
+		cursor = {x: 0, y: 0} // "normalized" cursor position. For the main canvas this is usually in [0,1]
+		_pointers = new Map()
+		pointer(id){ return (id|=0) >= 0 ? this._pointers.get(id) ?? null : null }
+		stick(id){
+			if((id=~id) >= 0) return null
+			const s = this._pointers.get(id)
+			if(!s) this._pointers.set(id, s = {x:0,y:0})
+			return s
+		}
+		_wcbs = []
+		_kcbs = new Map
+		_mcbs = []
+		removeListeners(flags = -1){
+			const k = flags & 28
+			if(k){
+				if(k == 28) this._kcbs.clear()
+				else for(const key of this._kcbs.keys())
+					// 0-7 => 16, 8-255 => 8, else => 4
+					if(flags & ((0b010101010111111111>>(32-clz32(key)<<1)&3)+1<<2)) this._kcbs.delete(key)
+			}
+			if(flags & 32) this._wcbs.length = 0
+			if(flags & 64) this._mcbs.length = 0
+		}
+		clearInputs(flags = -1){
+			const k = flags & 28
+			if(k == 28) this.clear()
+			else if(k){
+				if(flags & 4) this.unsetRange(256)
+				if(flags & 8) this.unsetRange(8, 255)
+				if(flags & 16) this.unsetRange(0, 7)
+			}
+			if(flags&32) this.wheel.x = this.wheel.y = 0
+			if(flags&64) this.mouse.x = this.mouse.y = 0, this.cursor.x = this.cursor.y = 0
+			let k2 = flags & 130
+			if(k2==130) this._pointers.clear()
+			else if(k2){
+				k2 = -(flags==128)
+				for(const id of this._pointers.keys())
+					if((id>>31)==k2) this._pointers.delete(id)
+			}
+		}
+		onMouseWheel(fn){ this._wcbs.push(fn) }
+		onMouseMove(fn){ this._mcbs.push(fn) }
+		onPointerDown(fn){} 
+		onKeyDown(key, fn){
+			if(Array.isArray(key)){for(const k of key) this.onKeyDown(k,fn);return}
+			const a = this._kcbs.get(key&=0xffff)
+			if(a) a.push(fn)
+			else this._kcbs.set(key, [fn])
+		}
+		onKeyUp(key, fn){
+			if(Array.isArray(key)){for(const k of key) this.onKeyUp(k,fn);return}
+			const a = this._kcbs.get(key=~(key&0xffff))
+			if(a) a.push(fn)
+			else this._kcbs.set(key, [fn])
+		}
+		onKey(key, down, up){
+			if(down) this.onKeyDown(key, down)
+			if(up) this.onKeyUp(key, up)
+		}
 	}
-	;($.onKeyRelease = (key, fn) => {
-		if(Array.isArray(key)){for(const k of key) $.onKeyRelease(k,fn);return}
-		const a = dcbs.get(key=~(key&0xffff))
-		if(a) a.push(fn)
-		else dcbs.set(key, [fn])
-	}).remove = (key, fn) => {
-		if(Array.isArray(key)){for(const k of key) $.onKeyRelease.remove(k,fn);return}
-		const a = dcbs.get(key=~(key&0xffff))
-		if(a && !(a.remove(fn),a.length)) dcbs.delete(key)
-	}
-	const wcb = [], mcb = []
-	;($.onWheel = fn => void wcb.push(fn)).remove = fn => void wcb.remove(fn)
-	;($.onMouse = fn => void mcb.push(fn)).remove = fn => void mcb.remove(fn)
+	const ictx = $.ictx = new Ictx()
+	$.InputContext = () => new Ictx()
 	can.style.cursor = 'default'
 	Object.defineProperty($, 'cursorType', {get(){return can.style.cursor},set(a){can.style.cursor=a||'default'}})
 	can.addEventListener('mouseover', _ => {
 		if(_keys) return
-		_keys = keys; _dcbs = dcbs
+		_keys = keys; _kcbs = ictx._kcbs
 	})
 	can.addEventListener('mouseout', _ => {
 		if(_keys != keys) return
 		keys.iter(n => {
-			const a = dcbs.get(~n)
+			const a = ictx._kcbs.get(~n)
 			if(a) for(const f of a)try{f(n)}catch(e){Promise.reject(e)}
 		})
 		keys.clear()
-		_keys = _dcbs = null
+		_keys = _kcbs = null
 	})
 	can.addEventListener('mousedown', e => {
 		e.preventDefault()
 		const n = e.button
 		keys.set(n)
-		const a = dcbs.get(n)
-		if(a) for(const f of a)try{f(n)}catch(e){Promise.reject(e)}
+		const a = ictx._kcbs.get(n)
+		if(a) for(const f of a) try{f(n)}catch(e){Promise.reject(e)}
 	})
 	can.addEventListener('mouseup', e => {
 		e.preventDefault()
 		const n = e.button
 		if(!keys.pop(n)) return
-		const a = dcbs.get(~n)
-		if(a) for(const f of a)try{f(n)}catch(e){Promise.reject(e)}
+		const a = ictx._kcbs.get(~n)
+		if(a) for(const f of a) try{f(n)}catch(e){Promise.reject(e)}
 	})
 	can.addEventListener('contextmenu', e => e.preventDefault())
 	can.addEventListener('wheel', e => {
@@ -309,7 +442,7 @@ Gamma.input = ($, can = $.canvas) => {
 		$.rawWheel.x += e.wheelDeltaX; $.rawWheel.y += e.wheelDeltaY
 		$.scrollDelta.x += e.wheelDeltaX / innerWidth
 		$.scrollDelta.y += e.wheelDeltaY / innerHeight
-		for(const f of wcb) f(e.wheelDeltaX, e.wheelDeltaY)
+		for(const f of ictx._wcbs) f(e.wheelDeltaX, e.wheelDeltaY)
 	}, {passive: false})
 	let prevx = NaN, prevy = NaN
 	can.addEventListener('mousemove', e => {
@@ -330,7 +463,7 @@ Gamma.input = ($, can = $.canvas) => {
 			dx = e.offsetX-prevx, dy = e.offsetY-prevy
 		}
 		$.rawMouse.x += dx; $.rawMouse.y -= dy
-		for(const f of wcb) f(dx, dy)
+		for(const f of ictx._mcbs) f(dx, dy)
 		prevx = e.offsetX, prevy = e.offsetY
 	})
 }
@@ -340,7 +473,7 @@ document.addEventListener('keydown', e => {
 	if(e.repeat) return
 	const n = overrides[e.code] ?? e.keyCode
 	_keys.set(n)
-	const a = _dcbs.get(n)
+	const a = _kcbs.get(n)
 	if(a) for(const f of a)try{f(n)}catch(e){Promise.reject(e)}
 })
 document.addEventListener('keyup', e => {
@@ -348,6 +481,6 @@ document.addEventListener('keyup', e => {
 	if(document.activeElement == document.body || !document.activeElement) e.preventDefault()
 	const n = overrides[e.code] ?? e.keyCode
 	if(!_keys.pop(n)) return
-	const a = _dcbs.get(~n)
+	const a = _kcbs.get(~n)
 	if(a) for(const f of a)try{f(n)}catch(e){Promise.reject(e)}
 })}
