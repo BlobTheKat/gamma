@@ -1103,7 +1103,7 @@ ffffffffffffffff\
 			return typeof k == 'number' ? k : 0
 		}
 		chlumsky(src, atlas = 'atlas.png', opts = $.ANISOTROPY | $.SMOOTH, mips = 1){ if(src.endsWith('/')) src += 'index.json'; fetch(src).then(a => (src=a.url,a.json())).then(d => {
-			const {atlas:{type,distanceRange,size,width,height},metrics:{ascender,descender},glyphs,kerning,ligatures} = d
+			const {atlas:{type,distanceRange,size,width,height},metrics:{ascender,descender},glyphs,kerning} = d
 			this.rangeFactor = distanceRange/size
 			const img = $.Texture.from(new URL(atlas, src).href, opts, type.toLowerCase().endsWith('msdf') ? $.Formats.RGB : $.Formats.RG, mips)
 			this.ascend = ascender/(ascender-descender)

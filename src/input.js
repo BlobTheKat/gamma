@@ -380,14 +380,14 @@ Gamma.input = ($, can = $.canvas) => {
 			let k2 = flags & 130
 			if(k2==130) this._pointers.clear()
 			else if(k2){
-				k2 = -(flags==128)
+				k2 = -(k2==128)
 				for(const id of this._pointers.keys())
 					if((id>>31)==k2) this._pointers.delete(id)
 			}
 		}
 		onMouseWheel(fn){ this._wcbs.push(fn) }
 		onMouseMove(fn){ this._mcbs.push(fn) }
-		onPointerDown(fn){} 
+		onPointerDown(fn){}
 		onKeyDown(key, fn){
 			if(Array.isArray(key)){for(const k of key) this.onKeyDown(k,fn);return}
 			const a = this._kcbs.get(key&=0xffff)
