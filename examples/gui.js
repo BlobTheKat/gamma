@@ -11,5 +11,5 @@ const ui = GUI.ZStack()
 
 render = () => {
 	ctx.clear(0, 0, 0, 1)
-	ui.draw(ctx)
+	ui.draw(ctx, ictx)
 }

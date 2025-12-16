@@ -27,9 +27,7 @@
 		$.canvas.style.imageRendering = ctxSupersample > 1 ? '' : 'pixelated'
 		$.cursorType = 'default'
 		$.render?.()
-		$.rawMouse.x = $.rawMouse.y = 0
-		$.rawWheel.x = $.rawWheel.y = 0
-		$.scrollDelta.x = $.scrollDelta.y = 0
+		$.ictx.clearDeltas()
 	})
 	$.pixelRatio = devicePixelRatio*16
 	const unint = `user-select:none;-webkit-user-select:none;touch-action: none;`
@@ -41,6 +39,7 @@
 	}
 	if(!$.gl) throw $.glLost(), 'Please reload app'
 	document.body.replaceWith($.canvas)
+	$.canvas.focus()
 	
 	$.resolver = (a) => {
 		const url = new URL('.', a.url ?? a.href).href
@@ -68,6 +67,6 @@
 		[Symbol.toStringTag]: {value: 'Global', writable: false}
 	})
 	$.icon = null
-	import('./examples/3d.js')
+	import('./examples/gui.js')
 }</script></body>
 </html>

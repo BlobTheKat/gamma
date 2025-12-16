@@ -44,6 +44,7 @@ const resolveData = (val, cb, err) => typeof val == 'string' ?
 
 $.Gamma = (can = document.createElement('canvas'), $ = {}, flags = 15) => {
 /** @type WebGL2RenderingContext */
+$.flags = flags
 const gl = $.gl = ($.canvas = can).getContext('webgl2', {preserveDrawingBuffer: !(flags&8), antialias: flags&16, depth: false, premultipliedAlpha: flags&4, stencil: flags&1, alpha: flags&2})
 gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1)
 gl.stencilMask(1)
@@ -1789,6 +1790,8 @@ $.Shader.DEFAULT = $.Shader(`void main(){color=param0(pos)*param1;}`, {params:[$
 $.Shader.COLOR_3D_XZ = $.Shader(`void main(){color=param0(pos.xz);}`, {params:[$.COLOR],vertex:Geometry3D.Vertex.DEFAULT})
 $.Shader.SHADED_3D = $.Shader(`void main(){color=param0(pos.xy);color.rgb*=1.+dot(normalize(cross(dFdx(pos),dFdy(pos))),param1);}`, {params:[$.COLOR,$.VEC3], defaults:[void 0,vec3(-.15,-.3,0)],vertex:Geometry3D.Vertex.DEFAULT})
 let lastClr = 0
+const onfl = []
+$.onFlush = f => onfl.push(f)
 $.flush = () => {
 	i&&draw()
 	if(pboUsed) pboUsed = false
@@ -1808,6 +1811,7 @@ $.flush = () => {
 		lastClr = now
 		arr = new Float32Array(arr.length>>>1), iarr = new Int32Array(arr.buffer)
 	}
+	for(const f of onfl) try{f()}catch(e){Promise.reject(e)}
 }
 const ctx = $.ctx = new Drw2D(curt = {_fb: null, _stencil: 0, _stenBuf: null, w: 0, h: 0, u: 0})
 $.setSize = (w = 0, h = 0) => {
