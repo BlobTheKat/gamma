@@ -64,7 +64,7 @@ render = () => {
 	if(zoom != zoom) zoom = zoomi = w/42
 	ctx.reset(1/w, 0, 0, 1/h, .5, .5)
 	ctx.scale(zoomi)
-	if(keys.has(KEY.CTRL)) zoom *= 1.005**rawWheel.y, rawWheel.y = 0
+	if(ictx.has(KEY.CTRL)) zoom *= 1.005**rawWheel.y, rawWheel.y = 0
 	zoomi *= (zoom/zoomi)**(dt*10)
 	cxi += (cx-cxi)*(dt*5)
 	if(input.multiline)
@@ -80,7 +80,7 @@ render = () => {
 	ctx.shader = Shader.AA_CIRCLE
 
 	ctx.blend = Blend.INVERT
-	const l = +keys.has(MOUSE.LEFT), r = +keys.has(MOUSE.RIGHT)
+	const l = +ictx.has(MOUSE.LEFT), r = +ictx.has(MOUSE.RIGHT)
 	if(l+r){
 		const col = vec4(l^r,l,l,1)
 		ctx.drawRect(c.x-.5,c.y-.5,1,1,col)

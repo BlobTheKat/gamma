@@ -256,26 +256,39 @@ globalThis.BitField ??= class BitField extends Array{
 		return u
 	}
 }
-
-if(!('remove' in Array.prototype)) Object.defineProperty(Array.prototype, 'remove', { value(a){
-	let i = this.indexOf(a)
-	if(i >= 0){
-		while(i<this.length) this[i] = this[++i]
-		this.pop()
-	}
-	return i
-}, enumerable: false, configurable: true })
-let lastCan = null, lastInst = null
+{
+const vib = function(leftWeak = 1, leftStrong = 1, rightWeak = 1, rightStrong = 1, duration = 1){
+	const h = this.vibrationActuator ?? this.hapticActuators?.[0]
+	if(!h) return
+	h.playEffect?.('dual-rumble', {
+		duration: duration*1000,
+		strongMagnitude: (leftStrong + rightStrong) * .5,
+		weakMagnitude: (leftWeak + rightWeak) * .5
+	}) ?? h.pulse?.((leftWeak + leftStrong + rightWeak + rightStrong) * .25, duration*1000)
+}
 function pollGamepads(){
 	gp = false
+	const gps = new Set()
+	let ictx = document.activeElement?._ictx
+	if(!(ictx instanceof Ictx)) ictx = null
+	else for(const gi of ictx._pointers) if(gi<0) gps.add(~gi)
 	for(const g of navigator.getGamepads()){
-		console.log(g.index)
+		if(!g || g.mapping !== 'standard') continue
+		const gamepad = new GamepadState()
+		gamepad.vibrate = vib.bind(g)
+		for(let i = 0; i < g.buttons.length; i++)
+			if(g.buttons[i].pressed) gamepad.set(i)
+		for(let i = 0; i < g.axes.length; i+=2)
+			gamepad._axes.push({x: g.axes[i], y: -g.axes[i+1]})
+		if(ictx) ictx.setGamepad(g.index, gamepad), gps.delete(g.index)
+		gp = true
 	}
+	if(ictx) for(const gi of gps) ictx.setGamepad(gi, 0)
 	if(gp) requestAnimationFrame(pollGamepads)
 }
+// Specs say gamepadconnected SHOULD be fired for gamepads that existed on page load. SHOULD != MUST
 let gp = true; requestAnimationFrame(pollGamepads)
 window.addEventListener('gamepadconnected', () => { if(!gp) requestAnimationFrame(pollGamepads), gp = true })
-{
 const overrides = {__proto__: null,
 	ContextMenu: 93, Help: 26, Semicolon: 186, Quote: 222, BracketLeft: 219, BracketRight: 221,
 	Backquote: 192, Backslash: 220, Minus: 189, EQUAL: 187, IntlRo: 193, IntlYen: 255, MetaLeft: 91,
@@ -284,24 +297,356 @@ const overrides = {__proto__: null,
 	Clear: 10, NumpadComma: 110, NumpadDecimal: 110, Numpad0: 96, Numpad1: 97, Numpad2: 98, Numpad3: 99,
 	Numpad4: 100, Numpad5: 101, Numpad6: 102, Numpad7: 103, Numpad8: 104, Numpad9: 105
 }
+const MOUSE = Object.freeze({ LEFT: 0, RIGHT: 2, MIDDLE: 1, BACK: 3, FORWARD: 4 })
+const KEY = Object.freeze({
+	A: 65, B: 66, C: 67, D: 68, E: 69, F: 70, G: 71, H: 72, I: 73, J: 74, K: 75, L: 76, M: 77,
+	N: 78, O: 79, P: 80, Q: 81, R: 82, S: 83, can: 84, U: 85, V: 86, W: 87, X: 88, Y: 89, Z: 90,
+	NUM_0: 48, NUM_1: 49, NUM_2: 50, NUM_3: 51, NUM_4: 52, NUM_5: 53, NUM_6: 54, NUM_7: 55,
+	NUM_8: 56, NUM_9: 57, SPACE: 32, BACKTICK: 192, TAB: 9, BACK: 8, ENTER: 13,
+	SHIFT: 16, CTRL: 17, ALT: 18, ESC: 27, META: 91, METARIGHT: 93, CAPSLOCK: 20, UP: 38,
+	RIGHT: 39, DOWN: 40, LEFT: 37, MOD: navigator.platform.startsWith('Mac') ? 91 : 17, F1: 112,
+	F2: 113, F3: 114, F4: 115, F5: 116, F6: 117, F7: 118, F8: 119, F9: 120, F10: 121, F11: 122,
+	F12: 123, MINUS: 189, EQUAL: 187, BR_LEFT: 219, BR_RIGHT: 221, SEMICOLON: 186, APOS: 222,
+	BACKSLASH: 220, COMMA: 188, DOT: 190, SLASH: 191, PAUSE: 19, PAD_ENTER: 12, CLEAR: 10, HOME: 36, END: 35,
+	PAGE_UP: 33, PAGE_DOWN: 34, INS: 45, DEL: 46, CTX_MENU: 93, NUMPAD_0: 96, NUMPAD_1: 97, NUMPAD_2: 98,
+	PAD_3: 99, NUMPAD_4: 100, NUMPAD_5: 101, NUMPAD_6: 102, NUMPAD_7: 103, NUMPAD_8: 104, NUMPAD_9: 105,
+	PAD_DIV: 111, PAD_MULT: 106, PAD_SUB: 109, PAD_ADD: 107, PAD_DOT: 110, NUM_LOCK: 144,
+	SCROLL_LOCK: 145, HELP: 26, RO: 193, YEN: 255, SYSRQ: 44, PRINT_SCREEN: 44
+})
+const GAMEPAD = Object.freeze({ A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15, MENU: 16, LEFT_STICK: 0, RIGHT_STICK: 1 })
+const Inputs = Object.freeze({
+	MOUSE_BUTTONS: 1,
+	MOUSE_WHEEL: 2,
+	MOUSE_POINTER: 4,
+	OTHER_POINTERS: 8,
+	KEYBOARD: 16,
+	GAMEPADS: 32,
+	MOUSE: 7,
+	ALL_POINTERS: 12,
+	ALL: -1
+})
+class PointerState{
+	constructor(other = null){
+		if(other){
+			this.x = +other.x, this.y = +other.y
+			this.tiltX = +other.tiltX, this.tiltY = +other.tiltY
+			this.pressure = +other.pressure, this.twist = +other.twist
+			this.buttons = other.buttons|0
+		}else{
+			this.x = 0, this.y = 0
+			this.tiltX = 0, this.tiltY = 0
+			this.pressure = 0, this.twist = 0
+			this.buttons = 0
+		}
+	}
+	update(other){
+		this.x = +other.x, this.y = +other.y; this.buttons = other.buttons|0
+		this.tiltX = +other.tiltX; this.tiltY = +other.tiltY; this.pressure = +other.pressure; this.twist = +other.twist
+	}
+	has(btn){ return !!(this.buttons >> btn & 1) }
+	anyIn(from=0, to){ return !!(this.buttons >> from & (typeof to == 'number' ? ~(-1 << (to-from)) : -1)) }
+	allIn(from=0, to=0){ return (this.buttons >> from | (-1 << (to-from))) === -1 }
+	firstUnset(){ const b = ~this.buttons; return 31 - clz32(b&-b) }
+	firstSet(){ const b = this.buttons; return 31 - clz32(b&-b) }
+	lastSet(){ return 31 - clz32(this.buttons) }
+	[Symbol.iterator](){
+		const v = {value: -1, done: false}
+		return {[Symbol.iterator](){return this},next:()=>{
+			if(v.done) return v
+			const a = this.buttons&(-1<<v.value+1), x = 31-clz32(a&-a)
+			if(x>=0) return v.value=x,v
+			return v.value=-1,v.done=true,v
+		}}
+	}
+	iter(cb, from=0){
+		for(;;){
+			const a = this.buttons&(-1<<from), x = 31-clz32(a&-a)
+			if(x<0) break; from = x+1; cb(x)
+		}
+	}
+}
+const defaultVibrate = (_a=1,_b=1,_c=1,_d=1,_e=1)=>{}
+class GamepadState extends BitField{
+	_subscribed = []
+	constructor(other = null){
+		super(other)
+		if(other) this._axes = other._axes.slice(), this.vibrate = other.vibrate
+		else this._axes = [], this.vibrate = defaultVibrate
+	}
+	update(other){
+		const m = min(this.length, other.length)
+		for(let i = 0; i < m; i++){
+			let a = other[i], d = a ^ this[i]; this[i] = a
+			while(d){
+				const p = 31 - clz32(d&-d)
+				for(const ictx of this._subscribed) ictx._fireGamepadButtonUpdate(i<<5|p, !!(a>>p&1))
+				d &= -2<<p
+			}
+		}
+		if(m < other.length){ // some buttons down
+			for(let i = m; i < other.length; i++){
+				let a = other[i]; this.push(a)
+				while(a){
+					const p = 31 - clz32(a&-a)
+					for(const ictx of this._subscribed) ictx._fireGamepadButtonUpdate(i<<5|p, true)
+					a &= -2<<p
+				}
+			}
+		}else if(m < this.length){ // some buttons up
+			for(let i = m; i < this.length; i++){
+				let a = this[i]
+				while(a){
+					const p = 31 - clz32(a&-a)
+					for(const ictx of this._subscribed) ictx._fireGamepadButtonUpdate(i<<5|p, false)
+					a &= -2<<p
+				}
+			}
+			this.length = m
+		}
+		const a1 = other._axes, a2 = this._axes, m2 = min(a1.length, a2.length)
+		for(let i = 0; i < m2; i++){
+			const n = a1[i], o = a2[i]
+			if(n.x===o.x&&n.y===o.y) continue
+			o.x = n.x; o.y = n.y
+			for(const ictx of this._subscribed) ictx._fireGamepadAxisUpdate(i,n.x,n.y)
+		}
+		if(m2 < a1.length){ // more axes
+			for(let i = m2; i < a1.length; i++){
+				const n = a1[i]; a2.push(n)
+				if(n.x!==0||n.y!==0)
+					for(const ictx of this._subscribed) ictx._fireGamepadAxisUpdate(i,n.x,n.y)
+			}
+		}else if(m2 < a2.length){
+			for(let i = m2; i < a2.length; i++){
+				const o = a2[i]
+				if(o.x!==0||o.y!==0)
+					for(const ictx of this._subscribed) ictx._fireGamepadAxisUpdate(i,0,0)
+			}
+			a2.length = m2
+		}
+		this.vibrate = other.vibrate
+	}
+	axis(i){ return this._axes[i&65535] ?? null }
+}
+
+// An input context combines:
+// Logical keys (`BitField`), 0-7: mouse buttons, 8+: keyboard keys
+// Mouse wheel and movement deltas via `.wheel` and `.mouse`
+// Pointer positions (0: main mouse, 1..n: other pointers, `.pointer(n)`)
+// Gamepads (0: primary gamepad, 1..n: other gamepads, `.gamepad(n)`)
+// It offers interface for listening for raw input events (e.g a key was pressed, a new pointer appeared),
+// 	refined input event (e.g a specific key was pressed, a pointer appeared in a region) and methods to clear such listeners
+// It offers interface to fire events, such as when propagating events between contexts, or, for the main context, fired directly from DOM events
+// It offers interface to check on-demand the current state of inputs (e.g is a key pressed, position of a pointer), useful in render/update loops
+
+// Mouse events and pointer 0 events are both derived separately. While they will typically match, there is no intrinsic reason they must.
+// E.g a pointer event could be synthesized from touch input, a context may wish to remap mouse buttons before propagating, etc...
+// onKeyDown/onKeyUp/onKeyUpdate are all derived directly from setKey(), so they will always match.
+// Same for onNewPointer/onDelPointer/onPointerUpdate from setPointer() and onNewGamepad/onDelGamepad/onGamepadUpdate from setGamepad().
+
+// An input context acts like a filter. An incoming event is immediately updated to the context's state, then listeners are called. Listeners
+// can modify the event (e.g cancel a key press) and the modified event is then propagated to the next listeners, then to the next context in the chain.
+// Chaining contexts is useful for handling many layers of input processing, e.g global shortcuts, per-scene inputs, etc...
+// As well as keeping track of more intermediate input states, e.g if it's needed later by the rendering or update loop.
+// However, most of the time, you will be forwarding directly with .fireXXX() calls as they offer more control over propagating to abitrary contexts.
+
+// Pointers contain: .x, .y (normalized position),
+// 	.pressure (0..1, for touch/pen input), .tiltX, .tiltY, .twist (for pen input)
+// 	.buttons (bitwise integer of buttons pressed, also accessible via a BitField interface)
+// Gamepads are BitFields for pressed buttons along with:
+// 	.axis(i) returning {x,y} objects for each stick/axis
+
+class Ictx extends BitField{
+	next = null // for chaining contexts
+	wheel = {x: 0, y: 0} // accumulated wheel delta
+	mouse = {x: 0, y: 0} // accumulated mouse delta
+	cursor = null // "normalized" cursor position. For the main canvas this is usually in [0,1]. This value is always == .pointer(0)
+	gamepad = null // Primary gamepad. This value is always the oldest gamepad on this context, or null if no gamepads are connected on this context
+	_pointers = new Map()
+	pointer(id){ return (id|=0) >= 0 ? this._pointers.get(id) ?? null : null }
+	iterPointers(cb){ for(const {0:k,1:v} of this._pointers) if(k>=0) cb(k, v) }
+	gamepad(id){ return (id=~id) < 0 ? this._pointers.get(id) ?? null : null }
+	iterGamepads(cb){ for(const {0:k,1:v} of this._pointers) if(k<0) cb(~k, v) }
+	_wcbs = []; _mcbs = []; _rpcbs = []; _rgcbs = []; _rkcbs = []
+	_npcbs = []; _ngcbs = []; _dpcbs = []; _dgcbs = []
+	_kcbs = new Map()
+	// Clears listeners
+	reset(flags = -1){
+		const k = flags & 17
+		if(k){
+			if(k == 17) this._kcbs.clear()
+			else for(const key of this._kcbs.keys())
+				if((key>7)^(flags>>3&1)) this._kcbs.delete(key)
+		}
+		if(flags & 2) this._wcbs.length = 0
+		if(flags & 4) this._mcbs.length = 0
+		if(flags & 8) this._npcbs.length = this._dpcbs.length = 0
+		if(flags & 32) this._ngcbs.length = this._dgcbs.length = 0
+	}
+	// Clears inputs without calling or removing listeners
+	resetInputs(flags = -1){
+		const k = flags & 17
+		if(k == 17) this.clear()
+		else if(k){
+			if(flags & 1) this.unsetRange(0, 7)
+			if(flags & 16) this.unsetRange(8)
+		}
+		if(flags&2) this.wheel.x = this.wheel.y = 0
+		if(flags&4) this.mouse.x = this.mouse.y = 0
+		let k2 = flags & 40
+		if(k2==40) this._pointers.clear()
+		else if(k2){
+			k2 = -(k2==32)
+			for(const id of this._pointers.keys())
+				if((id>>31)==k2) this._pointers.delete(id)
+		}
+	}
+	onWheel(fn){ this._wcbs.push(fn) }
+	onMouseMove(fn){ this._mcbs.push(fn) }
+	onPointerUpdate(fn){ this._rpcbs.push(fn) }
+	onGamepadUpdate(fn){ this._rgcbs.push(fn) }
+	onNewPointer(fn){ this._npcbs.push(fn) }
+	onDelPointer(fn){ this._dpcbs.push(fn) }
+	onNewGamepad(fn){ this._ngcbs.push(fn) }
+	onDelGamepad(fn){ this._dgcbs.push(fn) }
+	onKey(key, fn){
+		if(Array.isArray(key)){for(const k of key) this.onKey(k,fn);return}
+		const a = this._kcbs.get(key&=0xffff)
+		if(a) a.push(fn)
+		else this._kcbs.set(key, [fn])
+	}
+	onGamepadButton(key, fn){
+		if(Array.isArray(key)){for(const k of key) this.onGamepadButton(k,fn);return}
+		const a = this._kcbs.get(key=~(key&0xffff))
+		if(a) a.push(fn)
+		else this._kcbs.set(key, [fn])
+	}
+	onGamepadAxis(axis, fn){
+		if(Array.isArray(axis)){for(const k of axis) this.onGamepadButton(k,fn);return}
+		const a = this._kcbs.get(axis=~(axis&0xffff|0x10000))
+		if(a) a.push(fn)
+		else this._kcbs.set(axis, [fn])
+	}
+	onKeyPress(key, fn, onRelease = false){ this.onKey(key, (down,k) => (down === onRelease || fn(k), false)) }
+	onGamepadButtonPress(key, fn, onRelease = false){ this.onGamepadButton(key, (down,k) => (down === onRelease || fn(k), false)) }
+	onKeyUpdate(fn){ this._rkcbs.push(fn) }
+	setKey(key, isDown = false, refire = false){
+		key &= 0xffff
+		let self = this
+		while(self){
+			if(!(isDown ? self.put(key) : self.pop(key))){
+				if(!refire){ self = self.next; continue }
+			}else{
+				const specCbs = self._kcbs.get(key)
+				if(specCbs) for(const f of specCbs) try{ const v = f(isDown, key); if(typeof v == 'boolean') isDown = v }catch(e){Promise.reject(e)}
+			}
+			for(const f of self._rkcbs) try{ const v = f(key, isDown); if(typeof v == 'boolean') isDown = v }catch(e){Promise.reject(e)}
+			self = self.next
+		}
+	}
+	refireKey(key){ this.setKey(key, this.has(key), true) }
+	_fireGamepadButtonUpdate(key = 0, isDown = false){
+		const specCbs = this._kcbs.get(~key)
+		if(specCbs) for(const f of specCbs) try{ const v = f(isDown, key); if(typeof v == 'boolean') isDown = v }catch(e){Promise.reject(e)}
+	}
+	_fireGamepadAxisUpdate(axis = 0, x = 0, y = 0){
+		const specCbs = this._kcbs.get(~(axis|0x10000))
+		if(specCbs) for(const f of specCbs) try{ const v = f(x, y); if(typeof v == 'object') v ? (x = +v.x, y = +v.y) : (x=y=0) }catch(e){Promise.reject(e)}
+	}
+	setPointer(id, pointer = null, refire = false){
+		if((id|=0) < 0) return
+		let self = this
+		while(self){
+			let p = self._pointers.get(id) ?? null
+			if(!p){
+				if(pointer){
+					p = new PointerState(pointer)
+					if(!id) self.cursor = p
+					self._pointers.set(id, p)
+					for(const f of self._npcbs) try{ const p2 = f(id, pointer, null); if(typeof p2 == 'object') pointer = p2 }catch(e){Promise.reject(e)}
+				}else if(!refire){ self = self.next; continue }
+			}else if(!pointer){
+				self._pointers.delete(id)
+				if(!id) self.cursor = null
+				for(const f of self._dpcbs) try{ const p2 = f(id, pointer, p); if(typeof p2 == 'object') pointer = p2 }catch(e){Promise.reject(e)}
+			}else p.update(pointer)
+			for(const f of self._rpcbs) try{ const p2 = f(id, pointer); if(typeof p2 == 'object') pointer = p2 }catch(e){Promise.reject(e)}
+			self = self.next
+		}
+	}
+	#setMainGamepad(g){
+		this.gamepad = g
+		g.iter(i => this._fireGamepadButtonUpdate(i, true))
+		const a = g._axes
+		for(let i = 0; i < a.length; i++){
+			const n = a[i]
+			if(n.x!==0&&n.y!==0) this._fireGamepadAxisUpdate(i, n.x, n.y)
+		}
+		g._subscribed.push(this)
+	}
+	refirePointer(id){ this.setPointer(id, this._pointers.get(id) ?? null, true) }
+	setGamepad(id, gamepad = null, refire = false){
+		if((id=~id) >= 0) return
+		let self = this
+		while(self){
+			let g = self._pointers.get(id) ?? null
+			if(!g){
+				if(gamepad){
+					g = new GamepadState(gamepad)
+					if(!this.gamepad) this.#setMainGamepad(g)
+					self._pointers.set(id, g)
+					for(const f of self._ngcbs) try{ const p2 = f(id, gamepad, null); if(typeof p2 == 'object') gamepad = p2 }catch(e){Promise.reject(e)}
+				}else if(!refire){ self = self.next; continue }
+			}else if(!gamepad){
+				self._pointers.delete(id)
+				if(g == this.gamepad){
+					this.gamepad = null
+					const arr = g._subscribed
+					let i = arr.indexOf(this)
+					if(i >= 0){ // safeguard
+						while(i<arr.length) arr[i] = arr[++i]
+						arr.pop()
+					}
+					g.iter(i => this._fireGamepadButtonUpdate(i, false))
+					const a = g._axes
+					for(let i = 0; i < a.length; i++){
+						const n = a[i]
+						if(n.x!==0&&n.y!==0) this._fireGamepadAxisUpdate(i, 0, 0)
+					}
+					for(const {0:k,1:v} of this._pointers) if(k<0){ this.#setMainGamepad(g); break }
+				}
+				for(const f of self._dgcbs) try{ const p2 = f(id, gamepad, g); if(typeof p2 == 'object') gamepad = p2 }catch(e){Promise.reject(e)}
+			}else g.update(gamepad)
+			for(const f of self._rgcbs) try{ const p2 = f(id, gamepad); if(typeof p2 == 'object') gamepad = p2 }catch(e){Promise.reject(e)}
+			self = self.next
+		}
+	}
+	refireGamepad(id){ this.setGamepad(id, this._pointers.get(~id) ?? null, true) }
+	fireWheelUpdate(dx=0, dy=0){
+		if(typeof dx == 'object') dy = +dx.y, dx = +dx.x
+		let self = this
+		while(self){
+			this.wheel.x += dx; this.wheel.y += dy
+			for(const f of this._wcbs) try{ const p = f(dx, dy); if(typeof p == 'object') p ? (dx = +p.x, dy = +p.y) : (dx=dy=0) }catch(e){Promise.reject(e)}
+			self = self.next
+		}
+	}
+	fireMouseUpdate(dx=0, dy=0){
+		if(typeof dx == 'object') dy = +dx.y, dx = +dx.x
+		let self = this
+		while(self){
+			this.mouse.x += dx; this.mouse.y += dy
+			for(const f of this._mcbs) try{ const p = f(dx, dy); if(typeof p == 'object') p ? (dx = +p.x, dy = +p.y) : (dx=dy=0) }catch(e){Promise.reject(e)}
+			self = self.next
+		}
+	}
+	clearDeltas(){ this.mouse.x = this.mouse.y = this.wheel.x = this.wheel.y = 0 }
+}
 Gamma.input = ($, can = $.canvas) => {
-	$.MOUSE = Object.freeze({ LEFT: 0, RIGHT: 2, MIDDLE: 1, BACK: 3, FORWARD: 4 })
-	$.KEY = Object.freeze({
-		A: 65, B: 66, C: 67, D: 68, E: 69, F: 70, G: 71, H: 72, I: 73, J: 74, K: 75, L: 76, M: 77,
-		N: 78, O: 79, P: 80, Q: 81, R: 82, S: 83, can: 84, U: 85, V: 86, W: 87, X: 88, Y: 89, Z: 90,
-		NUM_0: 48, NUM_1: 49, NUM_2: 50, NUM_3: 51, NUM_4: 52, NUM_5: 53, NUM_6: 54, NUM_7: 55,
-		NUM_8: 56, NUM_9: 57, SPACE: 32, BACKTICK: 192, TAB: 9, BACK: 8, ENTER: 13,
-		SHIFT: 16, CTRL: 17, ALT: 18, ESC: 27, META: 91, METARIGHT: 93, CAPSLOCK: 20, UP: 38,
-		RIGHT: 39, DOWN: 40, LEFT: 37, MOD: navigator.platform.startsWith('Mac') ? 91 : 17, F1: 112,
-		F2: 113, F3: 114, F4: 115, F5: 116, F6: 117, F7: 118, F8: 119, F9: 120, F10: 121, F11: 122,
-		F12: 123, MINUS: 189, EQUAL: 187, BR_LEFT: 219, BR_RIGHT: 221, SEMICOLON: 186, APOS: 222,
-		BACKSLASH: 220, COMMA: 188, DOT: 190, SLASH: 191, PAUSE: 19, PAD_ENTER: 12, CLEAR: 10, HOME: 36, END: 35,
-		PAGE_UP: 33, PAGE_DOWN: 34, INS: 45, DEL: 46, CTX_MENU: 93, NUMPAD_0: 96, NUMPAD_1: 97, NUMPAD_2: 98,
-		PAD_3: 99, NUMPAD_4: 100, NUMPAD_5: 101, NUMPAD_6: 102, NUMPAD_7: 103, NUMPAD_8: 104, NUMPAD_9: 105,
-		PAD_DIV: 111, PAD_MULT: 106, PAD_SUB: 109, PAD_ADD: 107, PAD_DOT: 110, NUM_LOCK: 144,
-		SCROLL_LOCK: 145, HELP: 26, RO: 193, YEN: 255, SYSRQ: 44, PRINT_SCREEN: 44
-	})
-	$.GAMEPAD = Object.freeze({ A: 256, B: 257, X: 258, Y: 259, LB: 260, RB: 261, LT: 262, RT: 263, UP: 268, DOWN: 269, LEFT: 270, RIGHT: 271, MENU: 300 })
+	if(can._ictx) return
+	$.MOUSE = MOUSE
+	$.KEY = KEY
+	$.GAMEPAD = GAMEPAD
 	const oldSafari = typeof ApplePaySession != 'undefined' && !('letterSpacing' in CanvasRenderingContext2D.prototype), ptrlockOpts = !navigator.platform.startsWith('Linux') && typeof netscape == 'undefined' && !oldSafari ? {unadjustedMovement:true} : undefined
 	Object.defineProperty($, 'pointerLock', {
 		get: () => document.pointerLockElement == can,
@@ -319,230 +664,33 @@ Gamma.input = ($, can = $.canvas) => {
 			}else if(document.fullscreenElement !== can) can.requestFullscreen()?.catch(_=>null)
 		}
 	})
-	$.Inputs = {
-		MOUSE_BUTTONS: 1,
-		MOUSE_WHEEL: 2,
-		MOUSE_POINTER: 4,
-		OTHER_POINTERS: 8,
-		KEYBOARD: 16,
-		GAMEPADS: 32,
-		MOUSE: 7,
-		ALL_POINTERS: 12,
-		ALL: -1
-	}
-	class PointerState{
-		constructor(other = null){
-			if(other){
-				this.x = +other.x, this.y = +other.y
-				this.tiltX = +other.tiltX, this.tiltY = +other.tiltY
-				this.pressure = +other.pressure, this.twist = +other.twist
-				this.buttons = other.buttons|0
-			}else{
-				this.x = 0, this.y = 0
-				this.tiltX = 0, this.tiltY = 0
-				this.pressure = 0, this.twist = 0
-				this.buttons = 0
-			}
-		}
-		update(other){
-			this.x = +other.x, this.y = +other.y; this.buttons = other.buttons|0
-			this.tiltX = +other.tiltX; this.tiltY = +other.tiltY; this.pressure = +other.pressure; this.twist = +other.twist
-		}
-		has(btn){ return !!(this.buttons >> btn & 1) }
-		anyIn(from=0, to){ return !!(this.buttons >> from & (typeof to == 'number' ? ~(-1 << (to-from)) : -1)) }
-		allIn(from=0, to=0){ return (this.buttons >> from | (-1 << (to-from))) === -1 }
-		firstUnset(){ const b = ~this.buttons; return 31 - clz32(b&-b) }
-		firstSet(){ const b = this.buttons; return 31 - clz32(b&-b) }
-		lastSet(){ return 31 - clz32(this.buttons) }
-		iter(cb, from=0){
-			for(;;){
-				const a = this.buttons&(-1<<from), x = 31-clz32(a&-a)
-				if(x<0) break; from = x+1; cb(x)
-			}
-		}
-	}
-	class Gamepad extends BitField{
-		_axes = []
-		axis(i){ return this._axes[i&65535] ??= {x: 0, y: 0} }
-	}
-	// An input context combines:
-	// Logical keys (`BitField`), 0-7: mouse buttons, 8+: keyboard keys
-	// Mouse wheel and movement deltas via `.wheel` and `.mouse`
-	// Pointer positions (0: main mouse, 1..n: other pointers, `.pointer(n)`)
-	// Gamepads (0: primary gamepad, 1..n: other gamepads, `.gamepad(n)`)
-	// It offers interface for listening for raw input events (e.g a key was pressed, a new pointer appeared),
-	// 	refined input event (e.g a specific key was pressed, a pointer appeared in a region) and methods to clear such listeners
-	// It offers interface to fire events, such as when propagating events between contexts, or, for the main context, fired directly from DOM events
-	// It offers interface to check on-demand the current state of inputs (e.g is a key pressed, position of a pointer), useful in render/update loops
-
-	// Mouse events and pointer 0 events are both derived separately. While they will typically match, there is no intrinsic reason they must.
-	// E.g a pointer event could be synthesized from touch input, a context may wish to remap mouse buttons before propagating, etc...
-	// onKeyDown/onKeyUp/onKeyUpdate are all derived directly from fireKeyUpdate(), so they will always match.
-	// Same for onNewPointer/onDelPointer/onPointerUpdate from firePointerUpdate() and onNewGamepad/onDelGamepad/onGamepadUpdate from fireGamepadUpdate().
-
-	// An input context acts like a filter. An incoming event is immediately updated to the context's state, then listeners are called. Listeners
-	// can modify the event (e.g cancel a key press) and the modified event is then propagated to the next listeners, then to the next context in the chain.
-	// Chaining contexts is useful for handling many layers of input processing, e.g global shortcuts, per-scene inputs, etc...
-	// As well as keeping track of more intermediate input states, e.g if it's needed later by the rendering or update loop.
-	// However, most of the time, you will be forwarding directly with .fireXXX() calls as they offer more control over propagating to abitrary contexts.
-
-	// Pointers contain: .x, .y (normalized position),
-	// 	.pressure (0..1, for touch/pen input), .tiltX, .tiltY, .twist (for pen input)
-	// 	.buttons (bitwise integer of buttons pressed, also accessible via a BitField interface)
-	// Gamepads are BitFields for pressed buttons along with:
-	// 	.axis(i) returning {x,y} objects for each stick/axis
-
-	class Ictx extends BitField{
-		next = null // for chaining contexts
-		wheel = {x: 0, y: 0} // accumulated wheel delta
-		mouse = {x: 0, y: 0} // accumulated mouse delta
-		cursor = null // "normalized" cursor position. For the main canvas this is usually in [0,1]. This value is always == .pointer(0)
-		gamepad = null // Primary gamepad. This value is always == .gamepad(0)
-		_pointers = new Map()
-		pointer(id){ return (id|=0) >= 0 ? this._pointers.get(id) ?? null : null }
-		gamepad(id){ return (id=~id) < 0 ? this._pointers.get(id) ?? null : null }
-		_wcbs = []; _mcbs = []; _rpcbs = []; _rgcbs = []; _rkcbs = []
-		_npcbs = []; _ngcbs = []; _dpcbs = []; _dgcbs = []
-		_kcbs = new Map()
-		// Clears listeners
-		reset(flags = -1){
-			const k = flags & 17
-			if(k){
-				if(k == 17) this._kcbs.clear()
-				else for(const key of this._kcbs.keys())
-					if((key>7)^(flags>>3&1)) this._kcbs.delete(key)
-			}
-			if(flags & 2) this._wcbs.length = 0
-			if(flags & 4) this._mcbs.length = 0
-			if(flags & 8) this._npcbs.length = this._dpcbs.length = 0
-			if(flags & 32) this._ngcbs.length = this._dgcbs.length = 0
-		}
-		// Clears inputs without calling or removing listeners
-		resetInputs(flags = -1){
-			const k = flags & 17
-			if(k == 17) this.clear()
-			else if(k){
-				if(flags & 1) this.unsetRange(0, 7)
-				if(flags & 16) this.unsetRange(8)
-			}
-			if(flags&2) this.wheel.x = this.wheel.y = 0
-			if(flags&4) this.mouse.x = this.mouse.y = 0
-			let k2 = flags & 40
-			if(k2==40) this._pointers.clear()
-			else if(k2){
-				k2 = -(k2==32)
-				for(const id of this._pointers.keys())
-					if((id>>31)==k2) this._pointers.delete(id)
-			}
-		}
-		onMouseWheel(fn){ this._wcbs.push(fn) }
-		onMouseMove(fn){ this._mcbs.push(fn) }
-		onPointerUpdate(fn){ this._rpcbs.push(fn) }
-		onGamepadUpdate(fn){ this._rgcbs.push(fn) }
-		onNewPointer(fn){ this._npcbs.push(fn) }
-		onDelPointer(fn){ this._dpcbs.push(fn) }
-		onNewGamepad(fn){ this._ngcbs.push(fn) }
-		onDelGamepad(fn){ this._dgcbs.push(fn) }
-		onKeyDown(key, fn){
-			if(Array.isArray(key)){for(const k of key) this.onKeyDown(k,fn);return}
-			const a = this._kcbs.get(key&=0xffff)
-			if(a) a.push(fn)
-			else this._kcbs.set(key, [fn])
-		}
-		onKeyUp(key, fn){
-			if(Array.isArray(key)){for(const k of key) this.onKeyUp(k,fn);return}
-			const a = this._kcbs.get(key=~(key&0xffff))
-			if(a) a.push(fn)
-			else this._kcbs.set(key, [fn])
-		}
-		onKey(key, down, up){
-			if(down) this.onKeyDown(key, down)
-			if(up) this.onKeyUp(key, up)
-		}
-		onKeyUpdate(fn){ this._rkcbs.push(fn) }
-
-		fireKeyUpdate(key, isDown = false, refire = false){
-			let self = this
-			while(self){
-				if(!refire && !(isDown ? self.put(key) : self.pop(key))){ self = self.next; continue }
-				const specCbs = self._kcbs.get((isDown ? key&0xffff : ~(key&0xffff)))
-				if(specCbs) for(const f of specCbs) try{ const v = f(isDown, key); if(typeof v == 'boolean' && isDown !== v){ isDown = v; break } }catch(e){Promise.reject(e)}
-				for(const f of self._rkcbs) try{ const v = f(key, isDown); if(typeof v == 'boolean') isDown = v }catch(e){Promise.reject(e)}
-				self = self.next
-			}
-		}
-		refireKey(key){
-			let self = this, isDown = this.has(key)
-			while(self){
-				const specCbs = self._kcbs.get((isDown ? key&0xffff : ~(key&0xffff)))
-				if(specCbs) for(const f of specCbs) try{ const v = f(isDown, key); if(typeof v == 'boolean' && isDown !== v){ isDown = v; break } }catch(e){Promise.reject(e)}
-				for(const f of self._rkcbs) try{ const v = f(key, isDown); if(typeof v == 'boolean') isDown = v }catch(e){Promise.reject(e)}
-				self = self.next
-			}
-		}
-		firePointerUpdate(id, pointer = null, refire = false){
-			if((id|=0) < 0) return
-			let self = this
-			while(self){
-				let p = self._pointers.get(id) ?? null
-				if(!p){
-					if(pointer){
-						p = new PointerState(pointer)
-						self._pointers.set(id, p)
-						for(const f of self._npcbs) try{ const p2 = f(id, pointer, null); if(typeof p2 == 'object') pointer = p2 }catch(e){Promise.reject(e)}
-					}else if(!refire){ self = self.next; continue }
-				}else if(!pointer){
-					self._pointers.delete(id)
-					for(const f of self._dpcbs) try{ const p2 = f(id, pointer, p); if(typeof p2 == 'object') pointer = p2 }catch(e){Promise.reject(e)}
-				}else p.update(pointer)
-				for(const f of self._rpcbs) try{ const p2 = f(id, pointer); if(typeof p2 == 'object') pointer = p2 }catch(e){Promise.reject(e)}
-				self = self.next
-			}
-		}
-		refirePointer(id){ this.firePointerUpdate(id, this._pointers.get(id) ?? null, true) }
-		fireWheelUpdate(dx=0, dy=0){
-			if(typeof dx == 'object') dy = +dx.y, dx = +dx.x
-			let self = this
-			while(self){
-				this.wheel.x += dx; this.wheel.y += dy
-				for(const f of this._wcbs) try{ const p = f(dx, dy); if(typeof p == 'object') dx = +p.x, dy = +p.y }catch(e){Promise.reject(e)}
-				self = self.next
-			}
-		}
-		fireMouseUpdate(dx=0, dy=0){
-			if(typeof dx == 'object') dy = +dx.y, dx = +dx.x
-			let self = this
-			while(self){
-				this.mouse.x += dx; this.mouse.y += dy
-				for(const f of this._mcbs) try{ const p = f(dx, dy); if(typeof p == 'object') dx = +p.x, dy = +p.y }catch(e){Promise.reject(e)}
-				self = self.next
-			}
-		}
-		clearDeltas(){ this.mouse.x = this.mouse.y = this.wheel.x = this.wheel.y = 0 }
-	}
-	const ictx = $.ictx = new Ictx()
+	$.Inputs = Inputs
+	const ictx = $.ictx = can._ictx = new Ictx()
 	$.InputContext = () => new Ictx()
-	can.style.cursor = 'default'
+	can.style.outline = 'none'
+	can.style.touchAction = 'none'
+	can.style.setProperty('-webkit-tap-highlight-color', 'transparent')
 	can.tabIndex = 0
 	$.cursorIcon = ''
 	let prevCur = ''
 	can.addEventListener('blur', _ => {
-		ictx.iter(n => ictx.fireKeyUpdate(n, false))
+		ictx.iter(n => ictx.setKey(n, false))
+		for(const k of ictx._pointers.keys()) if(k<0) ictx.setGamepad(~k, null)
 	})
 	// for BitField.get(0-7) mouse buttons
 	can.addEventListener('mousedown', e => {
 		if(document.activeElement != can) can.focus()
 		e.preventDefault()
-		ictx.fireKeyUpdate(e.button, true)
+		ictx.setKey(e.button, true)
 	})
 	can.addEventListener('mouseup', e => {
 		e.preventDefault()
-		ictx.fireKeyUpdate(e.button, false)
+		ictx.setKey(e.button, false)
 	})
 	can.addEventListener('contextmenu', e => e.preventDefault())
 	can.addEventListener('wheel', e => {
 		e.preventDefault()
-		ictx.fireWheelDelta(e.wheelDeltaX, e.wheelDeltaY)
+		ictx.fireWheelUpdate(e.wheelDeltaX, e.wheelDeltaY)
 	}, {passive: false})
 	let prevx = NaN, prevy = NaN
 	can.addEventListener('mousemove', e => {
@@ -569,9 +717,29 @@ Gamma.input = ($, can = $.canvas) => {
 	})
 	can.addEventListener('keydown', e => {
 		if(e.repeat) return
-		ictx.fireKeyUpdate(overrides[e.code] ?? e.keyCode, true)
+		ictx.setKey(overrides[e.code] ?? e.keyCode, true)
 	})
 	can.addEventListener('keyup', e => {
-		ictx.fireKeyUpdate(overrides[e.code] ?? e.keyCode, false)
+		ictx.setKey(overrides[e.code] ?? e.keyCode, false)
+	})
+	const pointerupdate = e => {
+		if(e.pointerId<1) return
+		const ptr = new PointerState()
+		ptr.x = e.offsetX/can.offsetWidth
+		ptr.y = 1-e.offsetY/can.offsetHeight
+		ptr.buttons = e.buttons, ptr.pressure = e.pressure
+		// deg to rad
+		ptr.tiltX = e.tiltX*.017453292519943295
+		ptr.tiltY = e.tiltY*.017453292519943295
+		ptr.twist = e.twist*.017453292519943295
+		ictx.setPointer(e.pointerId-1, ptr)
+	}
+	can.addEventListener('pointerover', pointerupdate)
+	can.addEventListener('pointerdown', pointerupdate)
+	can.addEventListener('pointermove', pointerupdate)
+	can.addEventListener('pointerup', pointerupdate)
+	can.addEventListener('pointerleave', e => {
+		if(e.pointerId<1) return
+		ictx.setPointer(e.pointerId-1, null)
 	})
 }}

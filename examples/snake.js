@@ -103,8 +103,8 @@ render = () => {
 		zoomTooltip.hide()
 	}else elasticWheel = 0
 	ctx.scale(1/cam.z)
-	if(keys.has(MOUSE.LEFT)){
-		const mov = rawMouse
+	if(ictx.has(MOUSE.LEFT)){
+		const mov = ictx.mouse
 		cam.x -= mov.x; cam.y -= mov.y
 		panTooltip.hide()
 	}
@@ -130,7 +130,7 @@ render = () => {
 
 	ctx.shader = Shader.AA_CIRCLE
 
-	head = pointerLock ? keys.has(MOUSE.LEFT) ? head : vec2.add(head, rawMouse) : ctx.unproject(cursor)
+	head = pointerLock ? ictx.has(MOUSE.LEFT) ? head : vec2.add(head, ictx.mouse) : ctx.unproject(cursor)
 	let {x, y} = head
 	if(pointerLock){
 		const wq = w*.333*cam.z

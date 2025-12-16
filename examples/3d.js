@@ -104,7 +104,7 @@ function drawText(ctx){
 		ctx3.rotateXZ(t)
 		ctx3.rotateXY(t)
 		ctx3.drawCube(-1, -1, -1, 2, 2, 2, vec4(.8,0,0,1))
-	const {x, y} = ctx.unproject(pointerLock ? vec2(.5) : cursor)
+	const {x, y} = ctx.unproject(pointerLock ? vec2(.5) : ictx.cursor ?? {x:0,y:0})
 	label.draw(ctx.sub())
 	ctx.mask |= IF_SET
 	ctx.drawRect(x-.1, y-.01, .2, .02, vec4(0,0,0,1))
@@ -219,12 +219,28 @@ let sfx = 0
 let frames = []
 
 const fogXzShader = Shader(`void main(){ color = param0(pos.xz)*(1.-1./(i_depth*i_depth)); }`, {params: COLOR, vertex: Geometry3D.Vertex.DEFAULT})
+
+let selectedShader = -1
+
+ictx.onGamepadButtonPress([GAMEPAD.LB, GAMEPAD.RB], (key) => {
+	if(selectedShader == -1) selectedShader = sfx = 0
+	sfx = selectedShader = (selectedShader + (key == GAMEPAD.LB ? 9 : 1)) % 10
+})
+ictx.onGamepadButton([GAMEPAD.A, GAMEPAD.B], (isDown, btn) => {
+	ictx.setKey(btn == GAMEPAD.A ? KEY.SPACE : KEY.SHIFT, isDown)
+})
+ictx.onGamepadAxis(GAMEPAD.LEFT_STICK, (x, y) => {
+	ictx.setKey(KEY.W, y > .5)
+	ictx.setKey(KEY.A, x < -.5)
+	ictx.setKey(KEY.S, y < -.5)
+	ictx.setKey(KEY.D, x > .5)
+})
 render = () => {
-	ctxSupersample = keys.has(KEY.V) ? 0.125/devicePixelRatio : 1 + (devicePixelRatio < 2)
-	sfx = 0
+	ctxSupersample = ictx.has(KEY.V) ? 0.125/devicePixelRatio : 1 + (devicePixelRatio < 2)
+	if(selectedShader == -1) sfx = 0
 	for(let k = 0; k < 10; k++)
-		if(keys.has(KEY.NUM_0 + k)){ sfx = k; break }
-	if(keys.has(KEY.C)) targetFov = min(targetFov / SQRT2**dt, 15)
+		if(ictx.has(KEY.NUM_0 + k)){ selectedShader = -1; sfx = k; break }
+	if(ictx.has(KEY.C)) targetFov = min(targetFov / SQRT2**dt, 15)
 	else targetFov = 90
 	FOV += (targetFov - FOV) * min(1, dt*20)
 	
@@ -246,18 +262,21 @@ render = () => {
 	scene.reset(.025*height/width, 0, 0, .025, .5, .5)
 	const h = 40, w = width/height*40
 
-	let ctx3 = scene.sub3dProj(keys.has(KEY.P)*.4, 1)
+	let ctx3 = scene.sub3dProj(ictx.has(KEY.P)*.4, 1)
 	const sc = .16/tan(FOV * PI/360)
 	// Scale FOV without changing depth values (used for fog)
 	ctx3.scale(sc, sc, .01)
 
-	if(pointerLock){
-		look.x = (look.x + rawMouse.x*.00003*FOV) % PI2
-		look.y = clamp(look.y + rawMouse.y*.00003*FOV, PI*-.5, PI*.5)
+	{
+		let rotRight = (ictx.gamepad?.axis(GAMEPAD.RIGHT_STICK)?.x??0)*20
+		let rotUp = (ictx.gamepad?.axis(GAMEPAD.RIGHT_STICK)?.y??0)*20
+		if(pointerLock) rotRight += ictx.mouse.x, rotUp += ictx.mouse.y
+		look.x = (look.x + rotRight*.00003*FOV) % PI2
+		look.y = clamp(look.y + rotUp*.00003*FOV, PI*-.5, PI*.5)
 		const MAX_SPEED = 5
 		const dz = cos(look.x)*dt*20*MAX_SPEED, dx = sin(look.x)*dt*20*MAX_SPEED
-		const lr = keys.has(KEY.D) - keys.has(KEY.A), fb = keys.has(KEY.W) - keys.has(KEY.S)
-		const ud = keys.has(KEY.SPACE) - keys.has(KEY.SHIFT)
+		const lr = ictx.has(KEY.D) - ictx.has(KEY.A), fb = ictx.has(KEY.W) - ictx.has(KEY.S)
+		const ud = ictx.has(KEY.SPACE) - ictx.has(KEY.SHIFT)
 		vel.x += dx*fb+dz*lr, vel.z += dz*fb-dx*lr
 		vel.y = clamp(vel.y + ud*dt*50, -MAX_SPEED, MAX_SPEED)
 		const d = hypot(vel.x, vel.z)

@@ -24,6 +24,14 @@
 		const res = []
 		for(const r of this) try{res.push(r(...v))}catch(e){Promise.reject(e);res.push(undefined)}
 		return res
+	}},
+	remove: { enumerable: false, value(a){
+		let i = this.indexOf(a)
+		if(i >= 0){
+			while(i<this.length) this[i] = this[++i]
+			this.pop()
+		}
+		return i
 	}}
 })
 Uint8Array.fromHex = function(hex){
