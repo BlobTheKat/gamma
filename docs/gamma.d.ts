@@ -1404,7 +1404,14 @@ namespace GammaInstance{
 		 * 
 		 * Since this is a non-perspective transformations, this method doesn't make sense, and the returned value is always `vec3(NaN, NaN, NaN)`
 		 */
-		origin(): vec3
+		perspectiveOrigin(): vec3
+		/**
+		 * Returns a normalized metric which, when transformed, connects the perspective origin to a point in sreen space
+		 * 
+		 * Since this is a non-perspective transformations, this method doesn't make sense, and the returned value is always `vec3(NaN, NaN, NaN)`
+		 */
+		perspectiveRay(x: number, y: number, origin?: vec3): vec3
+		perspectiveRay(xy: vec2, origin?: vec3): vec3
 	}
 	interface Drawable3DProjection extends _Drawable3D, Transformable3Dto3D{
 		a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number
@@ -1432,7 +1439,16 @@ namespace GammaInstance{
 		 * Returns the point which transforms to a w (projection value) of 0 in screen space, essentially the "camera" position in a 3D transformation
 		 * @performance This performs a matrix inversion. For what it does, it is usually much faster to keep track of the camera's position manually and perform any additional math than to calculate it via this method every time it's needed
 		 */
-		origin(): vec3
+		perspectiveOrigin(): vec3
+		/**
+		 * Returns a normalized metric which, when transformed, connects the perspective origin to a point in sreen space
+		 * 
+		 * This can be used to cast a ray from a visual point on the screen to a vector in the world. If `origin` is passed, it is modified to contain the perspective origin (see `.perspectiveOrigin()`), which is cheaper to calculate at the same time as the ray than separately with a call to `perspectiveOrigin()`. The returned vector is always normalized, i.e `vec3.magnitude(ray) == 1`
+		 * 
+		 * @performance This performs a matrix inversion. Depending on your use case, it may be faster to keep track of the camera's position & orientation manually and perform any additional math than to calculate it via this method every time it's needed
+		 */
+		perspectiveRay(x: number, y: number, origin?: vec3): vec3
+		perspectiveRay(xy: vec2, origin?: vec3): vec3
 	}
 
 	/** See `Drawable.mask` */ const R = 1

@@ -273,6 +273,7 @@ class Tex{
 			gl.framebufferRenderbuffer(gl.READ_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, tex._tex)
 			if(curfb != drawfb) gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, curfb = drawfb), curt=lastd=null
 			gl.framebufferTextureLayer(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, t._tex, dstMip, l)
+			if(~pmask&15) gl.colorMask(1, 1, 1, 1), pmask |= 15, lastd = null
 			gl.blitFramebuffer(srcX, srcY, srcX+srcW, srcY+srcH, x, y, x+srcW, y+srcH, gl.COLOR_BUFFER_BIT, gl.NEAREST)
 			return this
 		}
@@ -482,7 +483,21 @@ $.Texture.from = (src, o = 0, fmt = Formats.RGBA, mips = 0) => new Tex({
 // a c e > x
 // b d f > y
 class t2D{
-	constructor(a=1,b=0,c=0,d=1,e=0,f=0){this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f}
+	constructor(a=1,b=0,c=0,d=1,e=0,f=0){ this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f }
+	sub(){ return new t2D(this.a,this.b,this.c,this.d,this.e,this.f) }
+	sub3d(){ return new t3t2D(this.a,this.b,this.c,this.d,0,0,this.e,this.f) }
+	sub3dProj(z0=0,zsc=1){ return new t3D(this.a,this.b,0,this.c,this.d,0,this.e*zsc,this.f*zsc,zsc,this.e*z0,this.f*z0,z0) }
+	reset(a=1,b=0,c=0,d=1,e=0,f=0){ if(typeof a=='object')({a,b,c,d,e,f}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f }
+	project(x=0, y=0){ if(typeof x=='object')({x,y}=x); return {x:this.a*x+this.c*y+this.e,y:this.b*x+this.d*y+this.f} }
+	unproject(x=0, y=0){
+		if(typeof x=='object')({x,y}=x)
+		const {a,b,c,d} = this, i_det = 1/(a*d-b*c)
+		x -= this.e; y -= this.f
+		return {
+			x: (x*d - y*c)*i_det,
+			y: (y*a - x*b)*i_det
+		}
+	}
 	translate(x=0,y=0){ this.e+=x*this.a+y*this.c;this.f+=x*this.b+y*this.d }
 	scale(x=1,y=x){ this.a*=x; this.b*=x; this.c*=y; this.d*=y }
 	rotate(r=0){
@@ -530,7 +545,31 @@ class t2D{
 // b e h > y
 // c f i > z
 class t2t3D{
-	constructor(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=0){this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this.i=i}
+	constructor(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=0){ this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this.i=i }
+	sub(){ return new t2t3D(this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h,this.i) }
+	sub3d(){ return new t3D(this.a,this.b,this.c,this.d,this.e,this.f,0,0,0,this.g,this.h,this.i) }
+	sub3dProj(z0=0,zsc=1){ return new t3D(this.a,this.b,this.c,this.d,this.e,this.f,this.g*zsc,this.h*zsc,this.i*zsc,this.g*z0,this.h*z0,this.i*z0) }
+	reset(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1){ if(typeof a=='object')({a,b,c,d,e,f,g,h,i}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this.i=i }
+	project(x=0, y=0){
+		if(typeof x=='object')({x,y}=x)
+		let p = this.c*x+this.f*y+this.i
+		if(p<=0) return {x:NaN,y:NaN}
+		p = 1/p
+		return {x:(this.a*x+this.d*y+this.g)*p,y:(this.b*x+this.e*y+this.h)*p}
+	}
+	unproject(x=0, y=0){
+		if(typeof x=='object')({x,y}=x)
+		const {a,b,c,d,e,f,g,h,i} = this
+	// Definitely not plagiarized from ChatGPT
+		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e
+		const det = 1/(a*m + d*n + g*o)
+		const x0 = (m*x + (f*g-d*i)*y + (d*h-e*g)) * det
+		const y0 = (n*x + (a*i-c*g)*y + (b*g-a*h)) * det
+		let z0 = (o*x + (c*d-a*f)*y + (a*e-b*d)) * det
+		if(z0 <= 0) return {x:NaN,y:NaN}
+		z0 = 1/z0
+		return {x:x0*z0, y: y0*z0}
+	}
 	translate(x=0,y=0){ this.g+=x*this.a+y*this.d;this.h+=x*this.b+y*this.e;this.i+=x*this.c+y*this.f }
 	scale(x=1,y=x){ this.a*=x; this.b*=x; this.c*=x; this.d*=y; this.e*=y; this.f*=y }
 	rotate(r=0){
@@ -578,7 +617,35 @@ class t2t3D{
 // a c e g > x
 // b d f h > y
 class t3t2D{
-	constructor(a=1,b=0,c=0,d=1,e=0,f=0,g=0,h=0){this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h}
+	constructor(a=1,b=0,c=0,d=1,e=0,f=0,g=0,h=0){ this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h }
+	sub(){ return new t3t2D(this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h) }
+	subProj(z0=0,zsc=1){ return new t3D(this.a,this.b,0,this.c,this.d,0,this.g*zsc+this.e,this.h*zsc+this.f,zsc,this.g*z0,this.h*z0,z0) }
+	sub2dXY(){ return new t2D(this.a,this.b,this.c,this.d,this.g,this.h) }
+	sub2dZY(){ return new t2D(this.e,this.f,this.c,this.d,this.g,this.h) }
+	sub2dXZ(){ return new t2D(this.a,this.b,this.e,this.f,this.g,this.h) }
+	resetTo(m){ this.a=m.a;this.b=m.b;this.c=m.c;this.d=m.d;this.e=m.e;this.f=m.f;this.g=m.g;this.h=m.h }
+	reset(a=1,b=0,c=0,d=1,e=0,f=0,g=0,h=0){ if(typeof a=='object')({a,b,c,d,e,f,g,h}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h }
+	project(x=0, y=0, z=0){
+		if(typeof x=='object')({x,y,z=0}=x)
+		let p = this.c*x+this.f*y+this.i*z+this.l
+		if(p <= 0) return {x:NaN,y:NaN}
+		p = 1/p
+		return { x: (this.a*x+this.d*y+this.g*z+this.j)*p, y: (this.b*x+this.e*y+this.h*z+this.k)*p }
+	}
+	unproject(x=0, y=0){
+		if(typeof x=='object')({x,y}=x)
+		const {a,b,c,d,e,f,g,h,i} = this
+		x -= this.j; y -= this.k
+		const z = 1-this.l
+		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e, i_det = 1./(a*m + d*n + g*o)
+		return {
+			x: (m * x + (g*f - i*d) * y + (d*h - e*g) * z) * i_det,
+			y: (n * x + (a*i - c*g) * y + (g*b - h*a) * z) * i_det,
+			z: (o * x + (d*c - f*a) * y + (a*e - b*d) * z) * i_det,
+		}
+	}
+	perspectiveOrigin(){ return { x: NaN, y: NaN, z: NaN } }
+	perspectiveRay(_x=0, _y=0, _o=null){ return { x: NaN, y: NaN, z: NaN } }
 	translate(x=0,y=0,z=0){
 		this.g+=x*this.a+y*this.c+z*this.e
 		this.h+=x*this.b+y*this.d+z*this.f
@@ -668,7 +735,60 @@ class t3t2D{
 // b e h k > y
 // c f i l > z
 class t3D{
-	constructor(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1,j=0,k=0,l=0){this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this.i=i;this.j=j;this.k=k;this.l=l}
+	constructor(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1,j=0,k=0,l=0){ this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this.i=i;this.j=j;this.k=k;this.l=l }
+	sub(){ return new t3D(this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h,this.i,this.j,this.k,this.l) }
+	subProj(z0=0,zsc=1){ return new t3D(this.a,this.b,this.c,this.d,this.e,this.f,this.j*zsc+this.g,this.k*zsc+this.h,this.l*zsc+this.i,this.j*z0,this.k*z0,this.l*z0)}
+	sub2dXY(){ return new t2t3D(this.a,this.b,this.c,this.d,this.e,this.f,this.j,this.k,this.l) }
+	sub2dZY(){ return new t2t3D(this.g,this.h,this.i,this.d,this.e,this.f,this.j,this.k,this.l) }
+	sub2dXZ(){ return new t2t3D(this.a,this.b,this.c,this.g,this.h,this.i,this.j,this.k,this.l) }
+	resetTo(m){ this.a=m.a;this.b=m.b;this.c=m.c;this.d=m.d;this.e=m.e;this.f=m.f;this.g=m.g;this.h=m.h;this.i=m.i;this.j=m.j;this.k=m.k;this.l=m.l }
+	reset(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1,j=0,k=0,l=0){ if(typeof a=='object')({a,b,c,d,e,f,g,h,i,j,k,l}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this.i=i;this.j=j;this.k=k;this.l=l }
+	project(x=0, y=0, z=0){
+		if(typeof x=='object')({x,y,z=0}=x)
+		let p = this.c*x+this.f*y+this.i*z+this.l
+		if(p <= 0) return {x:NaN,y:NaN}
+		p = 1/p
+		return { x: (this.a*x+this.d*y+this.g*z+this.j)*p, y: (this.b*x+this.e*y+this.h*z+this.k)*p }
+	}
+	unproject(x=0, y=0){
+		if(typeof x=='object')({x,y}=x)
+		const {a,b,c,d,e,f,g,h,i} = this
+		x -= this.j; y -= this.k
+		const z = 1-this.l
+		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e, i_det = 1./(a*m + d*n + g*o)
+		return {
+			x: (m * x + (g*f - i*d) * y + (d*h - e*g) * z) * i_det,
+			y: (n * x + (a*i - c*g) * y + (g*b - h*a) * z) * i_det,
+			z: (o * x + (d*c - f*a) * y + (a*e - b*d) * z) * i_det,
+		}
+	}
+	perspectiveOrigin(){
+		const {a,b,c,d,e,f,g,h,i,j,k,l} = this
+		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e, i_det = -1./(a*m + d*n + g*o);
+		return {
+			x: (m*j + (g*f - i*d)*k + (d*h - e*g)*l) * i_det,
+			y: (n*j + (a*i - c*g)*k + (g*b - h*a)*l) * i_det,
+			z: (o*j + (d*c - f*a)*k + (a*e - b*d)*l) * i_det,
+		}
+	}
+	perspectiveRay(x=0, y=0, origin = null){
+		if(typeof x=='object')({x,y}=x)
+		const {a,b,c,d,e,f,g,h,i,j,k,l} = this
+		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e, i_det = 1./(a*m + d*n + g*o)
+		const p = g*f - i*d, q = a*i - c*g, r = d*c - f*a
+		const s = d*h - e*g, t = g*b - h*a, u = a*e - b*d
+		if(origin){
+			origin.x = -(m*j + p*k + s*l) * i_det
+			origin.y = -(n*j + q*k + t*l) * i_det
+			origin.z = -(o*j + r*k + u*l) * i_det
+		}
+		const z = 1-this.l
+		const dx = (m*x + p*y + s*z) * i_det
+		const dy = (m*x + p*y + s*z) * i_det
+		const dz = (m*x + p*y + s*z) * i_det
+		const i_dst = 1/sqrt(dx*dx+dy*dy+dz*dz)
+		return {x: dx*i_dst, y: dy*i_dst, z: dz*i_dst}
+	}
 	translate(x=0,y=0,z=0){
 		this.j+=x*this.a+y*this.d+z*this.g
 		this.k+=x*this.b+y*this.e+z*this.h
@@ -783,7 +903,8 @@ class t3D{
 		}
 	}
 }
-
+$.Transform2D = t2D, $.Transform2D.Perspective = t2t3D
+$.Transform3D = t3t2D, $.Transform3D.Perspective = t3D
 const grow = ArrayBuffer.prototype.transfer ?
 	by=>{const j=i;if((i=j+by)>iarr.length){iarr=new Int32Array(iarr.buffer.transfer(i*8)),arr=new Float32Array(iarr.buffer)}return j}
 	: by=>{const j=i;if((i=j+by)>iarr.length){const oa=iarr;(iarr=new Int32Array(i*2)).set(oa,0);arr=new Float32Array(iarr.buffer)}return j}
@@ -794,21 +915,11 @@ class Drw2D extends t2D{
 	set geometry(a){ this._shp = a||geo2; if(lastd == this) lastd = null }
 	constructor(t,m=290787599,sp=geo2,s=$.Shader.DEFAULT,a=1,b=0,c=0,d=1,e=0,f=0){ super(a,b,c,d,e,f); this.t = t; this._mask = m; this._shp = sp; this._sh = s }
 	sub(){ return new Drw2D(this.t,this._mask,this._shp,this._sh,this.a,this.b,this.c,this.d,this.e,this.f) }
-	sub3d(){ return new Drw3t2D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,this.c,this.d,0,0,this.e,this.f)}
-	sub3dProj(z0=0,zsc=1){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,0,this.c,this.d,0,this.e*zsc,this.f*zsc,zsc,this.e*z0,this.f*z0,z0)}
+	sub3d(){ return new Drw3t2D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,this.c,this.d,0,0,this.e,this.f) }
+	sub3dProj(z0=0,zsc=1){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,0,this.c,this.d,0,this.e*zsc,this.f*zsc,zsc,this.e*z0,this.f*z0,z0) }
 	resetTo(m){ this.a=m.a;this.b=m.b;this.c=m.c;this.d=m.d;this.e=m.e;this.f=m.f;this._mask=m._mask;this._sh=m._sh;this._shp=m._shp }
-	reset(a=1,b=0,c=0,d=1,e=0,f=0){if(typeof a=='object')({a,b,c,d,e,f}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this._mask=290787599;this._sh=$.Shader.DEFAULT;this._shp=geo2}
+	reset(a=1,b=0,c=0,d=1,e=0,f=0){ if(typeof a=='object')({a,b,c,d,e,f}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this._mask=290787599;this._sh=$.Shader.DEFAULT;this._shp=geo2 }
 	pixelRatio(){ return sqrt(abs(this.a*this.d-this.b*this.c)*this.t.w*this.t.h) }
-	project(x=0, y=0){ if(typeof x=='object')({x,y}=x); return {x:this.a*x+this.c*y+this.e,y:this.b*x+this.d*y+this.f}}
-	unproject(x=0, y=0){
-		if(typeof x=='object')({x,y}=x)
-		const {a,b,c,d} = this, i_det = 1/(a*d-b*c)
-		x -= this.e; y -= this.f
-		return {
-			x: (x*d - y*c)*i_det,
-			y: (y*a - x*b)*i_det
-		}
-	}
 	draw(...values){
 		const i = this._sh(6,values)
 		arr[i  ] = this.e; arr[i+1] = this.a; arr[i+2] = this.c
@@ -849,35 +960,15 @@ class Drw2t3D extends t2t3D{
 	set geometry(a){ this._shp = a||geo2; if(lastd == this) lastd = null }
 	constructor(t,m=290787599,sp=geo2,s=$.Shader.DEFAULT,a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=0){ super(a,b,c,d,e,f,g,h,i); this.t = t; this._mask = m; this._shp = sp; this._sh = s }
 	sub(){ return new Drw2t3D(this.t,this._mask,this._shp,this._sh,this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h,this.i) }
-	sub3d(){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,this.c,this.d,this.e,this.f,0,0,0,this.g,this.h,this.i)}
-	sub3dProj(z0=0,zsc=1){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,this.c,this.d,this.e,this.f,this.g*zsc,this.h*zsc,this.i*zsc,this.g*z0,this.h*z0,this.i*z0)}
+	sub3d(){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,this.c,this.d,this.e,this.f,0,0,0,this.g,this.h,this.i) }
+	sub3dProj(z0=0,zsc=1){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,this.c,this.d,this.e,this.f,this.g*zsc,this.h*zsc,this.i*zsc,this.g*z0,this.h*z0,this.i*z0) }
 	resetTo(m){ this.a=m.a;this.b=m.b;this.c=m.c;this.d=m.d;this.e=m.e;this.f=m.f;this.g=m.g;this.h=m.h;this.i=m.i;this._mask=m._mask;this._sh=m._sh;this._shp=m._shp }
-	reset(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1){if(typeof a=='object')({a,b,c,d,e,f,g,h,i}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this.i=i;this._mask=290787599;this._sh=$.Shader.DEFAULT;this._shp=geo2}
+	reset(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1){ if(typeof a=='object')({a,b,c,d,e,f,g,h,i}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this.i=i;this._mask=290787599;this._sh=$.Shader.DEFAULT;this._shp=geo2 }
 	pixelRatio(){
 		const {i} = this
 		const v = (this.a*i-this.g*this.c) * (this.e*i-this.h*this.f)
 		- (this.d*i-this.g*this.f) * (this.b*i-this.h*this.c)
 		return sqrt(abs(v)*this.t.w*this.t.h)/(i*i)
-	}
-	project(x=0, y=0){
-		if(typeof x=='object')({x,y}=x)
-		let p = this.c*x+this.f*y+this.i
-		if(p<=0) return {x:NaN,y:NaN}
-		p = 1/p
-		return {x:(this.a*x+this.d*y+this.g)*p,y:(this.b*x+this.e*y+this.h)*p}
-	}
-	unproject(x=0, y=0){
-		if(typeof x=='object')({x,y}=x)
-		const {a,b,c,d,e,f,g,h,i} = this
-	// Definitely not plagiarized from ChatGPT
-		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e
-		const det = 1/(a*m + d*n + g*o)
-		const x0 = (m*x + (f*g-d*i)*y + (d*h-e*g)) * det
-		const y0 = (n*x + (a*i-c*g)*y + (b*g-a*h)) * det
-		let z0 = (o*x + (c*d-a*f)*y + (a*e-b*d)) * det
-		if(z0 <= 0) return {x:NaN,y:NaN}
-		z0 = 1/z0
-		return {x:x0*z0, y: y0*z0}
 	}
 	draw(...values){
 		const i = this._sh(9,values)
@@ -925,32 +1016,12 @@ class Drw3t2D extends t3t2D{
 	set geometry(a){ this._shp = a||geo3; if(lastd == this) lastd = null }
 	constructor(t,m=290787599,sp=geo3,s=$.Shader.COLOR_3D_XZ,a=1,b=0,c=0,d=1,e=0,f=0,g=0,h=0){ super(a,b,c,d,e,f,g,h); this.t = t; this._mask = m; this._shp = sp; this._sh = s }
 	sub(){ return new Drw3t2D(this.t,this._mask,this._shp,this._sh,this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h) }
-	subProj(z0=0,zsc=1){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,0,this.c,this.d,0,this.g*zsc+this.e,this.h*zsc+this.f,zsc,this.g*z0,this.h*z0,z0)}
+	subProj(z0=0,zsc=1){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,0,this.c,this.d,0,this.g*zsc+this.e,this.h*zsc+this.f,zsc,this.g*z0,this.h*z0,z0) }
 	sub2dXY(){ return new Drw2D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.a,this.b,this.c,this.d,this.g,this.h) }
 	sub2dZY(){ return new Drw2D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.e,this.f,this.c,this.d,this.g,this.h) }
 	sub2dXZ(){ return new Drw2D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.a,this.b,this.e,this.f,this.g,this.h) }
 	resetTo(m){ this.a=m.a;this.b=m.b;this.c=m.c;this.d=m.d;this.e=m.e;this.f=m.f;this.g=m.g;this.h=m.h;this._mask=m._mask;this._sh=m._sh;this._shp=m._shp }
-	reset(a=1,b=0,c=0,d=1,e=0,f=0,g=0,h=0){if(typeof a=='object')({a,b,c,d,e,f,g,h}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this._mask=290787599;this._sh=$.Shader.COLOR_3D_XZ;this._shp=geo3}
-	project(x=0, y=0, z=0){
-		if(typeof x=='object')({x,y,z=0}=x)
-		let p = this.c*x+this.f*y+this.i*z+this.l
-		if(p <= 0) return {x:NaN,y:NaN}
-		p = 1/p
-		return { x: (this.a*x+this.d*y+this.g*z+this.j)*p, y: (this.b*x+this.e*y+this.h*z+this.k)*p }
-	}
-	unproject(x=0, y=0){
-		if(typeof x=='object')({x,y}=x)
-		const {a,b,c,d,e,f,g,h,i} = this
-		x -= this.j; y -= this.k
-		const z = 1-this.l
-		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e, i_det = 1./(a*m + d*n + g*o)
-		return {
-			x: (m * x + (g*f - i*d) * y + (d*h - e*g) * z) * i_det,
-			y: (n * x + (a*i - c*g) * y + (g*b - h*a) * z) * i_det,
-			z: (o * x + (d*c - f*a) * y + (a*e - b*d) * z) * i_det,
-		}
-	}
-	origin(){ return { x: NaN, y: NaN, z: NaN } }
+	reset(a=1,b=0,c=0,d=1,e=0,f=0,g=0,h=0){ if(typeof a=='object')({a,b,c,d,e,f,g,h}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this._mask=290787599;this._sh=$.Shader.COLOR_3D_XZ;this._shp=geo3 }
 	draw(...values){
 		const v = this._sh(8,values)
 		arr[v  ] = this.g; arr[v+1] = this.a; arr[v+2] = this.c; arr[v+3] = this.e
@@ -993,56 +1064,12 @@ class Drw3D extends t3D{
 	set geometry(a){ this._shp = a||geo3; if(lastd == this) lastd = null }
 	constructor(t,m=290787599,sp=geo3,s=$.Shader.COLOR_3D_XZ,a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1,j=0,k=0,l=0){ super(a,b,c,d,e,f,g,h,i,j,k,l); this.t = t; this._mask = m; this._shp = sp; this._sh = s }
 	sub(){ return new Drw3D(this.t,this._mask,this._shp,this._sh,this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h,this.i,this.j,this.k,this.l) }
-	subProj(z0=0,zsc=1){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,this.c,this.d,this.e,this.f,this.j*zsc+this.g,this.k*zsc+this.h,this.l*zsc+this.i,this.j*z0,this.k*z0,this.l*z0)}
+	subProj(z0=0,zsc=1){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,this.c,this.d,this.e,this.f,this.j*zsc+this.g,this.k*zsc+this.h,this.l*zsc+this.i,this.j*z0,this.k*z0,this.l*z0) }
 	sub2dXY(){ return new Drw2t3D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.a,this.b,this.c,this.d,this.e,this.f,this.j,this.k,this.l) }
 	sub2dZY(){ return new Drw2t3D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.g,this.h,this.i,this.d,this.e,this.f,this.j,this.k,this.l) }
 	sub2dXZ(){ return new Drw2t3D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.a,this.b,this.c,this.g,this.h,this.i,this.j,this.k,this.l) }
 	resetTo(m){ this.a=m.a;this.b=m.b;this.c=m.c;this.d=m.d;this.e=m.e;this.f=m.f;this.g=m.g;this.h=m.h;this.i=m.i;this.j=m.j;this.k=m.k;this.l=m.l;this._mask=m._mask;this._sh=m._sh;this._shp=m._shp }
-	reset(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1,j=0,k=0,l=0){if(typeof a=='object')({a,b,c,d,e,f,g,h,i,j,k,l}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this.i=i;this.j=j;this.k=k;this.l=l;this._mask=290787599;this._sh=$.Shader.COLOR_3D_XZ;this._shp=geo3}
-	project(x=0, y=0, z=0){
-		if(typeof x=='object')({x,y,z=0}=x)
-		let p = this.c*x+this.f*y+this.i*z+this.l
-		if(p <= 0) return {x:NaN,y:NaN}
-		p = 1/p
-		return { x: (this.a*x+this.d*y+this.g*z+this.j)*p, y: (this.b*x+this.e*y+this.h*z+this.k)*p }
-	}
-	unproject(x=0, y=0){
-		if(typeof x=='object')({x,y}=x)
-		const {a,b,c,d,e,f,g,h,i} = this
-		x -= this.j; y -= this.k
-		const z = 1-this.l
-		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e, i_det = 1./(a*m + d*n + g*o)
-		return {
-			x: (m * x + (g*f - i*d) * y + (d*h - e*g) * z) * i_det,
-			y: (n * x + (a*i - c*g) * y + (g*b - h*a) * z) * i_det,
-			z: (o * x + (d*c - f*a) * y + (a*e - b*d) * z) * i_det,
-		}
-	}
-	origin(){
-		const {a,b,c,d,e,f,g,h,i,j,k,l} = this
-		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e, i_det = -1./(a*m + d*n + g*o);
-		return {
-			x: (m*j + (g*f - i*d)*k + (d*h - e*g)*l) * i_det,
-			y: (n*j + (a*i - c*g)*k + (g*b - h*a)*l) * i_det,
-			z: (o*j + (d*c - f*a)*k + (a*e - b*d)*l) * i_det,
-		}
-	}
-	ray(x=0, y=0){
-		if(typeof x=='object')({x,y}=x)
-		const {a,b,c,d,e,f,g,h,i,j,k,l} = this
-		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e, i_det = 1./(a*m + d*n + g*o)
-		const p = g*f - i*d, q = a*i - c*g, r = d*c - f*a
-		const s = d*h - e*g, t = g*b - h*a, u = a*e - b*d
-		const xo = -(m*j + p*k + s*l) * i_det
-		const yo = -(n*j + q*k + t*l) * i_det
-		const zo = -(o*j + r*k + u*l) * i_det
-		const z = 1-this.l
-		const dx = (m*x + p*y + s*z) * i_det
-		const dy = (m*x + p*y + s*z) * i_det
-		const dz = (m*x + p*y + s*z) * i_det
-		const i_dst = 1/sqrt(dx*dx+dy*dy+dz*dz)
-		return {origin: {x: xo, y: yo, z: zo}, direction: {x: dx*i_dst, y: dy*i_dst, z: dz*i_dst}}
-	}
+	reset(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1,j=0,k=0,l=0){ if(typeof a=='object')({a,b,c,d,e,f,g,h,i,j,k,l}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this.i=i;this.j=j;this.k=k;this.l=l;this._mask=290787599;this._sh=$.Shader.COLOR_3D_XZ;this._shp=geo3 }
 	draw(...values){
 		const v = this._sh(12,values)
 		arr[v  ] = this.j; arr[v+1] = this.a; arr[v+2] = this.d; arr[v+3] = this.g

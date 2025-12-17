@@ -250,7 +250,8 @@ declare global{
 	}
 	/** See `RichText.break()` */
 	type MeasurementOffsets = {scale: number, letterSpacing: number, curve: number}
-	
+	type GlyphDescriptor = {x: number, y: number, w: number, h: number, width: number, tex: Texture}
+
 	class Font{
 		/**
 		 * The range factor (aka normalized distance range) for this font. Represents the range of the signed distance field relative the the font's height. Also used internally to calculate proper offset/spread values (see `RichText.addTextPass()`)
@@ -269,17 +270,27 @@ declare global{
 		/**
 		 * Add a character to this font
 		 * @param char The character code point. Pass `-1` to modify the default glyph (the one used for unknown codepoints, conventionally a square outline or a boxed question mark)
-		 * @param advance Number of units to advance from the starting point after the glyph is drawn (usually equal to its width plus a little bit of letter spacing)
+		 * @param width Number of units to advance from the starting point after the glyph is drawn (usually equal to its width plus a little bit of letter spacing)
 		 * @param tex The MSDF texture to use for this glyph. Consider combining a whole font into a single atlas and using sub-textures of that atlas for performance. Can be null to specify an invisible character such as a space or tab.
 		 * @param x Left edge of where to draw this glyph relative to the starting point
 		 * @param y Bottom edge of where to draw this glyph relative to the starting point
 		 * @param w Width of the drawn glyph
 		 * @param h Height of the drawn glyph
+		 * 
+		 * @returns The internal object used to describe the glyph, or null if the glyph was removed (`width == 0 && tex == null && char != -1`)
 		 */
-		set(char: number, advance: number, tex: Texture, x: number, y: number, w: number, h: number): void
-		set(char: number, advance: number, tex?: null): void
+		setChar(char: number, width: number, tex: Texture, x: number, y: number, w: number, h: number): GlyphDescriptor
+		setChar(char: number, width?: number, tex?: null): GlyphDescriptor | null
+		setChar(char: number, glyph: GlyphDescriptor): GlyphDescriptor
 
-		/** Get the advance value of a specific character. See `Font.set()` */
+		/**
+		 * Get an existing characters's GlyphDescriptor
+		 * @param char The character code point. Pass `-1` to get the default glyph (the one used for unknown codepoints, conventionally a square outline or a boxed question mark)
+		 * @returns The GlyphDescriptor, or null if the character was not defined for this font. Note that the default (-1) glyph is always defined.
+		 */
+		getChar(char: number): GlyphDescriptor | null
+
+		/** Get the advance value of a specific character. See `Font.setChar()`. If the character is not defined, the value of the default character is used instead */
 		getWidth(char: string | number): number
 
 		/**

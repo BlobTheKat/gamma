@@ -59,7 +59,7 @@
 		onHoverRelease(cb = null){ this.hoverOutCb = cb; return this }
 	}
 
-	const rem = ({target:t}) => (t._field._f&256||(t._field._f|=256,setImmediate(t._field.recalc)), t.remove(), curf = null)
+	const rem = ({target:t}) => (t._field._f&256||(t._field._f|=256,setImmediate(t._field.recalc)), t.remove(), $.setFocused(curf = null))
 	const keydown = e => {
 		const i = e.target, tf = i._field
 		if(e.keyCode == 38 || e.keyCode == 40){
@@ -90,7 +90,7 @@
 	const crInput = (type, o) => {
 		const i = document.createElement(type)
 		// Chrome requires 1px size in order for some features such as copying to work
-		i.style = `width:1px;height:1px;border:0;padding:0;opacity:0;position:absolute;inset:-9px;font-size:1px;font-family:monospace;white-space:nowrap`
+		i.style = `width:1px;height:1px;border:0;padding:0;opacity:0;position:fixed;inset:-9px;font-size:16px;font-family:monospace;white-space:nowrap;pointer-events:none`
 		i.onblur = rem
 		i.onkeydown = keydown
 		i.tabIndex = -1
@@ -221,7 +221,7 @@
 				this.#i = crInput('input', this)
 			}
 			if(f) this.focus = true
-			else i.remove(), curf == i && (curf = null), this._f&256||(this._f|=256,setImmediate(this.recalc))
+			else i.remove(), curf == i && $.setFocused(curf = null), this._f&256||(this._f|=256,setImmediate(this.recalc))
 			this.#i.value = v
 			this.#i.selectionStart = this.#s
 			this.#i.selectionEnd = this.#e
@@ -292,25 +292,45 @@
 				if(!curf) document.documentElement.append(curf = this.#i)
 				else if(curf != this.#i) curf.replaceWith(curf = this.#i)
 				else return
-				$.setFocusEl(curf)
+				$.setFocused(curf)
 				ltf = $.t
-			}else if(curf == this.#i) curf.remove(), curf = null
+				this._f&256||(this._f|=256,setImmediate(this.recalc))
+			}else if(curf == this.#i) curf.remove(), $.setFocused(curf = null)
 		}
 		lineHeight = 1.3
 		lineAscend = .9
 		#lc = 0
-		get height(){return this.lineHeight*(this.#pa?this.#pa.length:1)}
-		consumeInputs(ctx, {x, y} = ctx.unproject($.ictx.cursor ?? {x:.5,y:.5}), k = $.ictx.has(0)){
-			y = this.lineAscend-y; cursorIcon = '#text'
-			if(!k) return void(this._f &= -513)
-			if(document.activeElement != this.#i)
+		#pointerDown = -1
+		#onPointerUpdate(ctx, id, ptr){
+			if(!ptr){
+				if(id == this.#pointerDown){
+					// pointer up
+					this.#pointerDown = -1
+					this._f &= ~1536
+				}
+				return
+			}
+			ptr.setHint?.(PointerState.TEXT)
+			if(this.#pointerDown == -1 && ptr.pressed){
+				this.#pointerDown = id
+				// pointer down
 				this.focus = true
-			const sel = this._f>>9&1
+			}else if(this.#pointerDown != id) return null
+			if(!ptr.pressed){
+				// pointer up
+				this.#pointerDown = -1
+				this._f &= ~1536
+				return null
+			}
+			// pointer move
+			let {x, y} = ctx.unproject(ptr); y = this.lineAscend-y
+			const sel = this._f>>9&3
+			if(sel==3) return null
 			let j = 0
 			if(this.#p) j = this.#p.indexAt(x)
 			else if(this.#pa){
 				let i = floor(y/this.lineHeight)
-				i = i<0?0:i>=this.#pa.length?this.#pa.length-1:i
+				i = i>=0?i>=this.#pa.length?this.#pa.length-1:i>>>0:0
 				j = this.#pa[i].indexAt(x)
 				while(i) j += this.#pa[--i].length
 			}
@@ -323,7 +343,7 @@
 				}else if(this.#lc>0){
 					if(this.#lc-(this.#lc=t) > -.3) seekType = 1, this.#lc=-t
 				}else this.#lc = t
-				this._f |= 512
+				this._f |= 512|(seekType>0)<<10
 				if(seekType){
 					const v = this.#i.value
 					const min = 33-seekType
@@ -334,11 +354,16 @@
 				}
 				if(s != this.#s || e != this.#e) this.select(s, e)
 			}
+			return null
+		}
+		get height(){return this.lineHeight*(this.#pa?this.#pa.length:1)}
+		layout(ctx, ictx, x=-Infinity, y=-Infinity, w=Infinity, h=Infinity){
+			ictx.onPointerUpdate(this.#onPointerUpdate.bind(this, ctx))
 		}
 		get height(){return this.#pa?this.#pa.length*this.lineHeight:this.lineHeight}
 		get xOffset(){return 0}
 		get yOffset(){return -this.lineAscend}
-		draw(ctx){
+		draw(ctx, ictx){
 			if(this.#pa){
 				for(const l of this.#pa){
 					l.draw(ctx.sub())

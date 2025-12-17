@@ -2,7 +2,7 @@
 
 const font = await Font.chlumsky('fonts/ankacoder/')
 // One tab = 3 spaces. Cry about it
-font.set(0x09, font.getWidth(0x20) * 3)
+font.setChar(0x09, font.getWidth(0x20) * 3)
 const input = TextField(true)
 //input.simpleTransformer(font, 'Write some text...')
 const styles = new Map()
@@ -13,7 +13,10 @@ const styles = new Map()
 	.set(/\/\/[^\n]*(\n|$)|\/\*([^*]|\*[^\/])*(\*\/|$)/y, vec4(.4))
 	.set(/`(?:[^\\`]|\\[^])*(?:`|$)|(["'])([^"'\\\n]|\\[^]|(?!\1).)*(\1|(?=\n))/y, vec4(.05, .3, .95))
 	.set(/(?<![\)\]\w]\s*)\/([^\\\/]|\\.)+\/[gimsuyvdGIMSUYVD]*/y, vec4(.7, .05, .7))
+
+let lastUpdate = -1
 input.transformer = txt => {
+	lastUpdate = t
 	const r = RichText(font)
 	if(!txt){
 		r.addTextPass(0, [vec4(.4)])
@@ -46,10 +49,9 @@ input.transformer = txt => {
 	}
 	return r
 }
-input.maxWidth = 40
-//input.focus = true
+input.maxWidth = 20
 input.allowTabs = true
-const scr = Scrollable(input, 40, -20)
+const scr = Scrollable(input, 20, -20)
 
 
 Shader.AA_CIRCLE = Shader(`
@@ -58,11 +60,25 @@ void main(){
 	color = param0(pos) * alpha;
 }`, {params: COLOR, defaults: vec4.one})
 
+const gammaIcon = Texture.from('/gamma.png')
+
 let cx = 0, cxi = 0, zoom = NaN, zoomi = 0
 render = () => {
-	const w = ctx.width, h = ctx.height
-	if(zoom != zoom) zoom = zoomi = w/42
+	const w = ctx.width/pixelRatio, h = ctx.height/pixelRatio
+	if(zoom != zoom) zoom = zoomi = w/21
 	ctx.reset(1/w, 0, 0, 1/h, .5, .5)
+	const a = max(0, lastUpdate-t+.5)
+	if(a) ctx.clear(a*a, 0, 0, 1)
+	
+	const brand = ctx.sub()
+		brand.blend = Blend.ADD
+		brand.translate(-.5*w, .5*h)
+		brand.drawRect(0, -8, 8, 8, gammaIcon)
+		brand.translate(5, -6)
+		brand.scale(3.2)
+		brand.shader = Shader.MSDF
+		font.draw(brand, 'amma')
+
 	ctx.scale(zoomi)
 	if(ictx.has(KEY.CTRL)) zoom *= 1.005**ictx.wheel.y, ictx.wheel.y = 0
 	zoomi *= (zoom/zoomi)**(dt*10)
@@ -73,17 +89,21 @@ render = () => {
 		ctx.translate(-cxi,0)
 	if(!input.isSelecting)
 		cx = (input.sel0pos + input.sel1pos)*.5 * (input.multiline ? input.lineHeight : 1) + scr.y
-	const c = ctx.unproject(ictx.cursor ?? vec2(.5))
-	//if(input.isSelecting || c.x > -.5 && c.x < input.width + .5 && c.y > -.5 && c.y < 1)
-	input.consumeInputs(ctx, c)
-	input.draw(ctx.sub())
-	ctx.shader = Shader.AA_CIRCLE
 
-	ctx.blend = Blend.INVERT
-	const l = +ictx.has(MOUSE.LEFT), r = +ictx.has(MOUSE.RIGHT)
-	if(l+r){
-		const col = vec4(l^r,l,l,1)
-		ctx.drawRect(c.x-.5,c.y-.5,1,1,col)
-		ctx.drawRect(c.x-.42,c.y-.42,.84,.84,col)
+	//if(input.isSelecting || c.x > -.5 && c.x < input.width + .5 && c.y > -.5 && c.y < 1)
+	ictx.reset()
+	input.layout(ctx, ictx)
+	input.draw(ctx.sub())
+
+	if(ictx.cursor){
+		const c = ctx.unproject(ictx.cursor)
+		ctx.shader = Shader.AA_CIRCLE
+		ctx.blend = Blend.INVERT
+		const l = +ictx.has(MOUSE.LEFT), r = +ictx.has(MOUSE.RIGHT)
+		if(l+r){
+			const col = vec4(l^r,l,l,1)
+			ctx.drawRect(c.x-.5,c.y-.5,1,1,col)
+			ctx.drawRect(c.x-.42,c.y-.42,.84,.84,col)
+		}
 	}
 }
