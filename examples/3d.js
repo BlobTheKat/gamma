@@ -236,11 +236,11 @@ ictx.onGamepadAxis(GAMEPAD.LEFT_STICK, (x, y) => {
 	ictx.setKey(KEY.D, x > .5)
 })
 render = () => {
-	ctxSupersample = ictx.has(KEY.V) ? 0.125/devicePixelRatio : 1 + (devicePixelRatio < 2)
+	ctxSupersample = ictx.has(KEY.V)||ictx.gamepad?.has(GAMEPAD.LEFT) ? 0.125/devicePixelRatio : 1 + (devicePixelRatio < 2)
 	if(selectedShader == -1) sfx = 0
 	for(let k = 0; k < 10; k++)
 		if(ictx.has(KEY.NUM_0 + k)){ selectedShader = -1; sfx = k; break }
-	if(ictx.has(KEY.C)) targetFov = min(targetFov / SQRT2**dt, 15)
+	if(ictx.has(KEY.C) || ictx.gamepad?.has(GAMEPAD.UP)) targetFov = min(targetFov / SQRT2**dt, 15)
 	else targetFov = 90
 	FOV += (targetFov - FOV) * min(1, dt*20)
 	
@@ -262,7 +262,7 @@ render = () => {
 	scene.reset(.025*height/width, 0, 0, .025, .5, .5)
 	const h = 40, w = width/height*40
 
-	let ctx3 = scene.sub3dProj(ictx.has(KEY.P)*.4, 1)
+	let ctx3 = scene.sub3dProj((ictx.has(KEY.P)||(ictx.gamepad?.has(GAMEPAD.DOWN)??false))*.4, 1)
 	const sc = .16/tan(FOV * PI/360)
 	// Scale FOV without changing depth values (used for fog)
 	ctx3.scale(sc, sc, .01)

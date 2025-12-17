@@ -27,11 +27,11 @@ let zoom = 3
 let cam = globalThis.cam = {x: 0, y: 0, z: 3}
 render = () => {
 	const w = ctx.width/pixelRatio, h = ctx.height/pixelRatio
-	zoom *= .999**rawWheel.y
+	zoom *= .999**ictx.wheel.y
 	const d = .002**dt
 	cam.x = (cursor.x-.5)*-64*(1-d)+cam.x*d; cam.y = (cursor.y-.5)*-36*(1-d)+cam.y*d
 	cam.z = cam.z**d*zoom**(1-d)
-	rawWheel.y = 0
+	ictx.wheel.y = 0
 	ctx.reset(1/w, 0, 0, 1/h, .5, .5)
 	{
 		const c2 = ctx.sub()

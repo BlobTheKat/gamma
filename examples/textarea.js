@@ -47,7 +47,7 @@ input.transformer = txt => {
 	return r
 }
 input.maxWidth = 40
-input.focus = true
+//input.focus = true
 input.allowTabs = true
 const scr = Scrollable(input, 40, -20)
 
@@ -64,7 +64,7 @@ render = () => {
 	if(zoom != zoom) zoom = zoomi = w/42
 	ctx.reset(1/w, 0, 0, 1/h, .5, .5)
 	ctx.scale(zoomi)
-	if(ictx.has(KEY.CTRL)) zoom *= 1.005**rawWheel.y, rawWheel.y = 0
+	if(ictx.has(KEY.CTRL)) zoom *= 1.005**ictx.wheel.y, ictx.wheel.y = 0
 	zoomi *= (zoom/zoomi)**(dt*10)
 	cxi += (cx-cxi)*(dt*5)
 	if(input.multiline)
@@ -73,7 +73,7 @@ render = () => {
 		ctx.translate(-cxi,0)
 	if(!input.isSelecting)
 		cx = (input.sel0pos + input.sel1pos)*.5 * (input.multiline ? input.lineHeight : 1) + scr.y
-	const c = ctx.unproject(cursor)
+	const c = ctx.unproject(ictx.cursor ?? vec2(.5))
 	//if(input.isSelecting || c.x > -.5 && c.x < input.width + .5 && c.y > -.5 && c.y < 1)
 	input.consumeInputs(ctx, c)
 	input.draw(ctx.sub())

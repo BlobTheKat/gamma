@@ -96,7 +96,7 @@ render = () => {
 	// Max ensures we fill, min would be fit
 	const scale = max(w / bg.width, h / bg.height)
 	ctx.drawRect(-.5 * bg.width * scale, -.5 * bg.height * scale, bg.width * scale, bg.height * scale, bg, vec4(.35))
-	elasticWheel += rawWheel.y
+	elasticWheel += ictx.wheel.y
 	if(abs(elasticWheel) > .01){
 		cam.z *= .995**(elasticWheel*dt)
 		elasticWheel *= .05**dt

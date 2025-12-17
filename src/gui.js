@@ -292,7 +292,7 @@
 				if(!curf) document.documentElement.append(curf = this.#i)
 				else if(curf != this.#i) curf.replaceWith(curf = this.#i)
 				else return
-				curf.focus()
+				$.setFocusEl(curf)
 				ltf = $.t
 			}else if(curf == this.#i) curf.remove(), curf = null
 		}
@@ -300,8 +300,8 @@
 		lineAscend = .9
 		#lc = 0
 		get height(){return this.lineHeight*(this.#pa?this.#pa.length:1)}
-		consumeInputs(ctx, {x, y} = ctx.unproject($.cursor), k = $.keys.has(0)){
-			y = this.lineAscend-y; cursorType = 'text'
+		consumeInputs(ctx, {x, y} = ctx.unproject($.ictx.cursor ?? {x:.5,y:.5}), k = $.ictx.has(0)){
+			y = this.lineAscend-y; cursorIcon = '#text'
 			if(!k) return void(this._f &= -513)
 			if(document.activeElement != this.#i)
 				this.focus = true

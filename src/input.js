@@ -272,14 +272,18 @@ function pollGamepads(){
 	let ictx = document.activeElement?._ictx
 	if(!(ictx instanceof Ictx)) ictx = null
 	else for(const gi of ictx._pointers) if(gi<0) gps.add(~gi)
-	for(const g of navigator.getGamepads()){
-		if(!g || g.mapping !== 'standard') continue
+	const garr = navigator.getGamepads()
+	let standard = []
+	for(const g of garr) if(g?.mapping == 'standard') standard.push(g)
+	const hasStandard = standard.length
+	for(const g of standard.length ? standard : garr){
+		if(!g) continue
 		const gamepad = new GamepadState()
 		gamepad.vibrate = vib.bind(g)
 		for(let i = 0; i < g.buttons.length; i++)
 			if(g.buttons[i].pressed) gamepad.set(i)
 		for(let i = 0; i < g.axes.length; i+=2)
-			gamepad._axes.push({x: g.axes[i], y: -g.axes[i+1]})
+			gamepad._axes.push({x: g.axes[i], y: hasStandard ? -g.axes[i+1] : g.axes[i+1]})
 		if(ictx) ictx.setGamepad(g.index, gamepad), gps.delete(g.index)
 		gp = true
 	}
@@ -313,7 +317,7 @@ const KEY = Object.freeze({
 	PAD_DIV: 111, PAD_MULT: 106, PAD_SUB: 109, PAD_ADD: 107, PAD_DOT: 110, NUM_LOCK: 144,
 	SCROLL_LOCK: 145, HELP: 26, RO: 193, YEN: 255, SYSRQ: 44, PRINT_SCREEN: 44
 })
-const GAMEPAD = Object.freeze({ A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15, MENU: 16, LEFT_STICK: 0, RIGHT_STICK: 1 })
+const GAMEPAD = Object.freeze({ A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15, MENU: 16, LEFT_STICK: 0, RIGHT_STICK: 1, SELECT: 8, START: 9 })
 const Inputs = Object.freeze({
 	MOUSE_BUTTONS: 1,
 	MOUSE_WHEEL: 2,
@@ -527,8 +531,8 @@ class Ictx extends BitField{
 		if(a) a.push(fn)
 		else this._kcbs.set(axis, [fn])
 	}
-	onKeyPress(key, fn, onRelease = false){ this.onKey(key, (down,k) => (down === onRelease || fn(k), false)) }
-	onGamepadButtonPress(key, fn, onRelease = false){ this.onGamepadButton(key, (down,k) => (down === onRelease || fn(k), false)) }
+	onKeyPress(key, fn, onRelease = false){ let prev = false; this.onKey(key, (down,k) => (((prev == onRelease) & ((prev = down) === !onRelease)) && fn(k), onRelease)) }
+	onGamepadButtonPress(key, fn, onRelease = false){ let prev = false; this.onGamepadButton(key, (down,k) => (((prev == onRelease) & ((prev = down) === !onRelease)) && fn(k), onRelease)) }
 	onKeyUpdate(fn){ this._rkcbs.push(fn) }
 	setKey(key, isDown = false, refire = false){
 		key &= 0xffff
@@ -543,6 +547,7 @@ class Ictx extends BitField{
 			for(const f of self._rkcbs) try{ const v = f(key, isDown); if(typeof v == 'boolean') isDown = v }catch(e){Promise.reject(e)}
 			self = self.next
 		}
+		return isDown
 	}
 	refireKey(key){ this.setKey(key, this.has(key), true) }
 	_fireGamepadButtonUpdate(key = 0, isDown = false){
@@ -573,6 +578,7 @@ class Ictx extends BitField{
 			for(const f of self._rpcbs) try{ const p2 = f(id, pointer); if(typeof p2 == 'object') pointer = p2 }catch(e){Promise.reject(e)}
 			self = self.next
 		}
+		return pointer
 	}
 	#setMainGamepad(g){
 		this.gamepad = g
@@ -620,6 +626,7 @@ class Ictx extends BitField{
 			for(const f of self._rgcbs) try{ const p2 = f(id, gamepad); if(typeof p2 == 'object') gamepad = p2 }catch(e){Promise.reject(e)}
 			self = self.next
 		}
+		return gamepad
 	}
 	refireGamepad(id){ this.setGamepad(id, this._pointers.get(~id) ?? null, true) }
 	fireWheelUpdate(dx=0, dy=0){
@@ -630,6 +637,7 @@ class Ictx extends BitField{
 			for(const f of this._wcbs) try{ const p = f(dx, dy); if(typeof p == 'object') p ? (dx = +p.x, dy = +p.y) : (dx=dy=0) }catch(e){Promise.reject(e)}
 			self = self.next
 		}
+		return {x: dx, y: dy}
 	}
 	fireMouseUpdate(dx=0, dy=0){
 		if(typeof dx == 'object') dy = +dx.y, dx = +dx.x
@@ -639,6 +647,7 @@ class Ictx extends BitField{
 			for(const f of this._mcbs) try{ const p = f(dx, dy); if(typeof p == 'object') p ? (dx = +p.x, dy = +p.y) : (dx=dy=0) }catch(e){Promise.reject(e)}
 			self = self.next
 		}
+		return {x: dx, y: dy}
 	}
 	clearDeltas(){ this.mouse.x = this.mouse.y = this.wheel.x = this.wheel.y = 0 }
 }
@@ -673,7 +682,9 @@ Gamma.input = ($, can = $.canvas) => {
 	can.tabIndex = 0
 	$.cursorIcon = ''
 	let prevCur = ''
+	let ignoreBlur = false
 	can.addEventListener('blur', _ => {
+		if(ignoreBlur) return
 		ictx.iter(n => ictx.setKey(n, false))
 		for(const k of ictx._pointers.keys()) if(k<0) ictx.setGamepad(~k, null)
 	})
@@ -695,15 +706,18 @@ Gamma.input = ($, can = $.canvas) => {
 	let prevx = NaN, prevy = NaN
 	can.addEventListener('mousemove', e => {
 		e.preventDefault()
-		//ictx.cursor.x = e.offsetX/can.offsetWidth; ictx.cursor.y = 1-e.offsetY/can.offsetHeight
 		let dx = 0, dy = 0
 		try{
 			if(document.pointerLockElement == can){
-				dx = e.movementX*devicePixelRatio
-				dy = e.movementY*devicePixelRatio
+				dx = e.movementX
+				dy = e.movementY
 				if(oldSafari){
 					const {width,height} = can.getBoundingClientRect()
-					dx *= can.offsetWidth/width, dy *= can.offsetHeight/height
+					dx *= devicePixelRatio*can.offsetWidth/width
+					dy *= devicePixelRatio*can.offsetHeight/height
+				}else if(!ptrlockOpts){
+					dx *= devicePixelRatio
+					dy *= devicePixelRatio
 				}
 			}else if(prevx == prevx){ // !isnan(prevx)
 				dx = e.offsetX-prevx, dy = e.offsetY-prevy
@@ -715,15 +729,28 @@ Gamma.input = ($, can = $.canvas) => {
 		const c = $.cursorIcon+''
 		if(c !== prevCur) can.style.cursor = c?c[0]=='#'?c.slice(1):`url(${CSS.escape(c)})`:'', prevCur = c
 	})
-	can.addEventListener('keydown', e => {
-		if(e.repeat) return
-		ictx.setKey(overrides[e.code] ?? e.keyCode, true)
-	})
-	can.addEventListener('keyup', e => {
-		ictx.setKey(overrides[e.code] ?? e.keyCode, false)
-	})
+	const _addFocusableAlternate = c => {
+		c._ictx = ictx
+		c.addEventListener('keydown', e => {
+			if(e.repeat) return
+			// :trolled:
+			e.returnValue = ictx.setKey(overrides[e.code] ?? e.keyCode, true)
+		})
+		c.addEventListener('keyup', e => {
+			ictx.setKey(overrides[e.code] ?? e.keyCode, false)
+		})
+	}
+	_addFocusableAlternate(can)
+	// Seamlessly switch the focused element without releasing keys or otherwise firing any events
+	// Also sets up listeners and additional properties on the element if necessary
+	// If this is called from within a key event, on, for example, a text input, the text input will receive the pending event and act on it appropriately
+	$.setFocusEl = (el = null) => {
+		if(!el) el = can
+		else if(!el._ictx) _addFocusableAlternate(el)
+		ignoreBlur = true; el.focus(); ignoreBlur = false
+	}
 	const pointerupdate = e => {
-		if(e.pointerId<1) return
+		if(e.pointerId<0) return
 		const ptr = new PointerState()
 		ptr.x = e.offsetX/can.offsetWidth
 		ptr.y = 1-e.offsetY/can.offsetHeight
@@ -732,14 +759,14 @@ Gamma.input = ($, can = $.canvas) => {
 		ptr.tiltX = e.tiltX*.017453292519943295
 		ptr.tiltY = e.tiltY*.017453292519943295
 		ptr.twist = e.twist*.017453292519943295
-		ictx.setPointer(e.pointerId-1, ptr)
+		ictx.setPointer(e.pointerType == 'mouse' ? 0 : e.pointerId, ptr)
 	}
 	can.addEventListener('pointerover', pointerupdate)
 	can.addEventListener('pointerdown', pointerupdate)
 	can.addEventListener('pointermove', pointerupdate)
 	can.addEventListener('pointerup', pointerupdate)
 	can.addEventListener('pointerleave', e => {
-		if(e.pointerId<1) return
-		ictx.setPointer(e.pointerId-1, null)
+		if(e.pointerId<0) return
+		ictx.setPointer(e.pointerType == 'mouse' ? 0 : e.pointerId, null)
 	})
 }}
