@@ -556,10 +556,10 @@ namespace GammaInstance{
 		readonly loaded: boolean
 
 		/**
-		 * Whether the image-backed texture is currently being loaded
-		 * Always false for non-image-backed textures
+		 * Whether the image-backed texture is loaded. Reading this property will cause the texture to be loaded in the background if it isn't already
+		 * Always true for non-image-backed textures
 		 */
-		readonly waiting: boolean
+		get usable(): boolean
 
 		/** `x` parameter used to define a sub-texture. Can be safely modified at any time */
 		x: number

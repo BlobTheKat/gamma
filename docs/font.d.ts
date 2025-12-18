@@ -81,7 +81,7 @@ declare global{
 	interface RichText{
 		/** Return a sub-RichText, which, much like sub-contexts and sub-textures, points to the same ultimate rich text but holds separate parameters used for adding new segments. This can be used to pass a handle to the RichText to another function without worrying about it modifying the parameters of the current object */
 		sub(): RichText
-		/** Reset all parameters, optionally setting a font to reset to (otherwise will reset to null) */
+		/** Reset all parameters, optionally setting a font to reset to (otherwise will reset to `null`, which means text won't be displayed) */
 		reset(font?: Font | null): void
 		/** The font to be used when adding new text segments. Default: as passed to the constructor, or null (must be set or else no text is displayed) */
 		font: Font | null
@@ -208,6 +208,12 @@ declare global{
 		 * Concatenate another RichText onto this one, modifying `this`
 		 */
 		concat(other: RichText): void
+		/**
+		 * Clear the contents of this RichText.
+		 * 
+		 * The context parameters of this sub-RichText are not changed. For that, see `.reset()`
+		 */
+		clear(): void
 		/**
 		 * The length of the current RichText, counted in UTF-16 character codes, just like plain JS strings
 		 * 
