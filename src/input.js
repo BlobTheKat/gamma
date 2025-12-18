@@ -755,7 +755,7 @@ Gamma.input = ($, can = $.canvas) => {
 	}
 	const setCursor = (t) => {cur=t}
 	const pointerupdate = e => {
-		if(e.pointerId<0) return
+		if(e.pointerId==-1) return
 		const ptr = new PointerState()
 		ptr.x = e.offsetX/can.offsetWidth
 		ptr.y = 1-e.offsetY/can.offsetHeight
@@ -772,7 +772,7 @@ Gamma.input = ($, can = $.canvas) => {
 	can.addEventListener('pointermove', pointerupdate)
 	can.addEventListener('pointerup', pointerupdate)
 	can.addEventListener('pointerleave', e => {
-		if(e.pointerId<0) return
+		if(e.pointerId==-1) return
 		ictx.setPointer(e.pointerType == 'mouse' ? 0 : e.pointerId, null)
 	})
 }}
