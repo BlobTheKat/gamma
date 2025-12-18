@@ -193,7 +193,7 @@ class Tex{
 		this.w = w; this.h = h; this.l = l
 	}
 	get loaded(){ return !this.t.src }
-	get waiting(){ return !this.t._tex }
+	get usable(){ return this.t.src ? (this.t._tex || Tex.load(this.t), false) : true }
 	get then(){ return this.t.src ? this.#then : null }
 	load(){ if(!this.t._tex) Tex.load(this.t) }
 	sub(x=0, y=0, w=1, h=1, l=this.l){

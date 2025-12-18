@@ -20,7 +20,6 @@
 	$.ctxSupersample = 1
 	Gamma(undefined, $, 31).loop(() => {
 		const px = devicePixelRatio * ctxSupersample
-		$.pixelRatio = px*16
 		const w = innerWidth, h = innerHeight
 		if(ow!=(ow=round(w*px))|oh!=(oh=round(h*px))) $.setSize(ow, oh)
 		$.canvas.style.transform = `scale(${1/px})`
@@ -29,7 +28,6 @@
 		$.render?.()
 		$.ictx.clearDeltas()
 	})
-	$.pixelRatio = devicePixelRatio*16
 	const unint = `user-select:none;-webkit-user-select:none;touch-action: none;`
 	$.canvas.style = `image-rendering: pixelated; position: fixed; inset: 0; transform-origin: top left; `+unint
 	$.glLost = () => {
@@ -67,6 +65,6 @@
 		[Symbol.toStringTag]: {value: 'Global', writable: false}
 	})
 	$.icon = null
-	import('./examples/textarea.js')
+	import('./examples/gui.js')
 }</script></body>
 </html>

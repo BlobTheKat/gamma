@@ -87,8 +87,8 @@ $.Shader.sdf = (src, o={}) => {
 		#_v=DEFAULT_PASSES;#len=0;#w=NaN;#l=null;#_m=true
 		static public = class txtstream{
 			constructor(q){ this.#q = q }
-			sub(){const s=new txtstream(this.#q);s.#f=this.#f;s.#sh=this.#sh;s.#geo=this.#geo;s.#sc=this.#sc;s.#st=this.#st;s.#sk=this.#sk;s.#lsb=this.#lsb;s.#arc=this.#arc;s.#v=this.#v;return s}
-			reset(f=null){this.#f=typeof f=='object'?f:null;this.#sh=msdfShader;this.#geo=dfgeo;this.#sc=1;this.#st=0;this.#sk=0;this.#lsb=0;this.#v=null;this.#arc=0;this.#q.#l==this&&(this.#q.#l=null)}
+			sub(){const s=new txtstream(this.#q);s.#f=this.#f;s.#sh=this.#sh;s.#geo=this.#geo;s.#sc=this.#sc;s.#st=this.#st;s.#sk=this.#sk;s.#lsb=this.#lsb;s.#arc=this.#arc;s.#v=this.#v;s.#m=this.#m;return s}
+			reset(f=null){this.#f=typeof f=='object'?f:null;this.#sh=msdfShader;this.#geo=dfgeo;this.#sc=1;this.#st=1;this.#sk=0;this.#lsb=0;this.#arc=0;this.#v=DEFAULT_PASSES;this.#m=true;this.#q.#l==this&&(this.#q.#l=null)}
 			#q; #f = null; #m = true
 			get font(){return this.#f}
 			set font(a){if(typeof a=='object')this.#f=a;this.#q.#l==this&&(this.#q.#l=null)}
@@ -1048,6 +1048,12 @@ $.Shader.sdf = (src, o={}) => {
 					else if(typeof s == 'string' && m) str += s
 				}
 				return str
+			}
+			clear(){
+				const q = this.#q
+				q.#_f=null;q.#_sh=msdfShader;q.#_geo=dfgeo;q.#_sc=1;q.#_yo=0;q.#_st=1;q.#_sk=0;q.#_lsb=0;q.#_arc=0
+				q.#_v=DEFAULT_PASSES;q.#len=0;q.#w=NaN;q.#l=null;q.#_m=true
+				q.length = 0
 			}
 			static ctor = (f = null) => {
 				const q = new itxtstream()

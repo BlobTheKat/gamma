@@ -1,54 +1,143 @@
 {Gamma.gui = $ => {
 	if(!$.Font) throw 'Initialize Gamma.font before Gamma.gui'
 	class GUIElement{
-		
-	}
-	const zdraw = function(ctx, w, h){
-		for(let i = 0; i < this.children.length; i += 2){
-			const el = this.children[i], opts = this.children[i + 1]
-			const ct2 = ctx.sub()
-			if(opts&3){
-				if(opts&2) ct2.translate(w - el.width, 0)
-				else if(opts&1) ct2.translate((w - el.width)*.5, 0)
-			}
-			if(opts&12){
-				if(opts&8) ct2.translate(0, h - el.height)
-				else if(opts&4) ct2.translate(0, (h - el.height)*.5)
-			}
-			el.draw?.(ct2)
+		#w = NaN; #h = NaN; #drawDep = null
+		_dimensions(){ return vec2.zero }
+		invalidate = () => {
+			this.#w = this.#h = NaN
+			const hook = this.#drawDep; this.#drawDep = null
+			if(!hook) return
+			if(typeof hook == 'function') try{ hook() }catch(e){ Promise.reject(e) }
+			else for(const f of hook) try{ f() }catch(e){ Promise.reject(e) }
 		}
+		addDependency(cb){ if(typeof cb !== 'function') return; const l = this.#drawDep; if(!l) this.#drawDep = cb; else if(typeof l == 'function') this.#drawDep = [l, cb]; else l.push(cb) }
+		removeDependency(cb){
+			const l = this.#drawDep
+			if(!l) return
+			if(typeof l == 'function'){
+				if(l === cb) this.#drawDep = null
+				return
+			}
+			let i = l.indexOf(cb)
+			if(i < 0) return
+			while(i<l.length) l[i] = l[++i]
+			l.pop()
+		}
+		get width(){ let w = this.#w; if(w!==w){ const d = this._dimensions(); w = this.#w = d.x; this.#h = d.y } return w }
+		get height(){ let h = this.#h; if(h!==h){ const d = this._dimensions(); this.#w = d.x; h = this.#h = d.y } return h }
 	}
-	class list extends GUIElement{
-		children = []
-		add(el, opts = 15){ this.children.push(el, opts); return this }
-		constructor(drawFn){ super(); this.draw = drawFn }
+	const zdraw = function(ctx, ictx, w, h){
+		let i = this.children.length
+		for(const el of this.children) el.draw?.(--i ? ctx.sub() : ctx, ictx, w, h)
+	}
+	const list = (draw, layout) => {
+		class list extends GUIElement{
+			children = []
+			add(el){ this.children.push(el); el.addDependency(this.invalidate); return this }
+			remove(n){
+				const l = this.children
+				if(typeof n == 'number'){
+					n >>>= 0
+					if(n >= l.length) return
+					l[n].removeDependency(this.invalidate)
+					while(n<l.length) l[n] = l[++n]
+					l.pop()
+				}else{
+					if(this.children.remove(n) >= 0) n.removeDependency(this.invalidate)
+				}
+			}
+		}
+		list.prototype.draw = draw
+		return () => new list()
 	}
 	class img extends GUIElement{
 		constructor(tex){ super(); this.texture = tex }
-		get naturalWidth(){ return this.texture.width }
-		get naturalHeight(){ return this.texture.height }
-		draw = (ctx, w, h) => {
-			ctx.draw(this.texture, )
-		}
+		get width(){ return this.texture.width }
+		get height(){ return this.texture.height }
+		draw(ctx, _, w, h){ ctx.drawRect(0, 0, w, h, this.texture) }
 	}
 	class text extends GUIElement{
-		constructor(rt){ super(); this.text = rt }
-		draw = (ctx, w, h) => {
-
+		constructor(rt, font){
+			super()
+			if(typeof rt == 'string'){
+				const str = rt
+				rt = RichText(font)
+				rt.add(str)
+			}
+			this.text = rt
+		}
+		get width(){ return this.text.width }
+		get height(){ return 1 }
+		draw(ctx, ictx, w, h){ this.text.draw(ctx) }
+	}
+	$.canvas.style.setProperty('--__gamma__sarea__', 'env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)')
+	$.getUIDimensons = () => {
+		const {0: t, 1: r, 2: b, 3: l} = getComputedStyle($.canvas).getPropertyValue('--__gamma__sarea__').split(' ')
+		return { width: $.canvas.offsetWidth*.0625, height: $.canvas.offsetHeight*.0625, paddingLeft: parseFloat(l), paddingRight: parseFloat(r), paddingBottom: parseFloat(b), paddingTop: parseFloat(t) }
+	}
+	class Box extends GUIElement{
+		constructor(el, pos, sz){ super(); this.child = el; this.pos = pos; this.size = sz }
+		width = 0; height = 0
+		replace(other){
+			this.child.removeDependency(this.invalidate)
+			void (this.child = other).addDependency(this.invalidate)
+		}
+		draw(ctx, ictx, w, h){
+			if(!this.child.draw) return
+			const {width, height} = this.child
+			let {size, pos} = this, xs = 1, ys = 1
+			if(typeof size == 'function') size = size(w/width, h/height)
+			if(typeof size == 'number') xs = ys = size
+			else if(typeof size == 'object') size && (xs = size.x, ys = size.y)
+			const difw = w-width*xs, difh = h-height*ys
+			if(typeof pos == 'function') pos = pos(difw, difh)
+			if(typeof pos == 'object') pos && ctx.translate(pos.x*difw, pos.y*difh)
+			else{
+				if(typeof pos != 'number') pos = 0.5
+				ctx.translate(pos*difw, pos*difh)
+			}
+			ctx.scale(xs, ys)
+			this.child.draw(ctx, ictx, width, height)
+		}
+	}
+	class BoxFill extends GUIElement{
+		constructor(tex, pos, sz, tint){ super(); this.texture = tex; this.pos = pos; this.size = sz; this.tint = tint }
+		width = 0; height = 0
+		draw(ctx, _, w, h){
+			if(!this.texture.identity) return void ctx.drawRect(0, 0, w, h, this.texture)
+			if(!this.texture.usable) return
+			let {width, height} = this.texture
+			let {size, pos} = this
+			if(typeof size == 'function') size = size(w/width, h/height)
+			if(typeof size == 'number') width *= size, height *= size
+			else if(typeof size == 'object') size && (width *= size.x, height *= size.y)
+			let difw = w-width, difh = h-height
+			if(typeof pos == 'function') pos = pos(difw, difh)
+			if(typeof pos == 'object') pos && (difw *= pos.x, difh *= pos.y)
+			else{
+				if(typeof pos != 'number') pos = 0.5
+				difw *= pos, difh *= pos
+			}
+			const iw = 1/w, ih = 1/h
+			ctx.drawRect(0, 0, w, h, this.texture.super(difw*iw, difh*ih, width*iw, height*ih), this.tint)
 		}
 	}
 	$.GUI = {
-		CENTERED: 15,
-		CENTERED_X: 3,
-		CENTERED_Y: 12,
-		LEFT: 1,
-		RIGHT: 2,
-		BOTTOM: 4,
-		TOP: 8,
-		ZStack: () => new list(zdraw),
-		Img: (tex, szFn, posFn) => new img(tex, szFn, posFn),
-		Text: (str) => new text(str),
+		CENTERED: vec2(.5, .5),
+		LEFT: vec2(0, .5),
+		RIGHT: vec2(1, .5),
+		BOTTOM: vec2(.5, 0),
+		TOP: vec2(.5, 1),
+		BOTTOM_LEFT: vec2(0, 0),
+		BOTTOM_RIGHT: vec2(1, 0),
+		TOP_LEFT: vec2(0, 1),
+		TOP_RIGHT: vec2(1, 1),
+		ZStack: list(zdraw),
+		Img: (tex) => new img(tex),
+		Text: (rt, font) => new text(rt, font),
 		Button: (cb = null) => new btn(cb),
+		Box: (a,b=.5,c=1) => new Box(a,b,c),
+		BoxFill: (a,b=.5,c=max,d) => new BoxFill(a,b,c,d)
 	}
 	class btn extends GUIElement{
 		#click
@@ -72,31 +161,29 @@
 			}
 			return true
 		}; return this }
-		layout(ctx, ictx, w, h){
-			let ptrCapt = -1
-			ictx.onPointerUpdate((id, ptr) => {
-				switch(!ptr){
-				case false:
-					if(ptrCapt >= 0 && id != ptrCapt) return
-					const p = ctx.unproject(ptr)
-					if(p.x >= 0 && p.x < w && p.y >= 0 && p.y < h && this.hitTest?.(p.x, p.y, w, h)) break
-				case true:
-					if(id == ptrCapt){
-						ptrCapt = -1
-						const pr = this.state; this.state = 0
-						for(const r of this.#stch) try{r(0, pr)}catch(e){Promise.reject(e)}
-					}
-					return
+		#ptrCapt = -1
+		#onPointerUpdate(ctx, w, h, id, ptr){
+			switch(!ptr){
+			case false:
+				if(this.#ptrCapt >= 0 && id != this.#ptrCapt) return
+				const p = ctx.unproject(ptr)
+				if(p.x >= 0 && p.x < w && p.y >= 0 && p.y < h && (this.hitTest?.(p.x, p.y, w, h)??true)) break
+			case true:
+				if(id == this.#ptrCapt){
+					this.#ptrCapt = -1
+					const pr = this.state; this.state = 0
+					for(const r of this.#stch) try{r(0, pr)}catch(e){Promise.reject(e)}
 				}
-				if(this.cur != null) ptr.setHint?.(this.cur)
-				let pst = this.state; this.state = 1+ptr.pressed
-				if(ptrCapt == -1) ptrCapt = id
-				for(const r of this.#stch) try{r(this.state, pst)}catch(e){Promise.reject(e)}
-				if(this.state!=2&&pst==2) for(const r of this.#click) try{r(this.state)}catch(e){Promise.reject(e)}
-				return null
-			})
+				return
+			}
+			if(this.cur != null) ptr.setHint?.(this.cur)
+			let pst = this.state; this.state = 1+ptr.pressed
+			if(this.#ptrCapt == -1) this.#ptrCapt = id
+			for(const r of this.#stch) try{r(this.state, pst)}catch(e){Promise.reject(e)}
+			if(this.state!=2&&pst==2) for(const r of this.#click) try{r(this.state)}catch(e){Promise.reject(e)}
+			return null
 		}
-		draw = null
+		draw(ctx, ictx, w, h){ ictx.onPointerUpdate(this.#onPointerUpdate.bind(this, ctx, w, h)) }
 	}
 
 	const rem = ({target:t}) => (t._field._f&256||(t._field._f|=256,setImmediate(t._field.recalc)), t.remove(), $.setFocused(curf = null))

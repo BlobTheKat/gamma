@@ -2,14 +2,23 @@
 
 const font = Font.chlumsky('/fonts/ubuntu/')
 
+const label = GUI.Text('You pressed the button 0 times', font)
+let n = 0
 const ui = GUI.ZStack()
-	.add(GUI.Img(Texture.from('/examples/mountains.jpeg')))
-	.add(GUI.Text('Hello World', font, 32), GUI.CENTERED)
+	.add(GUI.BoxFill(Texture.from('/examples/mountains.jpeg'), GUI.BOTTOM, max, vec4(.5)))
+	.add(GUI.Box(label, .5, 4))
 	.add(GUI.Button(() => {
-		console.log('Button Pressed')
+		n++
+		const text = label.text
+		text.clear(); text.reset(font)
+		text.add(`You pressed the button ${n} times`)
+		label.invalidate()
 	}))
 
 render = () => {
+	const dims = getUIDimensons()
+	ctx.reset(1/dims.width, 0, 0, 1/dims.height, 0, 0)
 	ctx.clear(0, 0, 0, 1)
-	ui.draw(ctx, ictx)
+	ictx.reset()
+	ui.draw(ctx, ictx, dims.width, dims.height)
 }
