@@ -775,4 +775,5 @@ Gamma.input = ($, can = $.canvas) => {
 		if(e.pointerId==-1) return
 		ictx.setPointer(e.pointerType == 'mouse' ? 0 : e.pointerId, null)
 	})
+	can.addEventListener('touchend', e => e.preventDefault())
 }}

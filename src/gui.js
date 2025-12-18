@@ -122,32 +122,16 @@
 			ctx.drawRect(0, 0, w, h, this.texture.super(difw*iw, difh*ih, width*iw, height*ih), this.tint)
 		}
 	}
-	$.GUI = {
-		CENTERED: vec2(.5, .5),
-		LEFT: vec2(0, .5),
-		RIGHT: vec2(1, .5),
-		BOTTOM: vec2(.5, 0),
-		TOP: vec2(.5, 1),
-		BOTTOM_LEFT: vec2(0, 0),
-		BOTTOM_RIGHT: vec2(1, 0),
-		TOP_LEFT: vec2(0, 1),
-		TOP_RIGHT: vec2(1, 1),
-		ZStack: list(zdraw),
-		Img: (tex) => new img(tex),
-		Text: (rt, font) => new text(rt, font),
-		Button: (cb = null) => new btn(cb),
-		Box: (a,b=.5,c=1) => new Box(a,b,c),
-		BoxFill: (a,b=.5,c=max,d) => new BoxFill(a,b,c,d)
-	}
-	class btn extends GUIElement{
+	class Button extends GUIElement{
 		#click
 		#stch = []
 		state = 0
 		hitTest = null
-		constructor(cb = null){ super(); this.#click = cb ? [cb] : [] }
+		constructor(cb, cur, cur2){ super(); this.#click = cb ? [cb] : []; this.cursor = cur; this.activeCursor = cur2 }
 		reset(){ this.#click.length = this.#stch.length = 0 }
 		onClick(cb){ this.#click.push(cb); return this }
 		onStateChange(cb){ this.#stch.push(cb); return this }
+		setCursor(cur){ this.cur = cur; return this }
 		rounded(tl=0,tr=tl,bl=tl,br=tl){
 			const l=max(tl,bl),r=max(tr,br)
 			this.hitTest = (x,y,w,h) => {
@@ -176,7 +160,8 @@
 				}
 				return
 			}
-			if(this.cur != null) ptr.setHint?.(this.cur)
+			const cur = ptr.pressed ? this.activeCursor : this.cursor
+			if(cur != null) ptr.setHint?.(cur)
 			let pst = this.state; this.state = 1+ptr.pressed
 			if(this.#ptrCapt == -1) this.#ptrCapt = id
 			for(const r of this.#stch) try{r(this.state, pst)}catch(e){Promise.reject(e)}
@@ -184,6 +169,23 @@
 			return null
 		}
 		draw(ctx, ictx, w, h){ ictx.onPointerUpdate(this.#onPointerUpdate.bind(this, ctx, w, h)) }
+	}
+	$.GUI = {
+		CENTERED: vec2(.5, .5),
+		LEFT: vec2(0, .5),
+		RIGHT: vec2(1, .5),
+		BOTTOM: vec2(.5, 0),
+		TOP: vec2(.5, 1),
+		BOTTOM_LEFT: vec2(0, 0),
+		BOTTOM_RIGHT: vec2(1, 0),
+		TOP_LEFT: vec2(0, 1),
+		TOP_RIGHT: vec2(1, 1),
+		ZStack: list(zdraw),
+		Img: (tex) => new img(tex),
+		Text: (rt, font) => new text(rt, font),
+		Button: (cb = null, cur = PointerState.POINTER, cur2 = PointerState.POINTER) => new Button(cb,cur,cur2),
+		Box: (a,b=.5,c=1) => new Box(a,b,c),
+		BoxFill: (a,b=.5,c=max,d) => new BoxFill(a,b,c,d)
 	}
 
 	const rem = ({target:t}) => (t._field._f&256||(t._field._f|=256,setImmediate(t._field.recalc)), t.remove(), $.setFocused(curf = null))
