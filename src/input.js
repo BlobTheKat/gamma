@@ -317,17 +317,7 @@ const KEY = Object.freeze({
 	SCROLL_LOCK: 145, HELP: 26, RO: 193, YEN: 255, SYSRQ: 44, PRINT_SCREEN: 44
 })
 const GAMEPAD = Object.freeze({ A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, LT: 6, RT: 7, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15, MENU: 16, LEFT_STICK: 0, RIGHT_STICK: 1, SELECT: 8, START: 9 })
-const Inputs = Object.freeze({
-	MOUSE_BUTTONS: 1,
-	MOUSE_WHEEL: 2,
-	MOUSE_POINTER: 4,
-	OTHER_POINTERS: 8,
-	KEYBOARD: 16,
-	GAMEPADS: 32,
-	MOUSE: 7,
-	ALL_POINTERS: 12,
-	ALL: -1
-})
+
 class PointerState{
 	static DEFAULT = 0
 	static HIDDEN = 1
@@ -481,36 +471,19 @@ class Ictx extends BitField{
 	_npcbs = []; _ngcbs = []; _dpcbs = []; _dgcbs = []
 	_kcbs = new Map()
 	// Clears listeners
-	reset(flags = -1){
-		const k = flags & 17
-		if(k){
-			if(k == 17) this._kcbs.clear()
-			else for(const key of this._kcbs.keys())
-				if((key>7)^(flags>>3&1)) this._kcbs.delete(key)
-		}
-		if(flags & 2) this._wcbs.length = 0
-		if(flags & 4) this._mcbs.length = 0
-		if(flags & 8) this._npcbs.length = this._dpcbs.length = this._rpcbs.length = 0
-		if(flags & 32) this._ngcbs.length = this._dgcbs.length = this._rgcbs.length = 0
+	reset(){
+		this._kcbs.clear(); this._rkcbs.length = 0
+		this._wcbs.length = 0
+		this._mcbs.length = 0
+		this._npcbs.length = this._dpcbs.length = this._rpcbs.length = 0
+		this._ngcbs.length = this._dgcbs.length = this._rgcbs.length = 0
 	}
 	// Clears inputs & removes listeners
-	clear(flags = -1){
-		this.reset(flags)
-		const k = flags & 17
-		if(k == 17) this.clear()
-		else if(k){
-			if(flags & 1) this.unsetRange(0, 7)
-			if(flags & 16) this.unsetRange(8)
-		}
-		if(flags&2) this.wheel.x = this.wheel.y = 0
-		if(flags&4) this.mouse.x = this.mouse.y = 0
-		let k2 = flags & 40
-		if(k2==40) this._pointers.clear()
-		else if(k2){
-			k2 = -(k2==32)
-			for(const id of this._pointers.keys())
-				if((id>>31)==k2) this._pointers.delete(id)
-		}
+	clear(){
+		this.reset(); this.clear()
+		this.wheel.x = this.wheel.y = 0
+		this.mouse.x = this.mouse.y = 0
+		this._pointers.clear()
 	}
 	onWheel(fn){ this._wcbs.push(fn) }
 	onMouseMove(fn){ this._mcbs.push(fn) }
@@ -681,7 +654,6 @@ Gamma.input = ($, can = $.canvas) => {
 			}else if(document.fullscreenElement !== can) can.requestFullscreen()?.catch(_=>null)
 		}
 	})
-	$.Inputs = Inputs
 	const ictx = $.ictx = can._ictx = new Ictx()
 	$.InputContext = () => new Ictx()
 	can.style.outline = 'none'
@@ -731,19 +703,30 @@ Gamma.input = ($, can = $.canvas) => {
 		if(cur !== prevCur) can.style.cursor = typeof cur=='number'?cursors[cur]:`url(${CSS.escape(cur)})`, prevCur = cur
 	})
 	let toCaptureEl = null, toCaptureKey = 0
+	const allowRepeats = new BitField()
 	const onkeydown = e => {
-		if(e.repeat) return
-		// :trolled:
+		const code = overrides[e.code] ?? e.keyCode
+		if(e.repeat){ return allowRepeats.has(code) }
 		toCaptureEl = null
-		e.returnValue = ictx.setKey(overrides[e.code] ?? e.keyCode, true)
-		if(toCaptureEl && document.activeElement != toCaptureEl){
-			ignoreBlur = true; toCaptureEl.focus(); ignoreBlur = false
-			e.returnValue = true
-		}
+		// :trolled:
+		let ret = ictx.setKey(code, true)
+		if(toCaptureEl){
+			if(document.activeElement != toCaptureEl) ignoreBlur = true, toCaptureEl.focus(), ignoreBlur = false
+			ret = true
+		}else if(document.activeElement != can) ret = false
+		ret ? allowRepeats.set(code) : allowRepeats.unset(code)
+		return ret
 	}
 	const onkeyup = e => {
+		const code = overrides[e.code] ?? e.keyCode
 		toCaptureEl = null
-		ictx.setKey(overrides[e.code] ?? e.keyCode, false)
+		let ret = ictx.setKey(code, false)
+		if(toCaptureEl){
+			if(document.activeElement != toCaptureEl) ignoreBlur = true, toCaptureEl.focus(), ignoreBlur = false
+			ret = true
+		}else if(document.activeElement != can) ret = false
+		allowRepeats.unset(code)
+		return ret
 	}
 	const onblur = _ => {
 		if(ignoreBlur) return

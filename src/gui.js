@@ -50,16 +50,57 @@
 		Text: (str) => new text(str),
 		Button: (cb = null) => new btn(cb),
 	}
-	class btn{
-		hoverOverCb = null
-		hoverOutCb = null
-		constructor(cb = null){ this.cb = cb }
-		onClick(cb = null){ this.cb = cb; return this }
-		onHover(cb = null){ this.hoverOverCb = cb; return this }
-		onHoverRelease(cb = null){ this.hoverOutCb = cb; return this }
+	class btn extends GUIElement{
+		#click
+		#stch = []
+		state = 0
+		hitTest = null
+		constructor(cb = null){ super(); this.#click = cb ? [cb] : [] }
+		reset(){ this.#click.length = this.#stch.length = 0 }
+		onClick(cb){ this.#click.push(cb); return this }
+		onStateChange(cb){ this.#stch.push(cb); return this }
+		rounded(tl=0,tr=tl,bl=tl,br=tl){
+			const l=max(tl,bl),r=max(tr,br)
+			this.hitTest = (x,y,w,h) => {
+			if(x<l){
+				if(x<bl){ if(y<bl){ const x2=x-bl,y2=y-bl; if(x2*x2-y2*y2>bl*bl) return false } }
+				else if(h-y<tl){ const x2=x-tl,y2=h-y-tl; if(x2*x2-y2*y2>tl*tl) return false }
+			}
+			if(w-x>r){
+				if(w-x<br){ if(y<br){ const x2=w-x-br,y2=y-br; if(x2*x2-y2*y2>br*br) return false } }
+				else if(h-y<tr){ const x2=x-tr,y2=h-y-tr; if(x2*x2-y2*y2>tr*tr) return false }
+			}
+			return true
+		}; return this }
+		layout(ctx, ictx, w, h){
+			let ptrCapt = -1
+			ictx.onPointerUpdate((id, ptr) => {
+				switch(!ptr){
+				case false:
+					if(ptrCapt >= 0 && id != ptrCapt) return
+					const p = ctx.unproject(ptr)
+					if(p.x >= 0 && p.x < w && p.y >= 0 && p.y < h && this.hitTest?.(p.x, p.y, w, h)) break
+				case true:
+					if(id == ptrCapt){
+						ptrCapt = -1
+						const pr = this.state; this.state = 0
+						for(const r of this.#stch) try{r(0, pr)}catch(e){Promise.reject(e)}
+					}
+					return
+				}
+				if(this.cur != null) ptr.setHint?.(this.cur)
+				let pst = this.state; this.state = 1+ptr.pressed
+				if(ptrCapt == -1) ptrCapt = id
+				for(const r of this.#stch) try{r(this.state, pst)}catch(e){Promise.reject(e)}
+				if(this.state!=2&&pst==2) for(const r of this.#click) try{r(this.state)}catch(e){Promise.reject(e)}
+				return null
+			})
+		}
+		draw = null
 	}
 
 	const rem = ({target:t}) => (t._field._f&256||(t._field._f|=256,setImmediate(t._field.recalc)), t.remove(), $.setFocused(curf = null))
+	// putting some stuff here allows us to catch system-defined key repeats
 	const keydown = e => {
 		const i = e.target, tf = i._field
 		if(e.keyCode == 38 || e.keyCode == 40){
@@ -300,25 +341,25 @@
 		lineHeight = 1.3
 		lineAscend = .9
 		#lc = 0
-		#pointerDown = -1
+		#ptrDown = -1
 		#onPointerUpdate(ctx, id, ptr){
 			if(!ptr){
-				if(id == this.#pointerDown){
+				if(id == this.#ptrDown){
 					// pointer up
-					this.#pointerDown = -1
+					this.#ptrDown = -1
 					this._f &= ~1536
 				}
 				return
 			}
 			ptr.setHint?.(PointerState.TEXT)
-			if(this.#pointerDown == -1 && ptr.pressed){
-				this.#pointerDown = id
+			if(this.#ptrDown == -1 && ptr.pressed){
+				this.#ptrDown = id
 				// pointer down
 				this.focus = true
-			}else if(this.#pointerDown != id) return null
+			}else if(this.#ptrDown != id) return null
 			if(!ptr.pressed){
 				// pointer up
-				this.#pointerDown = -1
+				this.#ptrDown = -1
 				this._f &= ~1536
 				return null
 			}
@@ -359,6 +400,10 @@
 		get height(){return this.lineHeight*(this.#pa?this.#pa.length:1)}
 		layout(ctx, ictx, x=-Infinity, y=-Infinity, w=Infinity, h=Infinity){
 			ictx.onPointerUpdate(this.#onPointerUpdate.bind(this, ctx))
+			ictx.onKeyUpdate((key, isDown) => {
+				$.captureKeyEvent(this.#i, key, isDown)
+				return false
+			})
 		}
 		get height(){return this.#pa?this.#pa.length*this.lineHeight:this.lineHeight}
 		get xOffset(){return 0}
