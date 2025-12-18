@@ -143,6 +143,7 @@
 	let curf = null, ltf = 0
 	const defaultSr = (p2, field) => p2.insertLinePass(-1, [field.focus ? v4(0,.2,.4,.6) : v4(.2,.2,.2,.6)], 0, 1)
 	const defaultCr = (ctx, font) => {
+		if(!font) return
 		ctx.shader = null
 		if(($.t-ltf)%1<.5) ctx.drawRect(0, font.ascend-1, .05, 1, v4.one)
 	}

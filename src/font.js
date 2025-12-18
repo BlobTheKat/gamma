@@ -794,22 +794,26 @@ $.Shader.sdf = (src, o={}) => {
 				let s2 = q2.#l = new txtstream(q2)
 				let idx = 0, l = ''; i = 0
 				let cmap = null, chw = 1, lastCw = 1, last = -1, w = 0, tainted = false
+				let nt = null, nj = -1
 				while(i < str.length){
 					let j = 0, t = defaultToken
 					let _i0 = q2.length, _w = w, _sh = s2.#sh, _geo = s2.#geo, _sc = s2.#sc, _yo = s2.#yo, _st = s2.#st, _sk = s2.#sk, _lsb = s2.#lsb, _f = s2.#f, _arc = s2.#arc, _v = s2.#v, _m = q2.#_m, _len = q2.#len
-					a: do{
+					if(nj >= 0) t = nt, j = nj, nj = -1
+					else a: for(;;){
 						if(toks) for(t of toks){
 							t.lastIndex = i
 							if(!t.test(str)) continue
-							if(j){ t = defaultToken; break a }
 							// Match!
-							j = t.lastIndex-i
-							i = t.lastIndex
-							toks = t.next ?? toks
+							const diff = t.lastIndex-i
+							i += diff
+							if(j) nj = diff, nt = t, t = defaultToken
+							else j = diff
 							break a
 						}
 						++j
-					}while(++i < str.length)
+						if(++i == str.length){ t = defaultToken; break }
+					}
+					toks = t.next ?? toks
 					const ty = t.type
 					if(ty&16){
 						lines.push(s2)
