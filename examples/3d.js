@@ -14,8 +14,8 @@ const label = RichText(fonts.ubuntu)
 // middle-line rather than baseline
 label.yOffset = .5-fonts.ubuntu.ascend
 label.add('Gamma is ')
-label.addTextPass(0, [vec4(1,0,0,.4)])
-label.addTextPass(1, [vec4(0,0,0,.5)], 0, 0, -.04)
+label.setTextPass(0, [vec4(1,0,0,.4)])
+label.setTextPass(1, [vec4(0,0,0,.5)], 0, 0, -.04)
 label.font = fonts.marker
 label.yOffset = .5-fonts.marker.ascend
 label.add('peak')

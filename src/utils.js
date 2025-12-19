@@ -34,6 +34,7 @@
 		return i
 	}}
 })
+globalThis.TypedArray ??= Object.getPrototypeOf(Uint8Array)
 Uint8Array.fromHex = function(hex){
 	const res = new Uint8Array(hex.length>>>1)
 	let r = 1, i = 0
@@ -58,11 +59,16 @@ Uint16Array.fromHex = function(hex){
 	}
 	return res.slice(0, i)
 }
+globalThis.hsla = (h,s,l,a=1) => {
+	h *= 1/30; h %= 12; h += (h<0)*12
+	const f = s*(l<.5?l:1-l)
+   return vec4(l-f*max(3-abs(h-6),-1),l-f*max(3-abs(h+(h<4)*12-10),-1),l-f*max(3-abs(h+(h>=8)*12-2),-1),a)
+}
 const h = '0123456789abcdef'
 Number.prototype.toHex = function(){return h[this>>>28]+h[this>>24&15]+h[this>>20&15]+h[this>>16&15]+h[this>>12&15]+h[this>>8&15]+h[this>>4&15]+h[this&15]}
 Number.formatData = bytes => bytes < 512 ? bytes.toFixed(0)+'B' : bytes < 524288 ? (bytes/1024).toFixed(1)+'KiB' : bytes < 536870912 ? (bytes/1048576).toFixed(1)+'MiB' : bytes < 549755813888 ? (bytes/1073741824).toFixed(1)+'GiB' : (bytes/1099511627776).toFixed(1)+'TiB'
 Date.safestamp = (d = new Date()) => `${d.getYear()+1900}-${('0'+d.getMonth()).slice(-2)}-${('0'+d.getDate()).slice(-2)}-at-${('0'+d.getHours()).slice(-2)}-${('0'+d.getMinutes()).slice(-2)}-${('0'+d.getSeconds()).slice(-2)}`
-Math.randint ??= () => Math.random() * 4294967296 | 0
+globalThis.randint ??= Math.randint ??= () => Math.random() * 4294967296 | 0
 const a = document.createElement('a')
 globalThis.download = (file, name = file.name ?? (file.type[0]=='@' ? 'file' : file.type.split('/',1)[0])) => {
 	a.href = URL.createObjectURL(file)
@@ -70,85 +76,17 @@ globalThis.download = (file, name = file.name ?? (file.type[0]=='@' ? 'file' : f
 	a.click()
 	URL.revokeObjectURL(a.href)
 }
-globalThis.loader = ({url})=>{
-	url = url.slice(0,url.lastIndexOf('/')+1)
-	return (...src) => {
-		if(src[0].raw){
-			const a = [src[0][0]]
-			for(let i = 1; i <= src.length; i++) a.push(src[i], src[0][i])
-			const s = a.join('')
-			return s[0]=='/'?s:url+s
-		}
-		return src.length==1?src[0][0]=='/'?src[0]:url+src[0]:src.map(src=>src[0]=='/'?src:url+src)
-	}
+const {floor, trunc, fround} = Math
+const grow = 'transfer' in ArrayBuffer.prototype ? (b,n=0)=>{ b.buf8 = new Uint8Array((b.buf = new DataView(b.buf.buffer.transfer(b.cap=(b.cap<<1)+n))).buffer) } : (b, n = 0) => {
+	const r = new Uint8Array(new ArrayBuffer(b.cap=(b.cap<<1)+n))
+	r.set(b.buf8, 0); b.buf = new DataView(r.buffer); b.buf8 = r
 }
-Array.map ??= (len=0, fn) => {
-	const a = []
-	for(let i = 0; i < len; i++) a.push(fn(i))
-	return a
-}
-Gamma.utils = $ => {
-	$.screenshot = (t='image/png',q) => new Promise(r => requestAnimationFrame(() => $.canvas.toBlob(r, t, q)))
-	class _scrollable{
-		x = 0; y = 0
-		sensitivity = .5
-		constructor(c,w,h){this.contents=c;this.width=w;this.height=h}
-		scrollBarX = dfs
-		scrollBarY = dfs
-		get scrollbar(){return this.scrollBarY}
-		set scrollbar(a){this.scrollBarX = this.scrollBarY = a}
-		consumeInputs(ctx){
-			const {x: wx, y: wy} = ctx.fromDelta(scrollDelta), s = this.sensitivity
-			scrollDelta.x = scrollDelta.y = 0
-			const w = this.contents.width, h = this.contents.height
-			this.x = this.width > 0 ? max(0, min(this.x + wx*s, w-this.width)) : min(0, max(this.x + wx*s, -w-this.width))
-			this.y = this.height > 0 ? max(0, min(this.y + wy*s, h-this.height)) : min(0, max(this.y + wy*s, -h-this.height))
-			ictx.wheel.x = ictx.wheel.y = 0
-			const c = this.contents
-			if(!c) return
-			ctx = ctx.sub()
-			ctx.translate((c.xOffset??0)-this.x, (c.yOffset??0)-this.y)
-			c.consumeInputs?.(ctx)
-		}
-		draw(ctx, ...v){
-			const c = this.contents
-			if(!c?.draw) return
-			const m = ctx.mask
-			const ct2 = ctx.sub()
-			ct2.mask = 128 // SET
-			ct2.drawRect(0, 0, this.width, this.height)
-			ct2.mask = m&15|16 // RGBA | IF_SET
-			ct2.translate((c.xOffset??0)-this.x, (c.yOffset??0)-this.y)
-			this.contents.draw(ct2, ...v)
-			ctx.clearStencil()
-			if(this.scrollBarX && this.height){
-				const ct2 = ctx.sub()
-				ct2.translate(0, this.height)
-				if(this.height > 0) ct2.scale(1, -1)
-				const w = abs(this.width), w1 = w / c.width
-				if(w1 < 1) this.scrollBarX(ct2, abs(this.x) * w1, w * w1)
-			}
-			if(this.scrollBarY && this.width){
-				const ct2 = ctx.sub()
-				ct2.translate(this.width, 0)
-				ct2.multiply(0, 1)
-				if(this.width > 0) ct2.scale(1, -1)
-				const h = abs(this.height), h1 = h / c.height
-				if(h1 < 1) this.scrollBarY(ct2, abs(this.y) * h1, h * h1)
-			}
-		}
-	}
-	$.Scrollable = (c, w=1, h=-1) => new _scrollable(c, +w, +h)
-	const v4p2 = $.vec4(.2)
-	const dfs = $.Scrollable.defaultScrollbar = (ctx, x0, w) => {
-		ctx.shader = null
-		ctx.drawRect(x0, 0, w, .1, v4p2)
-	}
-	$.decoder = new TextDecoder()
-	$.encoder = new TextEncoder()
-
-	globalThis.TypedArray ??= Object.getPrototypeOf(Uint8Array)
-	$.BufReader = class BufReader extends DataView{
+// Feds are coming, watch out!
+let encodable = (f,e,d,s) => (f.encode=e,f.decode=d,f.size=s,f)
+globalThis.Nanobuf = {
+	decoder: new TextDecoder(),
+	encoder: new TextEncoder(),
+	BufReader: class BufReader extends DataView{
 		/**  */
 		constructor(arr){
 			if(arr instanceof ArrayBuffer) super(arr)
@@ -275,13 +213,8 @@ Gamma.utils = $ => {
 			}
 			return str += `\x1b[m${this.byteLength>end?'... ':''}]`
 		}
-	}
-	const {floor, trunc, fround} = Math
-	const grow = 'transfer' in ArrayBuffer.prototype ? (b,n=0)=>{ b.buf8 = new Uint8Array((b.buf = new DataView(b.buf.buffer.transfer(b.cap=(b.cap<<1)+n))).buffer) } : (b, n = 0) => {
-		const r = new Uint8Array(new ArrayBuffer(b.cap=(b.cap<<1)+n))
-		r.set(b.buf8, 0); b.buf = new DataView(r.buffer); b.buf8 = r
-	}
-	$.BufWriter = class BufWriter{
+	},
+	BufWriter: class BufWriter{
 		/** Construct a new BufWriter, optionally passing the underlying ArrayBuffer and head position. Once the head surpasses the ArrayBuffer's length, it is discarded (and possibly detached) and a new ArrayBuffer is allocated and used */
 		constructor(arr = new ArrayBuffer(64), head = 0){
 			this.buf = new DataView(arr)
@@ -442,38 +375,34 @@ Gamma.utils = $ => {
 			}
 			return str += `\x1b[m]`
 		}
-	}
-	// Feds are coming, watch out!
-	let encodable = (f,e,d,s) => (f.encode=e,f.decode=d,f.size=s,f)
-	$.b1 = encodable((a=0) => +!!a, (buf,a) => buf.b1(a), (buf,_) => buf.b1(),0)
-	$.b2 = encodable((a=0) => (typeof a=='number'?a:Number(a))&3, (buf,a) => buf.b2(a), (buf,_) => buf.b2(),0)
-	$.b4 = encodable((a=0) => (typeof a=='number'?a:Number(a))&15, (buf,a) => buf.b4(a), (buf,_) => buf.b4(),0)
-	$.u8 = encodable((a=0) => (typeof a=='number'?a:Number(a))&255, (buf,a) => buf.u8(a), (buf,_) => buf.u8(),1)
-	$.i8 = encodable((a=0) => (typeof a=='number'?a:Number(a))<<24>>24, (buf,a) => buf.i8(a), (buf,_) => buf.i8(),1)
-	$.u16 = encodable((a=0) => (typeof a=='number'?a:Number(a))&65535, (buf,a) => buf.u16(a), (buf,_) => buf.u16(),2)
-	$.i16 = encodable((a=0) => (typeof a=='number'?a:Number(a))<<16>>16, (buf,a) => buf.i16(a), (buf,_) => buf.i16(),2)
-	$.u24 = encodable((a=0) => (typeof a=='number'?a:Number(a))&16777215, (buf,a) => buf.u24(a), (buf,_) => buf.u24(),3)
-	$.i24 = encodable((a=0) => (typeof a=='number'?a:Number(a))<<8>>8, (buf,a) => buf.i24(a), (buf,_) => buf.i24(),3)
-	$.u32 = encodable((a=0) => (typeof a=='number'?a:Number(a))>>>0, (buf,a) => buf.u32(a), (buf,_) => buf.u32(),4)
-	$.i32 = encodable((a=0) => (typeof a=='number'?a:Number(a))|0, (buf,a) => buf.i32(a), (buf,_) => buf.i32(),4)
-	$.u48 = encodable((a=0) => (floor(trunc(a=(typeof a=='number'?a:Number(a)))/4294967296)&65535)*4294967296+(a>>>0), (buf,a) => buf.u48(a), (buf,_) => buf.u48(),6)
-	$.i48 = encodable((a=0) => (floor(trunc(a=(typeof a=='number'?a:Number(a)))/4294967296)<<16>>16)*4294967296+(a>>>0), (buf,a) => buf.i48(a), (buf,_) => buf.i48(),6)
-	$.u64 = encodable((a=0) => (floor(trunc(a=(typeof a=='number'?a:Number(a)))/4294967296)>>>0)*4294967296+(a>>>0), (buf,a) => buf.u64(a), (buf,_) => buf.u64(),8)
-	$.i64 = encodable((a=0) => (floor(trunc(a=(typeof a=='number'?a:Number(a)))/4294967296)|0)*4294967296+(a>>>0), (buf,a) => buf.i64(a), (buf,_) => buf.i64(),8)
-	$.bu64 = encodable((a=0n) => (typeof a=='bigint'?a:BigInt(a))&0xFFFFFFFFFFFFFFFFn, (buf,a) => buf.bu64(a), (buf,_) => buf.bu64(),8)
-	$.bi64 = encodable((a=0n) => BigInt.asIntN(64, typeof a=='bigint'?a:BigInt(a)), (buf,a) => buf.bi64(a), (buf,_) => buf.bi64(),8)
-	$.f32 = encodable((a=0) => fround(typeof a=='number'?a:Number(a)), (buf,a) => buf.f32(a), (buf,_) => buf.f32(),4)
-	$.f64 = encodable((a=0) => typeof a=='number'?a:Number(a), (buf,a) => buf.f64(a), (buf,_) => buf.f64(),8)
-	$.v16 = encodable((a=0) => (a=typeof a=='number'?a:Number(a))<0?0:a&32767, (buf,a) => buf.v16(a), (buf,_) => buf.v16(),1)
-	$.v32 = encodable((a=0) => (a=typeof a=='number'?a:Number(a))<0?0:a&2147483647, (buf,a) => buf.v32(a), (buf,_) => buf.v32(),1)
-	$.v64 = encodable((a=0) => (typeof a=='number'?a:Number(a))<0?0:a%9223372036854775808, (buf,a) => buf.v32(a), (buf,_) => buf.v32(),1)
-	$.bv64 = encodable((a=0n) => (typeof a=='bigint'?a:BigInt(a))<0n?0n:a&0x7FFFFFFFFFFFFFFFn, (buf,a) => buf.v32(a), (buf,_) => buf.v32(),1)
-	$.u8arr = encodable(a => {try{const b = typeof a == 'string' ? encoder.encode(a) : new Uint8Array(a.buffer ? a.buffer.slice(a.byteOffset, a.byteLength) : a instanceof ArrayBuffer ? a.slice(0,2147483647) : a);return b.byteLength>2147483647?b.subarray(0,2147483647):b}catch{return new Uint8Array()}}, (buf,a) => buf.u8arr(a), (buf,_) => buf.u8arr(),1)
-	u8arr.len = len => ((len=floor(len))>=0||(len=0), encodable(a => a instanceof ArrayBuffer ? new Uint8Array(a.byteLength >= len ? a.slice(0, len) : len) : new Uint8Array(a?.length === len ? a : len), (buf,a) => buf.u8arr(a, len), (buf,_) => buf.u8arr(len),len))
-	$.str = encodable((a='') => a+'', (buf,a) => buf.str(a), (buf,_) => buf.str(),1)
-	$.bool = encodable(a => !!a, (buf,a) => buf.bool(a), (buf,_) => buf.bool(),1)
-
-	$.Struct = (obj, f) => {
+	},
+	b1: encodable((a=0) => +!!a, (buf,a) => buf.b1(a), (buf,_) => buf.b1(),0),
+	b2: encodable((a=0) => (typeof a=='number'?a:Number(a))&3, (buf,a) => buf.b2(a), (buf,_) => buf.b2(),0),
+	b4: encodable((a=0) => (typeof a=='number'?a:Number(a))&15, (buf,a) => buf.b4(a), (buf,_) => buf.b4(),0),
+	u8: encodable((a=0) => (typeof a=='number'?a:Number(a))&255, (buf,a) => buf.u8(a), (buf,_) => buf.u8(),1),
+	i8: encodable((a=0) => (typeof a=='number'?a:Number(a))<<24>>24, (buf,a) => buf.i8(a), (buf,_) => buf.i8(),1),
+	u16: encodable((a=0) => (typeof a=='number'?a:Number(a))&65535, (buf,a) => buf.u16(a), (buf,_) => buf.u16(),2),
+	i16: encodable((a=0) => (typeof a=='number'?a:Number(a))<<16>>16, (buf,a) => buf.i16(a), (buf,_) => buf.i16(),2),
+	u24: encodable((a=0) => (typeof a=='number'?a:Number(a))&16777215, (buf,a) => buf.u24(a), (buf,_) => buf.u24(),3),
+	i24: encodable((a=0) => (typeof a=='number'?a:Number(a))<<8>>8, (buf,a) => buf.i24(a), (buf,_) => buf.i24(),3),
+	u32: encodable((a=0) => (typeof a=='number'?a:Number(a))>>>0, (buf,a) => buf.u32(a), (buf,_) => buf.u32(),4),
+	i32: encodable((a=0) => (typeof a=='number'?a:Number(a))|0, (buf,a) => buf.i32(a), (buf,_) => buf.i32(),4),
+	u48: encodable((a=0) => (floor(trunc(a=(typeof a=='number'?a:Number(a)))/4294967296)&65535)*4294967296+(a>>>0), (buf,a) => buf.u48(a), (buf,_) => buf.u48(),6),
+	i48: encodable((a=0) => (floor(trunc(a=(typeof a=='number'?a:Number(a)))/4294967296)<<16>>16)*4294967296+(a>>>0), (buf,a) => buf.i48(a), (buf,_) => buf.i48(),6),
+	u64: encodable((a=0) => (floor(trunc(a=(typeof a=='number'?a:Number(a)))/4294967296)>>>0)*4294967296+(a>>>0), (buf,a) => buf.u64(a), (buf,_) => buf.u64(),8),
+	i64: encodable((a=0) => (floor(trunc(a=(typeof a=='number'?a:Number(a)))/4294967296)|0)*4294967296+(a>>>0), (buf,a) => buf.i64(a), (buf,_) => buf.i64(),8),
+	bu64: encodable((a=0n) => (typeof a=='bigint'?a:BigInt(a))&0xFFFFFFFFFFFFFFFFn, (buf,a) => buf.bu64(a), (buf,_) => buf.bu64(),8),
+	bi64: encodable((a=0n) => BigInt.asIntN(64, typeof a=='bigint'?a:BigInt(a)), (buf,a) => buf.bi64(a), (buf,_) => buf.bi64(),8),
+	f32: encodable((a=0) => fround(typeof a=='number'?a:Number(a)), (buf,a) => buf.f32(a), (buf,_) => buf.f32(),4),
+	f64: encodable((a=0) => typeof a=='number'?a:Number(a), (buf,a) => buf.f64(a), (buf,_) => buf.f64(),8),
+	v16: encodable((a=0) => (a=typeof a=='number'?a:Number(a))<0?0:a&32767, (buf,a) => buf.v16(a), (buf,_) => buf.v16(),1),
+	v32: encodable((a=0) => (a=typeof a=='number'?a:Number(a))<0?0:a&2147483647, (buf,a) => buf.v32(a), (buf,_) => buf.v32(),1),
+	v64: encodable((a=0) => (typeof a=='number'?a:Number(a))<0?0:a%9223372036854775808, (buf,a) => buf.v32(a), (buf,_) => buf.v32(),1),
+	bv64: encodable((a=0n) => (typeof a=='bigint'?a:BigInt(a))<0n?0n:a&0x7FFFFFFFFFFFFFFFn, (buf,a) => buf.v32(a), (buf,_) => buf.v32(),1),
+	u8arr: encodable(a => {try{const b = typeof a == 'string' ? encoder.encode(a) : new Uint8Array(a.buffer ? a.buffer.slice(a.byteOffset, a.byteLength) : a instanceof ArrayBuffer ? a.slice(0,2147483647) : a);return b.byteLength>2147483647?b.subarray(0,2147483647):b}catch{return new Uint8Array()}}, (buf,a) => buf.u8arr(a), (buf,_) => buf.u8arr(),1),
+	str: encodable((a='') => a+'', (buf,a) => buf.str(a), (buf,_) => buf.str(),1),
+	bool: encodable(a => !!a, (buf,a) => buf.bool(a), (buf,_) => buf.bool(),1),
+	Struct: (obj, f) => {
 		const fparams = [], f1ret = [], f2bod = [], f3bod = [], f3ret = []
 		let i = 0, sz = 0
 		const os = {}
@@ -494,8 +423,8 @@ Gamma.utils = $ => {
 		f.size = sz
 		f.of = new Function(Object.keys(os), f1bod).bind(os)
 		return f
-	}
-	$.Arr = (type, len = -1) => {
+	},
+	Arr: (type, len = -1) => {
 		(len=floor(len))>=0||(len=-1)
 		const f=encodable(a => {
 		const arr = []
@@ -513,14 +442,13 @@ Gamma.utils = $ => {
 		if(v) for(let i = 0; i < l; i++) v[i] = type.decode(buf, v[i])
 		else{ v = []; for(let i = l; --i>=0;) v.push(type.decode(buf)) }
 		return v
-	}, len<0?1:(type.size??0)*len);f.of=(...a)=>f(a);return f}
-
-	$.Optional = t => encodable(a => a==null?null:t(a), (buf,v) => {
+	}, len<0?1:(type.size??0)*len);f.of=(...a)=>f(a);return f
+	},
+	Optional: t => encodable(a => a==null?null:t(a), (buf,v) => {
 		if(v==null) buf.u8(0)
 		else buf.u8(1),t.encode(buf,v)
-	}, (buf, v) => buf.u8() ? t.decode(buf, v) : null, 1)
-
-	$.Enum = (v=[], def=undefined) => {
+	}, (buf, v) => buf.u8() ? t.decode(buf, v) : null, 1),
+	Enum: (v=[], def=undefined) => {
 		const map = new Map, rmap = []
 		if(Array.isArray(v)) for(let i=0;i<v.length;i++) map.set(v[i]+'',i), rmap[i] = v[i]
 		else for(const k in v){const j=v[k]&2147483647;map.set(k, j);rmap[j]=k}
@@ -529,7 +457,61 @@ Gamma.utils = $ => {
 		const f = encodable(a => typeof a=='string'?map.get(a)??none:Number(a)&2147483647, (buf,a) => buf.v32(typeof a=='string'?map.get(a)??none:a), (buf, _) => rmap[buf.v32()]??def, 1)
 		f.strToInt = map; f.intToStr = rmap; f.default = none; f.defaultString = def
 		return f
-	}
+	},
+	Padding: (sz=0) => encodable(() => undefined, (buf,_) => buf.skip(sz), (buf, _) => (buf.i+=sz,undefined), sz)
+}
+globalThis.Nanobuf.u8arr.len = len => ((len=floor(len))>=0||(len=0), encodable(a => a instanceof ArrayBuffer ? new Uint8Array(a.byteLength >= len ? a.slice(0, len) : len) : new Uint8Array(a?.length === len ? a : len), (buf,a) => buf.u8arr(a, len), (buf,_) => buf.u8arr(len),len))
 
-	$.Padding = (sz=0) => encodable(() => undefined, (buf,_) => buf.skip(sz), (buf, _) => (buf.i+=sz,undefined), sz)
+globalThis.loader = ({url})=>{
+	url = url.slice(0,url.lastIndexOf('/')+1)
+	return (...src) => {
+		if(src[0].raw){
+			const a = [src[0][0]]
+			for(let i = 1; i <= src.length; i++) a.push(src[i], src[0][i])
+			const s = a.join('')
+			return s[0]=='/'?s:url+s
+		}
+		return src.length==1?src[0][0]=='/'?src[0]:url+src[0]:src.map(src=>src[0]=='/'?src:url+src)
+	}
+}
+Array.map ??= (len=0, fn) => {
+	const a = []
+	for(let i = 0; i < len; i++) a.push(fn(i))
+	return a
+}
+Gamma.utils = $ => {
+	Object.assign($, Nanobuf)
+	$.ParticleContainer = class ParticleContainer extends Array{
+		#config
+		constructor(config){ super(); this.#config = config }
+		get config(){ return this.#config }
+		set config(c){ this.#config = c; this.#free.length = 0; this.length = 0 }
+		lastT = NaN
+		#free = []
+		draw(ctx){
+			this.#config.prepare?.(ctx)
+			const dt = t - this.lastT || 0; this.lastT = t
+			for(let i = this.length-1; i >= 0; i--){
+				const p = this[i]
+				if(p && this.#config.update(ctx, p, dt)) this[i] = null, this.#free.push(i)
+			}
+			if(this.#free.length > max(5, this.length>>1)){
+				this.#free.length = 0
+				let i = 0
+				while(this[i]) i++
+				let j = i+1
+				while(j < this.length){
+					const n = this[j++]
+					if(n) this[i++] = n
+				}
+				this.length = i
+			}
+		}
+		add(...a){
+			const v = this.#config.init(...a)
+			if(this.#free.length) this[this.#free.pop()] = v
+			else this.push(v)
+		}
+	}
+	$.screenshot = (t='image/png',q) => new Promise(r => requestAnimationFrame(() => $.canvas.toBlob(r, t, q)))
 }}

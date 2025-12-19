@@ -100,11 +100,28 @@
 			this.child.draw(ctx, ictx, width, height)
 		}
 	}
+	class Transform extends GUIElement{
+		constructor(el, tr, ax, ay){ super(); this.child = el; this.child.addDependency(this.invalidate); this.transform = tr; this.anchorX = ax; this.anchorY = ay }
+		get width(){ return this.child.width }
+		get height(){ return this.child.height }
+		replace(other){
+			this.child.removeDependency(this.invalidate)
+			void (this.child = other).addDependency(this.invalidate)
+		}
+		draw(ctx, ictx, w, h){
+			if(!this.child.draw) return
+			ctx.translate(w*this.anchorX, h*this.anchorY)
+			this.transform(ctx, w, h)
+			const {width, height} = this.child
+			ctx.translate(-width*this.anchorX, -height*this.anchorY)
+			this.child.draw(ctx, ictx, width, height)
+		}
+	}
 	class BoxFill extends GUIElement{
 		constructor(tex, pos, sz, tint){ super(); this.texture = tex; this.pos = pos; this.size = sz; this.tint = tint }
 		width = 0; height = 0
 		draw(ctx, _, w, h){
-			if(!this.texture.identity) return void ctx.drawRect(0, 0, w, h, this.texture)
+			if(!this.texture) return void ctx.drawRect(0, 0, w, h, this.tint)
 			if(!this.texture.usable) return
 			let {width, height} = this.texture
 			let {size, pos} = this
@@ -122,7 +139,7 @@
 			ctx.drawRect(0, 0, w, h, this.texture.super(difw*iw, difh*ih, width*iw, height*ih), this.tint)
 		}
 	}
-	class Button extends GUIElement{
+	class Target extends GUIElement{
 		#click
 		#stch = []
 		state = 0
@@ -147,16 +164,17 @@
 		}; return this }
 		#ptrCapt = -1
 		#onPointerUpdate(ctx, w, h, id, ptr){
+			let p = null
 			switch(!ptr){
 			case false:
 				if(this.#ptrCapt >= 0 && id != this.#ptrCapt) return
-				const p = ctx.unproject(ptr)
+				p = ctx.unproject(ptr)
 				if(p.x >= 0 && p.x < w && p.y >= 0 && p.y < h && (this.hitTest?.(p.x, p.y, w, h)??true)) break
 			case true:
 				if(id == this.#ptrCapt){
 					this.#ptrCapt = -1
 					const pr = this.state; this.state = 0
-					for(const r of this.#stch) try{r(0, pr)}catch(e){Promise.reject(e)}
+					for(const r of this.#stch) try{r(NaN, NaN, 0, pr)}catch(e){Promise.reject(e)}
 				}
 				return
 			}
@@ -164,12 +182,62 @@
 			if(cur != null) ptr.setHint?.(cur)
 			let pst = this.state; this.state = 1+ptr.pressed
 			if(this.#ptrCapt == -1) this.#ptrCapt = id
-			for(const r of this.#stch) try{r(this.state, pst)}catch(e){Promise.reject(e)}
-			if(this.state!=2&&pst==2) for(const r of this.#click) try{r(this.state)}catch(e){Promise.reject(e)}
+			for(const r of this.#stch) try{r(p.x, p.y, this.state, pst)}catch(e){Promise.reject(e)}
+			if(this.state!=2&&pst==2) for(const r of this.#click) try{r(p.x, p.y, this.state)}catch(e){Promise.reject(e)}
 			return null
 		}
 		draw(ctx, ictx, w, h){ ictx.onPointerUpdate(this.#onPointerUpdate.bind(this, ctx, w, h)) }
 	}
+	class Scrollable{
+		x = 0; y = 0
+		sensitivity = .5
+		constructor(c,w,h){this.contents=c;this.width=w;this.height=h}
+		scrollBarX = dfs
+		scrollBarY = dfs
+		get scrollbar(){return this.scrollBarY}
+		set scrollbar(a){this.scrollBarX = this.scrollBarY = a}
+		consumeInputs(ctx){
+			const {x: wx, y: wy} = ctx.fromDelta(scrollDelta), s = this.sensitivity
+			scrollDelta.x = scrollDelta.y = 0
+			const w = this.contents.width, h = this.contents.height
+			this.x = this.width > 0 ? max(0, min(this.x + wx*s, w-this.width)) : min(0, max(this.x + wx*s, -w-this.width))
+			this.y = this.height > 0 ? max(0, min(this.y + wy*s, h-this.height)) : min(0, max(this.y + wy*s, -h-this.height))
+			ictx.wheel.x = ictx.wheel.y = 0
+			const c = this.contents
+			if(!c) return
+			ctx = ctx.sub()
+			ctx.translate((c.xOffset??0)-this.x, (c.yOffset??0)-this.y)
+			c.consumeInputs?.(ctx)
+		}
+		draw(ctx, ictx){
+			const c = this.contents
+			if(!c?.draw) return
+			const m = ctx.mask
+			const ct2 = ctx.sub()
+			ct2.mask = 128 // SET
+			ct2.drawRect(0, 0, this.width, this.height)
+			ct2.mask = m&15|16 // RGBA | IF_SET
+			ct2.translate((c.xOffset??0)-this.x, (c.yOffset??0)-this.y)
+			this.contents.draw(ct2, ictx)
+			ctx.clearStencil()
+			if(this.scrollBarX && this.height){
+				const ct2 = ctx.sub()
+				ct2.translate(0, this.height)
+				if(this.height > 0) ct2.scale(1, -1)
+				const w = abs(this.width), w1 = w / c.width
+				if(w1 < 1) this.scrollBarX(ct2, abs(this.x) * w1, w * w1)
+			}
+			if(this.scrollBarY && this.width){
+				const ct2 = ctx.sub()
+				ct2.translate(this.width, 0)
+				ct2.multiply(0, 1)
+				if(this.width > 0) ct2.scale(1, -1)
+				const h = abs(this.height), h1 = h / c.height
+				if(h1 < 1) this.scrollBarY(ct2, abs(this.y) * h1, h * h1)
+			}
+		}
+	}
+	
 	$.GUI = {
 		CENTERED: vec2(.5, .5),
 		LEFT: vec2(0, .5),
@@ -183,10 +251,17 @@
 		ZStack: list(zdraw),
 		Img: (tex) => new img(tex),
 		Text: (rt, font) => new text(rt, font),
-		Button: (cb = null, cur = PointerState.POINTER, cur2 = PointerState.POINTER) => new Button(cb,cur,cur2),
+		Target: (cb = null, cur = PointerState.POINTER, cur2 = PointerState.POINTER) => new Target(cb,cur,cur2),
 		Box: (a,b=.5,c=1) => new Box(a,b,c),
-		BoxFill: (a,b=.5,c=max,d) => new BoxFill(a,b,c,d)
+		BoxFill: (a,b=.5,c=max,d) => a.identity ? new BoxFill(a,b,c,d) : new BoxFill(null,1,1,a),
+		Transform: (el, fn=Function.prototype, x=.5, y=.5) => new Transform(el,fn,x,y),
+		//Scrollable: (c, w=1, h=-1) => new Scrollable(c, +w, +h)
 	}
+	const v4p2 = $.vec4(.2)
+	/*const dfs = $.GUI.Scrollable.defaultScrollbar = (ctx, x0, w) => {
+		ctx.shader = null
+		ctx.drawRect(x0, 0, w, .1, v4p2)
+	}*/
 
 	const rem = ({target:t}) => (t._field._f&256||(t._field._f|=256,setImmediate(t._field.recalc)), t.remove(), $.setFocused(curf = null))
 	// putting some stuff here allows us to catch system-defined key repeats
@@ -319,10 +394,10 @@
 			w[0] = v[0] ? v4.multiply(v[0], .4) : v4(.4)
 			this.#tr = value => {
 				const p = $.RichText(font)
-				if(v.length) p.addTextPass(0, v)
+				if(v.length) p.setTextPass(0, v)
 				if(value) p.add(value)
 				else{
-					p.addTextPass(0, w)
+					p.setTextPass(0, w)
 					p.index = false
 					p.add(placeholder)
 				}

@@ -234,7 +234,7 @@ $.Shader.sdf = (src, o={}) => {
 				q.#w=NaN; q.#l = null
 			}
 			#v = DEFAULT_PASSES
-			addTextPass(ord, a, x=0, y=0, off=0, spr=-0.5){
+			setTextPass(ord, a, x=0, y=0, off=0, spr=-0.5){
 				const o = {n: {0: null}, off, spr: .5/spr, 0: null, 1: V}
 				if(a) for(let i=0;i<a.length;i++) o[i+2] = o.n[i+1] = a[i]
 				const v = this.#v, v2 = this.#v = []
@@ -246,7 +246,7 @@ $.Shader.sdf = (src, o={}) => {
 				while(i < v.length) v2.push(v[i], v[i+1], v[i+2], v[i+3]), i += 4
 				this.#q.#l = null
 			}
-			addLinePass(ord, a, y0=0, h=1){
+			setLinePass(ord, a, y0=0, h=1){
 				const o = {0: vec4one, 1: vec2l}
 				for(let i=0;i<a.length;i++) o[i+2] = a[i]
 				const v = this.#v, v2 = this.#v = []
@@ -258,7 +258,7 @@ $.Shader.sdf = (src, o={}) => {
 				while(i < v.length) v2.push(v[i], v[i+1], v[i+2], v[i+3]), i += 4
 				this.#q.#l = null
 			}
-			delPass(ord){
+			unsetPass(ord){
 				const v = this.#v, v2 = this.#v = []
 				let i = 0
 				for(; i < v.length; i += 4) if(v[i] < ord){

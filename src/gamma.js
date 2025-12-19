@@ -1291,9 +1291,7 @@ const maxAttribs = gl.getParameter(gl.MAX_VERTEX_ATTRIBS)
 function switchShader(s, fc, fm, c){ sh = s; shfCount = fc; shfMask = fm; shCount = c }
 function switchVao(v){ gl.bindVertexArray(sv = v) }
 const f4arr = new Float32Array(4), i4arr = new Int32Array(f4arr.buffer)
-// TODO: vao on Shader
-// Maybe vao on geometry
-// Shader.supports({})
+// TODO: Shader.supports({})
 // Code generation bullshit GO!
 const vfgen = (three, vparams, _defaults = []) => {
 	vparams = typeof vparams=='number' ? [vparams] : vparams || []
@@ -1817,6 +1815,7 @@ vec4 fGetPixel(int u,ivec3 p,int l){${T||switcher(i=>`return texelFetch(GL_f[${i
 let fdc = 0, fs = 0, fd = 0
 $.Shader.UINT = $.Shader(`void main(){color=param0;}`, {params:$.UVEC4, outputs:$.UINT})
 $.Shader.BLACK = $.Shader(`void main(){color=vec4(0,0,0,1);}`)
+$.Shader.SIMPLE = $.Shader(`void main(){color=param0;}`, {params:[$.VEC4]})
 $.Shader.DEFAULT = $.Shader(`void main(){color=param0(pos)*param1;}`, {params:[$.COLOR, $.VEC4], defaults:[void 0, $.vec4.one]})
 $.Shader.COLOR_3D_XZ = $.Shader(`void main(){color=param0(pos.xz);}`, {params:[$.COLOR],vertex:Geometry3D.Vertex.DEFAULT})
 $.Shader.SHADED_3D = $.Shader(`void main(){color=param0(pos.xy);color.rgb*=1.+dot(normalize(cross(dFdx(pos),dFdy(pos))),param1);}`, {params:[$.COLOR,$.VEC3], defaults:[void 0,vec3(-.15,-.3,0)],vertex:Geometry3D.Vertex.DEFAULT})

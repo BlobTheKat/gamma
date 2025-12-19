@@ -163,7 +163,7 @@ declare global{
 		 * @param offset The SDF offset for making bold or thin text. This offset is specified relative to the font height (i.e a value of 0.01 will make text appear approximately 0.01 units thicker at normal font size)
 		 * @param spread The SDF spread for making blurred. This offset is specified relative to the font height (i.e a value of 0.02 will make text blur across approximately 0.02 units at normal font size). The offset is specified at precisely the middle of this gradient. Pass -1 to use a blur specifically chosen to mimic antialiasing.
 		 */
-		addTextPass(order: number, values: any[], x?: number, y?: number, offset?: number, spread?: number): void
+		setTextPass(order: number, values: any[], x?: number, y?: number, offset?: number, spread?: number): void
 		/**
 		 * Add a line pass to be used by new text segments. Line passes can be used to make effects like underline, strikethrough, or highlighting
 		 * @param order The z-order of this text pass. Higher value = in front, lower values = behind. The order for the default text pass is `0`. You can also specify the order of an existing text/line pass to replace it in one step.
@@ -171,15 +171,15 @@ declare global{
 		 * @param h The height of this line pass. Default: 1
 		 * @param values The "values" to be passed to the shader. The default shader expects one optional value: the color (a `vec4`). If not specified, white is used.
 		 */
-		addLinePass(order: number, values: any[], y0?: number, h?: number): void
-		/** Remove the text/line pass at a given z-order for new text segments. See `RichText.addTextPass()`/`RichText.addLinePass` for more info */
-		delPass(order: number): void
+		setLinePass(order: number, values: any[], y0?: number, h?: number): void
+		/** Remove the text/line pass at a given z-order for new text segments. See `RichText.setTextPass()`/`RichText.setLinePass` for more info */
+		unsetPass(order: number): void
 
-		/** Insert a text pass for all current `RichText` content. See `RichText.addTextPass()` for more info */
+		/** Insert a text pass for all current `RichText` content. See `RichText.setTextPass()` for more info */
 		insertTextPass(order: number, values: any[], x?: number, y?: number, offset?: number, spread?: number): void
-		/** Insert a line pass for all current `RichText` content. See `RichText.addLinePass()` for more info */
+		/** Insert a line pass for all current `RichText` content. See `RichText.setLinePass()` for more info */
 		insertLinePass(order: number, values: any[], y0?: number, h?: number): void
-		/** Remove the text/line pass at a given z-order for all current `RichText` content. See `RichText.delPass()` and `RichText.addTextPass()`/`RichText.addLinePass` for more info */
+		/** Remove the text/line pass at a given z-order for all current `RichText` content. See `RichText.unsetPass()` and `RichText.setTextPass()`/`RichText.setLinePass` for more info */
 		removePass(order: number): void
 
 		/**
@@ -265,7 +265,7 @@ declare global{
 
 	class Font{
 		/**
-		 * The range factor (aka normalized distance range) for this font. Represents the range of the signed distance field relative the the font's height. Also used internally to calculate proper offset/spread values (see `RichText.addTextPass()`)
+		 * The range factor (aka normalized distance range) for this font. Represents the range of the signed distance field relative the the font's height. Also used internally to calculate proper offset/spread values (see `RichText.setTextPass()`)
 		 * 
 		 * This value represents the total range permitted by `offset`/`spread` values. For example, a rangeFactor of 0.2 means you can use values that stay inside [-0.1, 0.1], however, you may want to leave a bit of padding as the SDF quality often degrades close to the limits
 		 */
@@ -362,8 +362,8 @@ declare global{
 		 * 
 		 * By the time the function returns, the context has been transformed to be at the end of the rendered text. If you do not want the context to be modified make sure to pass a sub-context using `Drawable.sub()`
 		 * @param values The "values" to be passed to the shader. The default shader expects one optional value: the color (a `vec4`). If not specified, white is used.
-		 * @param offset SDF offset. See `RichText.addTextPass()`
-		 * @param spr SDF spread. See `RichText.addTextPass()`
+		 * @param offset SDF offset. See `RichText.setTextPass()`
+		 * @param spr SDF spread. See `RichText.setTextPass()`
 		 * @param letterSpacing Additional spacing to apply between each pair of characters
 		 * @param lastChar The previous character to the left (if any), used to apply kerning that crosses multiple blocks of text. Omit or pass `-1` if this is the first block of text or you do not wish for kerning to carry over
 		 * @returns The last character drawn. If you are drawing more text and need kerning to apply across multiple `draw()`n blocks, pass this value to the next call to `.draw()`, as the `lastChar` argument

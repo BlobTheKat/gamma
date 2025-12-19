@@ -19,7 +19,7 @@ input.transformer = txt => {
 	lastUpdate = t
 	const r = RichText(font)
 	if(!txt){
-		r.addTextPass(0, [vec4(.4)])
+		r.setTextPass(0, [vec4(.4)])
 		r.add('')
 		r.index = false
 		r.skew = .2
@@ -33,10 +33,10 @@ input.transformer = txt => {
 			if(!reg.test(txt)) continue
 			const len = reg.lastIndex - i
 			if(i > last){
-				r.addTextPass(0, [vec4.one])
+				r.setTextPass(0, [vec4.one])
 				r.add(txt.slice(last, i))
 			}
-			r.addTextPass(0, [col])
+			r.setTextPass(0, [col])
 			r.add(txt.slice(i, i += len))
 			last = i
 			continue w
@@ -44,7 +44,7 @@ input.transformer = txt => {
 		i++
 	}
 	if(i > last){
-		r.addTextPass(0, [vec4.one])
+		r.setTextPass(0, [vec4.one])
 		r.add(txt.slice(last, i))
 	}
 	return r

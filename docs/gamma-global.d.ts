@@ -1640,6 +1640,14 @@ declare global{
 		 */
 		const DEFAULT: Shader2D
 		/**
+		 * Simple shader to draw a solid color
+		 * 
+		 * Values: `(color: vec4)` (i.e `[VEC4]`)
+		 * 
+		 * Uniforms: none
+		 */
+		const SIMPLE: Shader2D
+		/**
 		 * Shader for drawing to integer-texture targets
 		 * 
 		 * Values: `(thing: vec4)` (i.e `[UVEC4]`)
