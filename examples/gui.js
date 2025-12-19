@@ -22,15 +22,15 @@ const confetti = new ParticleContainer({
 	update(ctx, p, dt){
 		p.dy -= 50*dt
 		p.x += p.dx*dt; p.y += p.dy*dt
-		const drag = (.9-p.r)**dt; p.dx *= drag; p.dy *= drag
+		const drag = p.drag*dt+1; p.dx *= drag; p.dy *= drag
 		ctx.drawRect(p.x-p.r, p.y-p.r, p.r*2, p.r*2, p.col)
 		return (p.t -= dt) < 0
 	},
 	init(x, y){
 		const th = random()*PI2, r = sqrt(random())*50
 		const col = (sin(th+t*3)+1)*.15
-		const a = t
-		return {x, y, dx: sin(th)*r, dy: cos(th)*r + 25, r: random()*.2+.1, col: colors[floor((col+this.seed+random()*.35)*96)%96], t: 5}
+		const sz = random()*.2+.1
+		return {x, y, dx: sin(th)*r, dy: cos(th)*r + 25, r: sz, col: colors[floor((col+this.seed+random()*.35)*96)%96], t: 5, drag: log(.9-sz)}
 	},
 	seed: random(),
 	prepare(ctx){
@@ -58,7 +58,7 @@ const ui = GUI.ZStack()
 		text.setTextPass(0)
 		text.add(n == 1 ? ' time' : ' times')
 		label.invalidate()
-		for(let i = 0; i < 1000; i++) confetti.add(x, y)
+		for(let i = 0; i < 50000; i++) confetti.add(x, y)
 	}))
 
 render = () => {
