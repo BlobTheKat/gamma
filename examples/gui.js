@@ -36,6 +36,7 @@ const confetti = new ParticleContainer({
 	prepare(ctx){
 		this.seed = random()
 		ctx.shader = Shader.AA_CIRCLE
+		ctx.blend = Blend.MAX
 	}
 })
 
