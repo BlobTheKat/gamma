@@ -56,16 +56,8 @@
 		get height(){ return this.texture.height }
 		draw(ctx, _, w, h){ ctx.drawRect(0, 0, w, h, this.texture) }
 	}
-	class text extends GUIElement{
-		constructor(rt, font){
-			super()
-			if(typeof rt == 'string'){
-				const str = rt
-				rt = RichText(font)
-				rt.add(str)
-			}
-			this.text = rt
-		}
+	class Text extends GUIElement{
+		constructor(rt){ super(); this.text = rt }
 		get width(){ return this.text.width }
 		get height(){ return 1 }
 		draw(ctx, ictx, w, h){ this.text.draw(ctx) }
@@ -250,7 +242,14 @@
 		TOP_RIGHT: vec2(1, 1),
 		ZStack: list(zdraw),
 		Img: (tex) => new img(tex),
-		Text: (rt, font) => new text(rt, font),
+		Text: (rt='', font=null) => {
+			if(typeof rt == 'string'){
+				const txt = rt
+				rt = $.RichText(font)
+				if(txt) rt.add(txt)
+			}
+			return new Text(rt)
+		},
 		Target: (cb = null, cur = PointerState.POINTER, cur2 = PointerState.POINTER) => new Target(cb,cur,cur2),
 		Box: (a,b=.5,c=1) => new Box(a,b,c),
 		BoxFill: (a,b=.5,c=max,d) => a.identity ? new BoxFill(a,b,c,d) : new BoxFill(null,1,1,a),

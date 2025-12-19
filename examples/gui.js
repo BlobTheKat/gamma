@@ -1,10 +1,9 @@
 /// <reference path="../docs/monolith-global.d.ts" />
 
-const font = Font.chlumsky('/fonts/ubuntu/')
+title = 'Firework simulator'
+icon = './examples/fireworks.webp'
 
-const label = GUI.Text('You pressed the button 0 times', font)
-let n = 0
-let lastPressed = -1
+const font = Font.chlumsky('/fonts/ubuntu/')
 
 Shader.AA_CIRCLE ??= Shader(`
 void main(){
@@ -40,6 +39,22 @@ const confetti = new ParticleContainer({
 	}
 })
 
+const label = GUI.Text()
+function updateLabel(){
+	const text = label.text
+	text.clear(); text.reset(font)
+	text.add(`You pressed the button `)
+	const a = 10/(n+5)
+	text.setTextPass(0, [vec4(1,a,a,1)])
+	text.scale = 1.5+.5*tanh(n*.25-5)
+	text.add(n)
+	text.setTextPass(0)
+	text.add(n == 1 ? ' time' : ' times')
+	label.invalidate()
+}
+let n = 0
+let lastPressed = -1
+updateLabel()
 const ui = GUI.ZStack()
 	.add(GUI.BoxFill(Texture.from('/examples/mountains.jpeg'), GUI.BOTTOM, max, vec4(.5)))
 	.add(GUI.Transform(label, ctx => {
@@ -49,16 +64,7 @@ const ui = GUI.ZStack()
 	}))
 	.add(GUI.Target((x, y) => {
 		n++; lastPressed = t
-		const text = label.text
-		text.clear(); text.reset(font)
-		text.add(`You pressed the button `)
-		const a = 10/(n+5)
-		text.setTextPass(0, [vec4(1,a,a,1)])
-		text.scale = 1.5+.5*tanh(n*.25-5)
-		text.add(n)
-		text.setTextPass(0)
-		text.add(n == 1 ? ' time' : ' times')
-		label.invalidate()
+		updateLabel()
 		for(let i = 0; i < 50000; i++) confetti.add(x, y)
 	}))
 
