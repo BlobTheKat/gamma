@@ -1,11 +1,12 @@
 {Gamma.gui = $ => {
 	if(!$.Font) throw 'Initialize Gamma.font before Gamma.gui'
 	class GUIElement{
-		#w = NaN; #h = NaN; #drawDep = null
+		#w = NaN; #h = NaN; #drawDep = null; _invalidated = false
 		_dimensions(){ return vec2.zero }
 		invalidate = () => {
+			this._invalidated = true
 			this.#w = this.#h = NaN
-			const hook = this.#drawDep; this.#drawDep = null
+			const hook = this.#drawDep
 			if(!hook) return
 			if(typeof hook == 'function') try{ hook() }catch(e){ Promise.reject(e) }
 			else for(const f of hook) try{ f() }catch(e){ Promise.reject(e) }
@@ -54,7 +55,7 @@
 		constructor(tex){ super(); this.texture = tex }
 		get width(){ return this.texture.width }
 		get height(){ return this.texture.height }
-		draw(ctx, _, w, h){ ctx.drawRect(0, 0, w, h, this.texture) }
+		draw(ctx, _, w, h){ this.texture.then?.(this.invalidate); ctx.drawRect(0, 0, w, h, this.texture) }
 	}
 	class Text extends GUIElement{
 		constructor(rt){ super(); this.text = rt }
@@ -74,6 +75,7 @@
 			this.child.removeDependency(this.invalidate)
 			void (this.child = other).addDependency(this.invalidate)
 		}
+		sized(w, h){ this.width = w; this.height = h; return this }
 		draw(ctx, ictx, w, h){
 			if(!this.child.draw) return
 			const {width, height} = this.child
@@ -114,7 +116,7 @@
 		width = 0; height = 0
 		draw(ctx, _, w, h){
 			if(!this.texture) return void ctx.drawRect(0, 0, w, h, this.tint)
-			if(!this.texture.usable) return
+			if(!this.texture.loaded) return void this.texture.then?.(this.invalidate)
 			let {width, height} = this.texture
 			let {size, pos} = this
 			if(typeof size == 'function') size = size(w/width, h/height)
@@ -180,10 +182,12 @@
 		}
 		draw(ctx, ictx, w, h){ ictx.onPointerUpdate(this.#onPointerUpdate.bind(this, ctx, w, h)) }
 	}
-	class Scrollable{
+	class Scrollable extends GUIElement{
 		x = 0; y = 0
 		sensitivity = .5
-		constructor(c,w,h){this.contents=c;this.width=w;this.height=h}
+		width = 0; height = 0
+		constructor(c){ this.child = c }
+		sized(w, h){ this.width = w; this.height = h; return this }
 		scrollBarX = dfs
 		scrollBarY = dfs
 		get scrollbar(){return this.scrollBarY}
@@ -229,6 +233,86 @@
 			}
 		}
 	}
+	class Layer extends GUIElement{
+		width = 0; height = 0
+		ictx = InputContext()
+		constructor(c){ super(); this.child = c; this.child.addDependency(this.invalidate) }
+		sized(w, h){ this.width = w; this.height = h; return this }
+		#mouseHovering = false
+		#a = NaN; #b = NaN; #c = NaN; #d = NaN; #e = NaN; #f = NaN; #g = NaN; #h = NaN; #i = NaN; #sw = NaN; #sh = NaN; #tw = 0; #th = 0
+		#x0 = 0; #rw = -1; #y0 = 0; #rh = 0
+		options = 0; format = Formats.RGBA; mipmaps = 1; hasStencil = true
+		#tex = null
+		#drw = Drawable(); #drw2 = this.#drw.subPersp()
+		replace(other){
+			this.child.removeDependency(this.invalidate)
+			void (this.child = other).addDependency(this.invalidate)
+		}
+		draw(ctx, ictx, sw, sh){
+			let a, b, c, d, e, f, g, h, i
+			if(ctx.perspective) ({a, b, c, d, e, f, g, h, i} = ctx); else ({a, b, c: d, d: e, e: g, f: h} = ctx), c=0,f=0,i=1
+			// The order here is specific and intentional 🙏
+			const {width, height} = ctx
+			ctx.scale(sw, sh)
+			if(sw!=this.#sw||this._invalidated||a!=this.#a||b!=this.#b||sh!=this.#sh||c!=this.#c||d!=this.#d||e!=this.#e||f!=this.#f||g!=this.#g||h!=this.#h||i!=this.#i||this.#tw!=width||this.#th!=height){
+				const bound = ctx.loopBoundary()
+				this.#sw = sw; this.#sh = sh; this._invalidated = false; this.#tw = width; this.#th = height
+				this.#a = a; this.#b = b; this.#c = c; this.#d = d; this.#e = e; this.#f = f; this.#g = g; this.#h = h; this.#i = i
+				this.#drw.hasStencil = this.hasStencil
+				let tex = this.#tex
+				if(!bound){
+					this.#rw = -1
+					if(tex) this.#drw.setTarget(0, null), tex.delete(), this.#tex = null
+				}else{
+					const o = this.options
+					const x0 = floor(bound.x0*width), rw = ceil(bound.x1*width)-x0
+					const y0 = floor(bound.y0*height), rh = ceil(bound.y1*height)-y0
+					this.#x0 = x0/width; this.#rw = rw/width; this.#y0 = y0/height; this.#rh = rh/height
+					if(!tex||tex.format!=this.format||tex.width!=rw||tex.height!=rh||tex.format!=this.format){
+						tex?.delete()
+						tex = this.#tex = Texture(rw, rh, 1, o, this.format, this.mipmaps)
+						this.#drw.setTarget(0, tex)
+						this.mipmaps = tex.mipmaps; this.format = tex.format
+					}else this.#drw.clear(0, 0, 0, 0), this.hasStencil&&this.#drw.clearStencil()
+					if(this.#tex.options != o) this.#tex.option = o
+					this.ictx.reset()
+					const irw = 1/this.#rw, irh = 1/this.#rh
+					if(ctx.perspective){
+						this.#drw2.reset(a*irw,b*irh,c,d*irw,e*irh,f,(g-this.#x0)*irw,(h-this.#y0)*irh,i)
+						this.child.draw(this.#drw2, this.ictx, sw, sh)
+					}else{
+						this.#drw.reset(a*irw,b*irh,d*irw,e*irh,(g-this.#x0)*irw,(h-this.#y0)*irh)
+						this.child.draw(this.#drw, this.ictx, sw, sh)
+					}
+					if(this.mipmaps) tex.genMipmaps()
+				}
+			}
+			if(this.#rw < 0) return
+			ctx.perspective ? ctx.reset(this.#rw, 0, 0, 0, this.#rh, 0, this.#x0, this.#y0, 1) : ctx.reset(this.#rw, 0, 0, this.#rh, this.#x0, this.#y0)
+			ctx.draw(this.#tex)
+			ictx.onPointerUpdate((id, ptr) => {
+				if(!id) this.#mouseHovering = !!ptr
+				if(!ptr) return void this.ictx.setPointer(id, null)
+				let p = ctx.unproject(ptr)
+				if(p.x >= 0 && p.y >= 0 && p.x < 1 && p.y < 1){
+					ptr.x = p.x; ptr.y = p.y
+					const p2 = this.ictx.setPointer(id, ptr)
+					if(p2) ({x: p2.x, y: p2.y} = ctx.project(p2))
+					return p2
+				}
+				this.ictx.setPointer(id, null)
+				// pass
+			})
+			ictx.onWheel((dx, dy) => {
+				if(this.#mouseHovering) return this.ictx.fireWheel(dx, dy)
+			})
+			ictx.onMouse((dx, dy) => {
+				if(this.#mouseHovering) return this.ictx.fireMouse(dx, dy)
+			})
+			ictx.onKeyUpdate(this.ictx)
+			ictx.onGamepadUpdate(this.ictx)
+		}
+	}
 	
 	$.GUI = {
 		CENTERED: vec2(.5, .5),
@@ -254,6 +338,7 @@
 		Box: (a,b=.5,c=1) => new Box(a,b,c),
 		BoxFill: (a,b=.5,c=max,d) => a.identity ? new BoxFill(a,b,c,d) : new BoxFill(null,1,1,a),
 		Transform: (el, fn=Function.prototype, x=.5, y=.5) => new Transform(el,fn,x,y),
+		Layer: (el) => new Layer(el)
 		//Scrollable: (c, w=1, h=-1) => new Scrollable(c, +w, +h)
 	}
 	const v4p2 = $.vec4(.2)

@@ -98,7 +98,7 @@ function drawText(ctx){
 	ctx.drawRect(-1.5, -.75, label.width+2, 1.5, vec4(0,0,0,.5))
 	ctx.mask = RGBA
 	let ctx3 = ctx.sub(); ctx3.translate(-.75, 0)
-	ctx3 = ctx3.sub3dProj(4, 1)
+	ctx3 = ctx3.sub3dPersp(4, 1)
 		ctx3.shader = Shader.SHADED_3D
 		ctx3.geometry = Geometry3D.CUBE
 		ctx3.rotateXZ(t)
@@ -262,7 +262,7 @@ render = () => {
 	scene.reset(.025*height/width, 0, 0, .025, .5, .5)
 	const h = 40, w = width/height*40
 
-	let ctx3 = scene.sub3dProj((ictx.has(KEY.P)||(ictx.gamepad?.has(GAMEPAD.DOWN)??false))*.4, 1)
+	let ctx3 = scene.sub3dPersp((ictx.has(KEY.P)||(ictx.gamepad?.has(GAMEPAD.DOWN)??false))*.4, 1)
 	const sc = .16/tan(FOV * PI/360)
 	// Scale FOV without changing depth values (used for fog)
 	ctx3.scale(sc, sc, .01)

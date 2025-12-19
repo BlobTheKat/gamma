@@ -23,7 +23,6 @@
 		const w = innerWidth, h = innerHeight
 		if(ow!=(ow=round(w*px))|oh!=(oh=round(h*px))) $.setSize(ow, oh)
 		$.canvas.style.imageRendering = ctxSupersample > 1 ? '' : 'pixelated'
-		$.cursorType = 'default'
 		$.render?.()
 		$.ictx.clearDeltas()
 	})

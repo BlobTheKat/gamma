@@ -19,9 +19,10 @@ void main(){
 const colors = Array.map(96, i => hsla((i>>1)*7.5, (i&1)*.2+.6, .5))
 const confetti = new ParticleContainer({
 	update(ctx, p, dt){
+		const {dx, dy} = p
 		p.dy -= 50*dt
-		p.x += p.dx*dt; p.y += p.dy*dt
-		const drag = p.drag*dt+1; p.dx *= drag; p.dy *= drag
+		const drag = p.drag*dt+1, hdt = dt*.5; p.dx *= drag; p.dy *= drag
+		p.x += (p.dx+dx)*hdt; p.y += (p.dy+dy)*hdt
 		ctx.drawRect(p.x-p.r, p.y-p.r, p.r*2, p.r*2, p.col)
 		return (p.t -= dt) < 0
 	},
@@ -55,24 +56,28 @@ function updateLabel(){
 let n = 0
 let lastPressed = -1
 updateLabel()
-const ui = GUI.ZStack()
-	.add(GUI.BoxFill(Texture.from('/examples/mountains.jpeg'), GUI.BOTTOM, max, vec4(.5)))
-	.add(GUI.Transform(label, ctx => {
-		let a = max(0, lastPressed-t+.5); a *= a
-		ctx.scale(3+a*3)
-		ctx.rotate(-.5*a)
-	}))
-	.add(GUI.Target((x, y) => {
-		n++; lastPressed = t
-		updateLabel()
-		for(let i = 0; i < 50000; i++) confetti.add(x, y)
-	}))
+const ui = GUI.Layer(
+	GUI.ZStack()
+		.add(GUI.BoxFill(Texture.from('/examples/mountains.jpeg'), GUI.BOTTOM, max, vec4(.5)))
+		.add(GUI.Transform(label, function(ctx){
+			let a = max(0, lastPressed-t+.5); a *= a
+			ctx.scale(3+a*3)
+			ctx.rotate(-.5*a)
+			if(a) this.invalidate()
+		}))
+		.add(GUI.Target((x, y) => {
+			n++; lastPressed = t
+			updateLabel()
+			for(let i = 0; i < 50000; i++) confetti.add(x, y)
+		}))
+)
 
 render = () => {
 	const dims = getUIDimensons()
 	ctx.reset(1/dims.width, 0, 0, 1/dims.height, 0, 0)
 	ctx.clear(0, 0, 0, 1)
 	ictx.reset()
+	ictx.onPointerUpdate((_, ptr) => void ptr?.setHint(PointerState.DEFAULT))
 	ui.draw(ctx.sub(), ictx, dims.width, dims.height)
 	confetti.draw(ctx)
 }

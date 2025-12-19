@@ -4,6 +4,13 @@ const $ = globalThis
 Math.PI2 ??= Math.PI*2
 Math.HALF_SQRT3 ??= .8660254037844386
 Math.clamp ??= (v, m, M) => v<m?m:v>M?M:v
+Math.cutray ??= (rx, ry, dx, dy) => {
+	rx = +rx; ry = +ry; dx = +dx; dy = +dy
+	let y = +(dy > 0), f = (ry-y)/dy, x = rx-f*dx
+	if(x>=0&&x<=1&&abs(f+.5)<=.5) return {x, y}
+	x = +(dx > 0); f = (rx-x); y = ry-f*dy
+	return y>=0&&y<=1&&abs(f+.5)<=.5 ? {x, y} : {x: NaN, y: NaN}
+}
 const { clz32, cos, sin, min, round } = Math
 if(!('setImmediate' in $)){
 	let base = 0, cur = 0, queue = [], m = new MessageChannel();
@@ -475,7 +482,54 @@ $.Texture.from = (src, o = 0, fmt = Formats.RGBA, mips = 0) => new Tex({
 // We only use the minimum matrix and operations for a given use case, hence why there are so many classes and methods
 // t2D & t2t3D implement the Transformable2D interface. t3t2D & t3D implement the Transformable3D interface
 // The interface represents the "input" vector type. The last component is always 1 and is used to make the transformations support translation
-// The output vector type is irrelevant to the interface and only matters for how the content is eventually rendered (specifically, 2 outputs means 2D and 3 outputs means 2D + projection)
+// The output vector type is irrelevant to the interface and only matters for how the content is eventually rendered (specifically, 2 outputs means 2D and 3 outputs means 2D + perspective)
+
+
+
+// Highly optimized algorithm to find the minimum boundary of a loop line in 2D space within the bounds of the [0,0,1,1] rect
+let larr = [], x0 = 0, x1 = 0, y0 = 0, y1 = 0
+const cutray = (rx, ry, dx, dy) => {
+	let c = dy>0, f = (ry-c)/dy, h = rx-f*dx
+	if(h>=0&&h<=1&&abs(f+.5)<=.5){ c?(y1=1):(y0=0); if(h<x0)x0=h; if(h>x1)x1=h; return }
+	c = dx>0, f = (rx-c)/dx, h = ry-f*dy
+	if(h>=0&&h<=1&&abs(f+.5)<=.5){ c?(x1=1):(x0=0); if(h<y0)y0=h; if(h>y1)y1=h; return }
+}
+function _loopBoundary2(){
+	if(!larr.length) return null
+	x0 = 1, x1 = 0, y0 = 1, y1 = 0
+	let prevx = larr[0], prevy = larr[1], prevt = max(prevx,1-prevx,prevy,1-prevy)<=1
+	for(let i = larr.length; i;){
+		i -= 2
+		const x = larr[i], y = larr[i+1]
+		if(!prevt) cutray(x, y, prevx-x, prevy-y)
+		prevt = max(x,1-x,y,1-y)<=1
+		if(prevt){ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y }
+		else cutray(prevx, prevy, x-prevx, y-prevy)
+		prevx = x; prevy = y
+	}
+	larr.length = 0
+	return x1>x0&&y1>y0 ? {x0, y0, x1, y1} : null
+}
+function _loopBoundary3(){
+	if(!larr.length) return null
+	x0 = 1, x1 = 0, y0 = 1, y1 = 0
+	let prevx = larr[0], prevy = larr[1], prevz=1/larr[2], prevt = max(prevx,1-prevx,prevy,1-prevy)<=1
+	prevx*=prevz; prevy*=prevz
+	for(let i = larr.length; i;){
+		i -= 3
+		let x = larr[i], y = larr[i+1], z = 1/larr[i+2]
+		x*=z; y*=z
+		if(z<0&&dz<0) continue
+		const cutdir = z*prevz<0?-1e150:1
+		if(!prevt) cutray(x, y, cutdir*(prevx-x), cutdir*(prevy-y))
+		prevt = max(x,1-x,y,1-y)<=1
+		if(prevt){ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y }
+		else cutray(prevx, prevy, cutdir*(x-prevx), cutdir*(y-prevy))
+		prevx = x; prevy = y; prevz = z
+	}
+	larr.length = 0
+	return x1>x0&&y1>y0 ? {x0, y0, x1, y1} : null
+}
 
 // 3x2 matrix, maps R² -> R²
 // x y 1
@@ -485,8 +539,9 @@ $.Texture.from = (src, o = 0, fmt = Formats.RGBA, mips = 0) => new Tex({
 class t2D{
 	constructor(a=1,b=0,c=0,d=1,e=0,f=0){ this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f }
 	sub(){ return new t2D(this.a,this.b,this.c,this.d,this.e,this.f) }
+	subPersp(){ return new t2t3D(this.a,this.b,this.c,this.d,this.e,this.f,0,0,1) }
 	sub3d(){ return new t3t2D(this.a,this.b,this.c,this.d,0,0,this.e,this.f) }
-	sub3dProj(z0=0,zsc=1){ return new t3D(this.a,this.b,0,this.c,this.d,0,this.e*zsc,this.f*zsc,zsc,this.e*z0,this.f*z0,z0) }
+	sub3dPersp(z0=0,zsc=1){ return new t3D(this.a,this.b,0,this.c,this.d,0,this.e*zsc,this.f*zsc,zsc,this.e*z0,this.f*z0,z0) }
 	reset(a=1,b=0,c=0,d=1,e=0,f=0){ if(typeof a=='object')({a,b,c,d,e,f}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f }
 	project(x=0, y=0){ if(typeof x=='object')({x,y}=x); return {x:this.a*x+this.c*y+this.e,y:this.b*x+this.d*y+this.f} }
 	unproject(x=0, y=0){
@@ -536,6 +591,14 @@ class t2D{
 		const {a,b,c,d} = this, i_det = 1/(a*d-b*c)
 		return { x: (x*d - y*c)*i_det, y: (y*a - x*b)*i_det }
 	}
+	loopBoundary(loop = null){
+		const {a,b,c,d,e,f} = this
+		if(!loop){
+			const ea = e+a, fb = f+b
+			larr.push(e, f, ea, fb, ea+c, fb+d, e+c, f+d)
+		}else for(const {x,y} of loop) larr.push(a*x+c*y+e, b*x+d*y+f)
+		return _loopBoundary2()
+	}
 }
 
 // 3x3 matrix, maps R² -> R³
@@ -547,8 +610,9 @@ class t2D{
 class t2t3D{
 	constructor(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=0){ this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this.i=i }
 	sub(){ return new t2t3D(this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h,this.i) }
+	subPersp(){ return this.sub() }
 	sub3d(){ return new t3D(this.a,this.b,this.c,this.d,this.e,this.f,0,0,0,this.g,this.h,this.i) }
-	sub3dProj(z0=0,zsc=1){ return new t3D(this.a,this.b,this.c,this.d,this.e,this.f,this.g*zsc,this.h*zsc,this.i*zsc,this.g*z0,this.h*z0,this.i*z0) }
+	sub3dPersp(z0=0,zsc=1){ return new t3D(this.a,this.b,this.c,this.d,this.e,this.f,this.g*zsc,this.h*zsc,this.i*zsc,this.g*z0,this.h*z0,this.i*z0) }
 	reset(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1){ if(typeof a=='object')({a,b,c,d,e,f,g,h,i}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this.i=i }
 	project(x=0, y=0){
 		if(typeof x=='object')({x,y}=x)
@@ -609,6 +673,14 @@ class t2t3D{
 		if(typeof x=='object')({x,y}=x)
 		return {x: this.a*x+this.d*y, y: this.b*x+this.e*y, z: this.c*x+this.f*y}
 	}
+	loopBoundary(loop = null){
+		const {a,b,c,d,e,f,g,h,i} = this
+		if(!loop){
+			const ga = g+a, hb = h+b, ic = i+c
+			larr.push(g, h, i, ga, hb, ic, ga+d, hb+e, ic+f, g+d, h+e, i+f)
+		}else for(const {x,y} of loop) larr.push(a*x+d*y+g, b*x+e*y+h, c*x+f*y+i)
+		return _loopBoundary3()
+	}
 }
 
 // 4x2 matrix, maps R³ -> R²
@@ -619,7 +691,7 @@ class t2t3D{
 class t3t2D{
 	constructor(a=1,b=0,c=0,d=1,e=0,f=0,g=0,h=0){ this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h }
 	sub(){ return new t3t2D(this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h) }
-	subProj(z0=0,zsc=1){ return new t3D(this.a,this.b,0,this.c,this.d,0,this.g*zsc+this.e,this.h*zsc+this.f,zsc,this.g*z0,this.h*z0,z0) }
+	subPersp(z0=0,zsc=1){ return new t3D(this.a,this.b,0,this.c,this.d,0,this.g*zsc+this.e,this.h*zsc+this.f,zsc,this.g*z0,this.h*z0,z0) }
 	sub2dXY(){ return new t2D(this.a,this.b,this.c,this.d,this.g,this.h) }
 	sub2dZY(){ return new t2D(this.e,this.f,this.c,this.d,this.g,this.h) }
 	sub2dXZ(){ return new t2D(this.a,this.b,this.e,this.f,this.g,this.h) }
@@ -726,6 +798,11 @@ class t3t2D{
 			y: this.b*x+this.d*y+this.f*z,
 		}
 	}
+	loopBoundary(loop = null){
+		const {a,b,c,d,e,f,g,h} = this
+		for(const {x,y,z} of loop) larr.push(a*x+c*y+e*z+g, b*x+d*y+f*z+h)
+		return _loopBoundary2()
+	}
 }
 
 // 4x3 matrix, maps R³ -> R³
@@ -737,7 +814,7 @@ class t3t2D{
 class t3D{
 	constructor(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1,j=0,k=0,l=0){ this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this.i=i;this.j=j;this.k=k;this.l=l }
 	sub(){ return new t3D(this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h,this.i,this.j,this.k,this.l) }
-	subProj(z0=0,zsc=1){ return new t3D(this.a,this.b,this.c,this.d,this.e,this.f,this.j*zsc+this.g,this.k*zsc+this.h,this.l*zsc+this.i,this.j*z0,this.k*z0,this.l*z0)}
+	subPersp(z0=0,zsc=1){ return new t3D(this.a,this.b,this.c,this.d,this.e,this.f,this.j*zsc+this.g,this.k*zsc+this.h,this.l*zsc+this.i,this.j*z0,this.k*z0,this.l*z0)}
 	sub2dXY(){ return new t2t3D(this.a,this.b,this.c,this.d,this.e,this.f,this.j,this.k,this.l) }
 	sub2dZY(){ return new t2t3D(this.g,this.h,this.i,this.d,this.e,this.f,this.j,this.k,this.l) }
 	sub2dXZ(){ return new t2t3D(this.a,this.b,this.c,this.g,this.h,this.i,this.j,this.k,this.l) }
@@ -902,6 +979,11 @@ class t3D{
 			z: (o*x + (c*d-a*f)*y + (a*e-b*d)*z) * det
 		}
 	}
+	loopBoundary(loop = null){
+		const {a,b,c,d,e,f,g,h,i,j,k,l} = this
+		for(const {x,y,z} of loop) larr.push(a*x+d*y+g*z+j, b*x+e*y+h*z+k, c*x+f*y+i*z+l)
+		return _loopBoundary3()
+	}
 }
 $.Transform2D = t2D, $.Transform2D.Perspective = t2t3D
 $.Transform3D = t3t2D, $.Transform3D.Perspective = t3D
@@ -916,8 +998,9 @@ class Drw2D extends t2D{
 	constructor(t,m=290787599,sp=geo2,s=$.Shader.DEFAULT,a=1,b=0,c=0,d=1,e=0,f=0){ super(a,b,c,d,e,f); this.t = t; this._mask = m; this._shp = sp; this._sh = s }
 	getTransform(){ return new t2D(this.a,this.b,this.c,this.d,this.e,this.f) }
 	sub(){ return new Drw2D(this.t,this._mask,this._shp,this._sh,this.a,this.b,this.c,this.d,this.e,this.f) }
+	subPersp(){ return new Drw2t3D(this.t,this._mask,this._shp,this._sh,this.a,this.b,this.c,this.d,this.e,this.f,0,0,1) }
 	sub3d(){ return new Drw3t2D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,this.c,this.d,0,0,this.e,this.f) }
-	sub3dProj(z0=0,zsc=1){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,0,this.c,this.d,0,this.e*zsc,this.f*zsc,zsc,this.e*z0,this.f*z0,z0) }
+	sub3dPersp(z0=0,zsc=1){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,0,this.c,this.d,0,this.e*zsc,this.f*zsc,zsc,this.e*z0,this.f*z0,z0) }
 	resetTo(m){ this.a=m.a;this.b=m.b;this.c=m.c;this.d=m.d;this.e=m.e;this.f=m.f;this._mask=m._mask;this._sh=m._sh;this._shp=m._shp }
 	reset(a=1,b=0,c=0,d=1,e=0,f=0){ if(typeof a=='object')({a,b,c,d,e,f}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this._mask=290787599;this._sh=$.Shader.DEFAULT;this._shp=geo2 }
 	pixelRatio(){ return sqrt(abs(this.a*this.d-this.b*this.c)*this.t.w*this.t.h) }
@@ -962,8 +1045,9 @@ class Drw2t3D extends t2t3D{
 	constructor(t,m=290787599,sp=geo2,s=$.Shader.DEFAULT,a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=0){ super(a,b,c,d,e,f,g,h,i); this.t = t; this._mask = m; this._shp = sp; this._sh = s }
 	getTransform(){ return new t2t3D(this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h,this.i) }
 	sub(){ return new Drw2t3D(this.t,this._mask,this._shp,this._sh,this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h,this.i) }
+	subPersp(){ return this.sub() }
 	sub3d(){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,this.c,this.d,this.e,this.f,0,0,0,this.g,this.h,this.i) }
-	sub3dProj(z0=0,zsc=1){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,this.c,this.d,this.e,this.f,this.g*zsc,this.h*zsc,this.i*zsc,this.g*z0,this.h*z0,this.i*z0) }
+	sub3dPersp(z0=0,zsc=1){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,this.c,this.d,this.e,this.f,this.g*zsc,this.h*zsc,this.i*zsc,this.g*z0,this.h*z0,this.i*z0) }
 	resetTo(m){ this.a=m.a;this.b=m.b;this.c=m.c;this.d=m.d;this.e=m.e;this.f=m.f;this.g=m.g;this.h=m.h;this.i=m.i;this._mask=m._mask;this._sh=m._sh;this._shp=m._shp }
 	reset(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1){ if(typeof a=='object')({a,b,c,d,e,f,g,h,i}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this.i=i;this._mask=290787599;this._sh=$.Shader.DEFAULT;this._shp=geo2 }
 	pixelRatio(){
@@ -1019,7 +1103,7 @@ class Drw3t2D extends t3t2D{
 	constructor(t,m=290787599,sp=geo3,s=$.Shader.COLOR_3D_XZ,a=1,b=0,c=0,d=1,e=0,f=0,g=0,h=0){ super(a,b,c,d,e,f,g,h); this.t = t; this._mask = m; this._shp = sp; this._sh = s }
 	getTransform(){ return new t3t2D(this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h) }
 	sub(){ return new Drw3t2D(this.t,this._mask,this._shp,this._sh,this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h) }
-	subProj(z0=0,zsc=1){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,0,this.c,this.d,0,this.g*zsc+this.e,this.h*zsc+this.f,zsc,this.g*z0,this.h*z0,z0) }
+	subPersp(z0=0,zsc=1){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,0,this.c,this.d,0,this.g*zsc+this.e,this.h*zsc+this.f,zsc,this.g*z0,this.h*z0,z0) }
 	sub2dXY(){ return new Drw2D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.a,this.b,this.c,this.d,this.g,this.h) }
 	sub2dZY(){ return new Drw2D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.e,this.f,this.c,this.d,this.g,this.h) }
 	sub2dXZ(){ return new Drw2D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.a,this.b,this.e,this.f,this.g,this.h) }
@@ -1068,7 +1152,7 @@ class Drw3D extends t3D{
 	constructor(t,m=290787599,sp=geo3,s=$.Shader.COLOR_3D_XZ,a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1,j=0,k=0,l=0){ super(a,b,c,d,e,f,g,h,i,j,k,l); this.t = t; this._mask = m; this._shp = sp; this._sh = s }
 	getTransform(){ return new t3D(this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h,this.i,this.j,this.k,this.l) }
 	sub(){ return new Drw3D(this.t,this._mask,this._shp,this._sh,this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h,this.i,this.j,this.k,this.l) }
-	subProj(z0=0,zsc=1){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,this.c,this.d,this.e,this.f,this.j*zsc+this.g,this.k*zsc+this.h,this.l*zsc+this.i,this.j*z0,this.k*z0,this.l*z0) }
+	subPersp(z0=0,zsc=1){ return new Drw3D(this.t,this._mask,$.Geometry3D.CUBE,$.Shader.COLOR_3D_XZ,this.a,this.b,this.c,this.d,this.e,this.f,this.j*zsc+this.g,this.k*zsc+this.h,this.l*zsc+this.i,this.j*z0,this.k*z0,this.l*z0) }
 	sub2dXY(){ return new Drw2t3D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.a,this.b,this.c,this.d,this.e,this.f,this.j,this.k,this.l) }
 	sub2dZY(){ return new Drw2t3D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.g,this.h,this.i,this.d,this.e,this.f,this.j,this.k,this.l) }
 	sub2dXZ(){ return new Drw2t3D(this.t,this._mask,geo2,$.Shader.DEFAULT,this.a,this.b,this.c,this.g,this.h,this.i,this.j,this.k,this.l) }
@@ -1240,12 +1324,20 @@ const x = Object.getOwnPropertyDescriptors({
 		if(!q) gl.stencilMask(255), gl.clear(1024)
 		gl.disable(2960); pmask &= -241
 	},
-	projection: false
+	delete(){
+		i&&draw()
+		const {t} = this
+		if(!t._fb) return
+		gl.deleteFramebuffer(t._fb)
+		if(curfb==t._fb) gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, curfb = null), lastd = null
+		if(t._stenBuf) gl.deleteRenderbuffer(t._stenBuf)
+	},
+	perspective: false
 })
 Object.defineProperties(Drw2D.prototype, x)
 Object.defineProperties(Drw3D.prototype, x)
 Object.defineProperties(Drw2t3D.prototype, x)
-Drw3D.prototype.projection = Drw2t3D.prototype.projection = true
+Drw3D.prototype.perspective = Drw2t3D.prototype.perspective = true
 Object.defineProperties(Drw3t2D.prototype, x)
 
 Object.assign($.Blend = (src = 17, combine = 17, dst = 0, a2c = false) => src|dst<<8|combine<<16|a2c<<23, {
@@ -1757,12 +1849,12 @@ vec4 fGetPixel(int u,ivec3 p,int l){${T||switcher(i=>`return texelFetch(GL_f[${i
 	const bind = vlowest==maxAttribs-1?`gl.vertexAttribIPointer(${vlowest},${vertex._vcount&3},gl.UNSIGNED_INT,${vertex._vcount<<2},0)`:`for(let i=${maxAttribs-1},j=0;i>=${vlowest};i--,j+=16){gl.vertexAttribIPointer(i,i==${vlowest}?${vertex._vcount&3}:4,gl.UNSIGNED_INT,${vertex._vcount<<2},j)`
 	fnBody[0] = `sz+=${attrs};if(this._setv()){const sd=sh!=s,{_shp}=this,_st=_shp.t;if(sd||sz!=shCount){i&&draw(sd?0:shuniBind);switchShader(s,${fCount},${fMask},sz);if(sd)gl.useProgram(program),B();${matWidth>3 ? `}if(sv!=_st.v)i&&draw(),switchVao(_st.v);if(s!=_st.L||sz!=_st.Ls){i&&draw();if(!_st.Ls)setupGenericVao3(_st);setVao(sz>${8+attrs},0,false);_st.L=s;_st.Ls=sz` : `switchVao(lv=sz>${8+attrs}?shVao3:shVao)}if(lv.geo!=_st.b){i&&draw();gl.bindBuffer(gl.ARRAY_BUFFER,lv.geo=_st.b);${bind};gl.bindBuffer(gl.ARRAY_BUFFER,buf);gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER,_st._elB)`}}if(shp!=_shp)_shp._setShp();}let b=boundUsed^shuniBind;`+texCheck.join(';')+`;const k=grow(sz),j=k+sz-${attrs}`
 	fnBody.push('return k')
-	const setVao = (proj=false, off=0,nw=true) => {
-		const base = matWidth*(2+proj)
+	const setVao = (persp=false, off=0,nw=true) => {
+		const base = matWidth*(2+persp)
 		const stride = (attrs + base) << 2
 		gl.vertexAttribPointer(0, matWidth, gl.FLOAT, false, stride, off)
 		gl.vertexAttribPointer(1, matWidth, gl.FLOAT, false, stride, off + (matWidth<<2))
-		if(proj){
+		if(persp){
 			gl.enableVertexAttribArray(2)
 			gl.vertexAttribPointer(2, matWidth, gl.FLOAT, false, stride, off + (matWidth<<3))
 		}else gl.disableVertexAttribArray(2)

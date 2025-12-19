@@ -689,7 +689,7 @@ $.Shader.sdf = (src, o={}) => {
 				ctx.geometry = dfgeo
 				let vs = DEFAULT_PASSES, vlen = 3, font = null, dsc = 0, isSdf = true
 				let last = -1, lastSt = 1
-				let recalc = ctx.projection
+				let recalc = ctx.perspective
 				let pxr0 = -2*ctx.pixelRatio(), pxr = 1, rf = 1, rf1 = 1
 				let ea = 0
 				w: while(idx < q.length){
@@ -768,7 +768,7 @@ $.Shader.sdf = (src, o={}) => {
 						if(Array.isArray(s)){
 							vlen = (vs = s).length
 							recalc = false
-							if(ctx.projection) for(let i = 0; i < vlen; i+=4) if(typeof vs[i+3]=='object' && vs[i+3].spr<0){ recalc = true; break }
+							if(ctx.perspective) for(let i = 0; i < vlen; i+=4) if(typeof vs[i+3]=='object' && vs[i+3].spr<0){ recalc = true; break }
 							continue
 						}
 						font = s; dsc = font.ascend-1; cmap = s
@@ -1134,7 +1134,7 @@ ffffffffffffffff\
 				width: advance, tex: img.sub(ab.left/width,ab.bottom/height,(ab.right-ab.left)/width,(ab.top-ab.bottom)/height)
 			} : { x: 0, y: 0, w: 0, h: 0, width: advance, tex: null })
 			fixes?.(this)
-			this.done()
+			img.then(() => this.done())
 		}, this.error.bind(this)); return this}
 		bmfont(src, baselineOffset=0, opts = $.ANISOTROPY | $.SMOOTH, mips = 1, fixes = $.Font.defaultFixes){ fetch(src).then(a => (src=a.url,a.json())).then(d => {
 			const {chars,distanceField:df,pages,common:{base,lineHeight:sc,scaleW,scaleH},kernings} = d
@@ -1150,13 +1150,13 @@ ffffffffffffffff\
 				tex: width&&height?p[page].sub(x/scaleW,1-(y+height)/scaleH,width/scaleW,height/scaleH):null
 			})
 			fixes?.(this)
-			this.done()
+			Promise.all(p).then(() => this.done())
 		}, this.error.bind(this)); return this}
 		draw(ctx, txt, v=[], off=0, spr=-0.5, lsb = 0, last = -1){
 			if(this.#cb) return
 			lsb *= .5
 			off /= this.rangeFactor
-			const isSdf = !!ctx.shader.sdf, recalc = spr<0&&ctx.projection&&isSdf
+			const isSdf = !!ctx.shader.sdf, recalc = spr<0&&ctx.perspective&&isSdf
 			let aspr = spr = 1/spr
 			if(!recalc) aspr *= (spr<0 ? -ctx.pixelRatio() : .5)*this.rangeFactor
 			let i = 0

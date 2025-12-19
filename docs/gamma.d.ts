@@ -1141,19 +1141,19 @@ namespace GammaInstance{
 		 **/
 		sub(): this
 		/**
-		 * Create a subcontext with a third dimension, which is capable of drawing 3D geometries using the family of 3D transformations. The 3D content is projected onto the current 2D plane using an orthographic projection. For a perspective projection, see `.sub3dProj()`
+		 * Create a subcontext with a third dimension, which is capable of drawing 3D geometries using the family of 3D transformations. The 3D content is projected onto the current 2D plane using an orthographic projection. For a perspective projection, see `.sub3dPersp()`
 		 * @performance This method is CPU-logic, fast and usually inlined
 		 **/
 		sub3d(): this extends Transformable2Dto3D ? Drawable3DProjection : Drawable3D
 		/**
 		 * Create a subcontext with a third dimension, which is capable of drawing 3D geometries using the family of 3D transformations. The 3D content is projected onto the current 2D plane using a perspective projection defined by the two values.
 		 * 
-		 * Perspective transformation means that the Z component acts as a "scaling" factor for the X and Y components. By default, content drawn at (x,y,z) will appear at (x, y)/z. This can be changed with the `zBase` and `zScale` parameters. Content will then be drawn at (x, y)/(z*zScale + zBase). For example, `.sub3dProj(0, 1)`, the default, gives a typical perspective transform while `.sub3dProj(1, 0)` gives an orthographic transform (constant scaling)
+		 * Perspective transformation means that the Z component acts as a "scaling" factor for the X and Y components. By default, content drawn at (x,y,z) will appear at (x, y)/z. This can be changed with the `zBase` and `zScale` parameters. Content will then be drawn at (x, y)/(z*zScale + zBase). For example, `.sub3dPersp(0, 1)`, the default, gives a typical perspective transform while `.sub3dPersp(1, 0)` gives an orthographic transform (constant scaling)
 		 * 
 		 * Note that after you have applied any rotations, the "Z" direction controlling the scaling factor will also change, such that the vanishing point always appears where you expect it to.
 		 * @performance This method is CPU-logic, fast and usually inlined
 		 **/
-		sub3dProj(zBase?: number, zScale?: number): Drawable3DProjection
+		sub3dPersp(zBase?: number, zScale?: number): Drawable3DProjection
 
 		/**
 		 * The shader to be used by all drawing operations. See `Shader()` for more info on custom shaders. Can be also set to `null` to use `Shader.DEFAULT`, however reading the property never returns null
@@ -1236,7 +1236,7 @@ namespace GammaInstance{
 	}
 	interface Drawable2D extends _Drawable2D, Transformable2Dto2D{
 		a: number, b: number, c: number, d: number, e: number, f: number
-		/** Whether this drawable context has a projection component. False here. See `.sub3dProj()` */
+		/** Whether this drawable context has a projection component. False here. See `.sub3dPersp()` */
 		readonly projection: false
 
 		/**
@@ -1314,12 +1314,12 @@ namespace GammaInstance{
 		/**
 		 * Create a subcontext with additional perspective projection. This is useful for turning an orthographic projection into a perspective one, but is otherwise not particularly intuitive to use.
 		 * 
-		 * Perspective transformation means that the Z component acts as a "scaling" factor for the X and Y components. By default, content drawn at (x,y,z) will appear at (x, y)/z. This can be changed with the `zBase` and `zScale` parameters. Content will then be drawn at (x, y)/(z*zScale + zBase). For example, `.sub3dProj(0, 1)`, the default, gives a typical perspective transform while `.sub3dProj(1, 0)` gives an orthographic transform (constant scaling)
+		 * Perspective transformation means that the Z component acts as a "scaling" factor for the X and Y components. By default, content drawn at (x,y,z) will appear at (x, y)/z. This can be changed with the `zBase` and `zScale` parameters. Content will then be drawn at (x, y)/(z*zScale + zBase). For example, `.sub3dPersp(0, 1)`, the default, gives a typical perspective transform while `.sub3dPersp(1, 0)` gives an orthographic transform (constant scaling)
 		 * 
 		 * Note that after you have applied any rotations, the "Z" direction controlling the scaling factor will also change, such that the vanishing point always appears where you expect it to.
 		 * @performance This method is CPU-logic, fast and usually inlined
 		 **/
-		subProj(zBase?: number, zScale?: number): Drawable3DProjection
+		subPersp(zBase?: number, zScale?: number): Drawable3DProjection
 
 		/**
 		 * Draw a sprite at `(0,0,0)` to `(1,1,1)`
@@ -1373,7 +1373,7 @@ namespace GammaInstance{
 	}
 	interface Drawable3D extends _Drawable3D, Transformable3Dto2D{
 		a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number
-		/** Whether this drawable context has a projection component. False here. See `.subProj()` */
+		/** Whether this drawable context has a projection component. False here. See `.subPersp()` */
 		readonly projection: false
 		/**
 		 * Reset all sub-context state (transform, shader, blend, mask, geometry) to match another drawable.
