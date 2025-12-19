@@ -17,7 +17,7 @@ void main(){
 }
 `, {params: COLOR})
 
-const colors = Array.map(24, i => hsla((i%12)*30, i<12?.8:.6, .5))
+const colors = Array.map(96, i => hsla((i>>1)*7.5, (i&1)*.2+.6, .5))
 const confetti = new ParticleContainer({
 	update(ctx, p, dt){
 		p.dy -= 50*dt
@@ -28,9 +28,13 @@ const confetti = new ParticleContainer({
 	},
 	init(x, y){
 		const th = random()*PI2, r = sqrt(random())*50
-		return {x, y, dx: sin(th)*r, dy: cos(th)*r + 25, r: random()*.2+.1, col: colors[randint()&63], t: 5}
+		const col = (sin(th+t*3)+1)*.15
+		const a = t
+		return {x, y, dx: sin(th)*r, dy: cos(th)*r + 25, r: random()*.2+.1, col: colors[floor((col+this.seed+random()*.35)*96)%96], t: 5}
 	},
+	seed: random(),
 	prepare(ctx){
+		this.seed = random()
 		ctx.shader = Shader.AA_CIRCLE
 	}
 })

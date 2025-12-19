@@ -62,7 +62,7 @@ Uint16Array.fromHex = function(hex){
 globalThis.hsla = (h,s,l,a=1) => {
 	h *= 1/30; h %= 12; h += (h<0)*12
 	const f = s*(l<.5?l:1-l)
-   return vec4(l-f*max(3-abs(h-6),-1),l-f*max(3-abs(h+(h<4)*12-10),-1),l-f*max(3-abs(h+(h>=8)*12-2),-1),a)
+   return vec4(max(0, l-f*max(3-abs(h-6),-1)),max(0, l-f*max(3-abs(h+(h<4)*12-10),-1)),max(0, l-f*max(3-abs(h-(h>=8)*12-2),-1)),a)
 }
 const h = '0123456789abcdef'
 Number.prototype.toHex = function(){return h[this>>>28]+h[this>>24&15]+h[this>>20&15]+h[this>>16&15]+h[this>>12&15]+h[this>>8&15]+h[this>>4&15]+h[this&15]}
