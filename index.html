@@ -22,14 +22,13 @@
 		const px = devicePixelRatio * ctxSupersample
 		const w = innerWidth, h = innerHeight
 		if(ow!=(ow=round(w*px))|oh!=(oh=round(h*px))) $.setSize(ow, oh)
-		$.canvas.style.transform = `scale(${1/px})`
 		$.canvas.style.imageRendering = ctxSupersample > 1 ? '' : 'pixelated'
 		$.cursorType = 'default'
 		$.render?.()
 		$.ictx.clearDeltas()
 	})
 	const unint = `user-select:none;-webkit-user-select:none;touch-action: none;`
-	$.canvas.style = `image-rendering: pixelated; position: fixed; inset: 0; transform-origin: top left; `+unint
+	$.canvas.style = `width: 100%; image-rendering: pixelated; position: fixed; inset: 0; `+unint
 	$.glLost = () => {
 		$.canvas.replaceWith(document.body = document.createElement('body'))
 		document.body.textContent = 'WebGL2 context lost :('
