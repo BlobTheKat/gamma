@@ -4,13 +4,6 @@ const $ = globalThis
 Math.PI2 ??= Math.PI*2
 Math.HALF_SQRT3 ??= .8660254037844386
 Math.clamp ??= (v, m, M) => v<m?m:v>M?M:v
-Math.cutray ??= (rx, ry, dx, dy) => {
-	rx = +rx; ry = +ry; dx = +dx; dy = +dy
-	let y = +(dy > 0), f = (ry-y)/dy, x = rx-f*dx
-	if(x>=0&&x<=1&&abs(f+.5)<=.5) return {x, y}
-	x = +(dx > 0); f = (rx-x); y = ry-f*dy
-	return y>=0&&y<=1&&abs(f+.5)<=.5 ? {x, y} : {x: NaN, y: NaN}
-}
 const { clz32, cos, sin, min, round } = Math
 if(!('setImmediate' in $)){
 	let base = 0, cur = 0, queue = [], m = new MessageChannel();
@@ -487,24 +480,40 @@ $.Texture.from = (src, o = 0, fmt = Formats.RGBA, mips = 0) => new Tex({
 
 
 // Highly optimized algorithm to find the minimum boundary of a loop line in 2D space within the bounds of the [0,0,1,1] rect
-let larr = [], x0 = 0, x1 = 0, y0 = 0, y1 = 0
-const cutray = (rx, ry, dx, dy) => {
-	let c = dy>0, f = (ry-c)/dy, h = rx-f*dx
-	if(h>=0&&h<=1&&abs(f+.5)<=.5){ c?(y1=1):(y0=0); if(h<x0)x0=h; if(h>x1)x1=h; return }
-	c = dx>0, f = (rx-c)/dx, h = ry-f*dy
-	if(h>=0&&h<=1&&abs(f+.5)<=.5){ c?(x1=1):(x0=0); if(h<y0)y0=h; if(h>y1)y1=h; return }
-}
+let larr = []
 function _loopBoundary2(){
 	if(!larr.length) return null
-	x0 = 1, x1 = 0, y0 = 1, y1 = 0
-	let prevx = larr[0], prevy = larr[1], prevt = max(prevx,1-prevx,prevy,1-prevy)<=1
+	let x0 = 1, x1 = 0, y0 = 1, y1 = 0
+	let prevx = larr[0], prevy = larr[1], prevInB = abs(prevy-.5)<=.5
 	for(let i = larr.length; i;){
 		i -= 2
 		const x = larr[i], y = larr[i+1]
-		if(!prevt) cutray(x, y, prevx-x, prevy-y)
-		prevt = max(x,1-x,y,1-y)<=1
-		if(prevt){ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y }
-		else cutray(prevx, prevy, x-prevx, y-prevy)
+		if(!prevInB){
+			let f = ((prevy>=y)-y)/(prevy-y)
+			if(abs(f-.5)<=.5){ f = x+f*(prevx-x); if(f<x0)x0=f; if(f>x1)x1=f }
+		}
+		prevInB = abs(y-.5)<=.5
+		if(prevInB){ if(x<x0)x0=x; if(x>x1)x1=x }
+		else{
+			let f = ((y>=prevy)-prevy)/(y-prevy)
+			if(abs(f-.5)<=.5){ f = prevx+f*(x-prevx); if(f<x0)x0=f; if(f>x1)x1=f }
+		}
+		prevx = x; prevy = y
+	}
+	prevInB = abs(prevx-.5)<=.5
+	for(let i = larr.length; i;){
+		i -= 2
+		const x = larr[i], y = larr[i+1]
+		if(!prevInB){
+			let f = ((prevx>=x)-x)/(prevx-x)
+			if(abs(f-.5)<=.5){ f = y+f*(prevy-y); if(f<y0)y0=f; if(f>y1)y1=f }
+		}
+		prevInB = abs(x-.5)<=.5
+		if(prevInB){ if(y<y0)y0=y; if(y>y1)y1=y }
+		else{
+			let f = ((x>=prevx)-prevx)/(x-prevx)
+			if(abs(f-.5)<=.5){ f = prevy+f*(y-prevy); if(f<y0)y0=f; if(f>y1)y1=f }
+		}
 		prevx = x; prevy = y
 	}
 	larr.length = 0
@@ -512,23 +521,124 @@ function _loopBoundary2(){
 }
 function _loopBoundary3(){
 	if(!larr.length) return null
-	x0 = 1, x1 = 0, y0 = 1, y1 = 0
-	let prevx = larr[0], prevy = larr[1], prevz=1/larr[2], prevt = max(prevx,1-prevx,prevy,1-prevy)<=1
+	let x0 = 1, x1 = 0, y0 = 1, y1 = 0
+	let prevx = larr[0], prevy = larr[1], prevz = larr[2]
 	prevx*=prevz; prevy*=prevz
+	let prevInB = abs(prevy-.5)<=.5
+	let n0 = 1, n1 = 0
 	for(let i = larr.length; i;){
 		i -= 3
-		let x = larr[i], y = larr[i+1], z = 1/larr[i+2]
+		let x = larr[i], y = larr[i+1], z = larr[i+2]
 		x*=z; y*=z
-		if(z<0&&dz<0) continue
-		const cutdir = z*prevz<0?-1e150:1
-		if(!prevt) cutray(x, y, cutdir*(prevx-x), cutdir*(prevy-y))
-		prevt = max(x,1-x,y,1-y)<=1
-		if(prevt){ if(x<x0)x0=x; if(x>x1)x1=x; if(y<y0)y0=y; if(y>y1)y1=y }
-		else cutray(prevx, prevy, cutdir*(x-prevx), cutdir*(y-prevy))
-		prevx = x; prevy = y; prevz = z
+		let inB = abs(y-.5)<=.5
+		a: if(z*prevz>=0){
+			if(!prevInB){
+				// reverse cut
+				let f = ((prevy>=y)-y)/(prevy-y)
+				if(abs(f-.5)<=.5){
+					f = x+f*(prevx-x)
+					if(z>=0){ if(f<x0)x0=f; if(f>x1)x1=f }
+					else{ if(f<n0)n0=f; if(f>n1)n1=f }
+				}
+			}
+			let f
+			if(inB) f = x
+			else{
+				f = ((y>=prevy)-prevy)/(y-prevy)
+				if(abs(f-.5)<=.5) f = prevx+f*(x-prevx)
+				else break a
+			}
+			if(z>=0){ if(f<x0)x0=f; if(f>x1)x1=f }
+			else{ if(f<n0)n0=f; if(f>n1)n1=f }
+		}else{
+			if(!inB){
+				// reverse cut
+				let f = ((prevy>=y)-prevy)/(prevy-y)
+				if(f>=0){
+					f = prevx+f*(prevx-x)
+					if(prevz>=0){ if(f<x0)x0=f; if(f>x1)x1=f }
+					else{ if(f<n0)n0=f; if(f>n1)n1=f }
+				}
+			}
+			if(inB){
+				if(z>=0){ if(x<x0)x0=x; if(x>x1)x1=x }
+				else{ if(x<n0)n0=x; if(x>n1)n1=x }
+			}
+			if(!prevInB){
+				let f = ((y>=prevy)-y)/(y-prevy)
+				if(f>=0){
+					f = x+f*(x-prevx)
+					if(z>=0){ if(f<x0)x0=f; if(f>x1)x1=f }
+					else{ if(f<n0)n0=f; if(f>n1)n1=f }
+				}
+			}
+		}
+		prevx = x; prevy = y; prevz = z; prevInB = inB
+	}
+	a: if(n1>=n0){
+		if(n1<x0){ x1=1; break a }
+		if(n0>x1){ x0=0; break a }
+		x1 = 1; x0 = 0
+	}
+	n0 = 1, n1 = 0
+	prevInB = prevz>0&&abs(prevx-.5)<=.5
+	for(let i = larr.length; i;){
+		i -= 3
+		let x = larr[i], y = larr[i+1], z = larr[i+2]
+		x*=z; y*=z
+		let inB = abs(x-.5)<=.5
+		a: if(z*prevz>=0){
+			if(!prevInB){
+				// reverse cut
+				let f = ((prevx>=x)-x)/(prevx-x)
+				if(abs(f-.5)<=.5){
+					f = y+f*(prevy-y)
+					if(z>=0){ if(f<y0)y0=f; if(f>y1)y1=f }
+					else{ if(f<n0)n0=f; if(f>n1)n1=f }
+				}
+			}
+			let f
+			if(inB) f = y
+			else{
+				f = ((x>=prevx)-prevx)/(x-prevx)
+				if(abs(f-.5)<=.5) f = prevy+f*(y-prevy)
+				else break a
+			}
+			if(z>=0){ if(f<y0)y0=f; if(f>y1)y1=f }
+			else{ if(f<n0)n0=f; if(f>n1)n1=f }
+		}else{
+			if(!inB){
+				// reverse cut
+				let f = ((prevx>=x)-prevx)/(prevx-x)
+				if(f>=0){
+					f = prevy+f*(prevy-y)
+					if(prevz>=0){ if(f<y0)y0=f; if(f>y1)y1=f }
+					else{ if(f<n0)n0=f; if(f>n1)n1=f }
+				}
+			}
+			if(inB){
+				if(z>=0){ if(y<y0)y0=y; if(y>y1)y1=y }
+				else{ if(y<n0)n0=y; if(y>n1)n1=y }
+			}
+			if(!prevInB){
+				let f = ((x>=prevx)-x)/(x-prevx)
+				if(f>=0){
+					f = y+f*(y-prevy)
+					if(z>=0){ if(f<y0)y0=f; if(f>y1)y1=f }
+					else{ if(f<n0)n0=f; if(f>n1)n1=f }
+				}
+			}
+			
+		}
+		prevx = x; prevy = y; prevz = z; prevInB = inB
+	}
+	a: if(n1>=n0){
+		if(n1<y0){ y1=1; break a }
+		if(n0>y1){ y0=0; break a }
+		y1 = 1; y0 = 0
 	}
 	larr.length = 0
-	return x1>x0&&y1>y0 ? {x0, y0, x1, y1} : null
+	return x1>x0&&y1>y0 ? {x0: x0<0?0:x0, y0: y0<0?0:y0, x1: x1>1?1:x1, y1: y1>1?1:y1} : null
 }
 
 // 3x2 matrix, maps R² -> R²
@@ -677,8 +787,8 @@ class t2t3D{
 		const {a,b,c,d,e,f,g,h,i} = this
 		if(!loop){
 			const ga = g+a, hb = h+b, ic = i+c
-			larr.push(g, h, i, ga, hb, ic, ga+d, hb+e, ic+f, g+d, h+e, i+f)
-		}else for(const {x,y} of loop) larr.push(a*x+d*y+g, b*x+e*y+h, c*x+f*y+i)
+			larr.push(g, h, 1/i, ga, hb, 1/ic, ga+d, hb+e, 1/(ic+f), g+d, h+e, 1/(i+f))
+		}else for(const {x,y} of loop) larr.push(a*x+d*y+g, b*x+e*y+h, 1/(c*x+f*y+i))
 		return _loopBoundary3()
 	}
 }
@@ -981,7 +1091,7 @@ class t3D{
 	}
 	loopBoundary(loop = null){
 		const {a,b,c,d,e,f,g,h,i,j,k,l} = this
-		for(const {x,y,z} of loop) larr.push(a*x+d*y+g*z+j, b*x+e*y+h*z+k, c*x+f*y+i*z+l)
+		for(const {x,y,z} of loop) larr.push(a*x+d*y+g*z+j, b*x+e*y+h*z+k, 1/(c*x+f*y+i*z+l))
 		return _loopBoundary3()
 	}
 }

@@ -1,6 +1,6 @@
 {Gamma.gui = $ => {
 	if(!$.Font) throw 'Initialize Gamma.font before Gamma.gui'
-	class GUIElement{
+	$.GUIElement = class GUIElement{
 		#w = NaN; #h = NaN; #drawDep = null; _invalidated = false
 		_dimensions(){ return vec2.zero }
 		invalidate = () => {
@@ -278,7 +278,7 @@
 					this.ictx.reset()
 					const irw = 1/this.#rw, irh = 1/this.#rh
 					if(ctx.perspective){
-						this.#drw2.reset(a*irw,b*irh,c,d*irw,e*irh,f,(g-this.#x0)*irw,(h-this.#y0)*irh,i)
+						this.#drw2.reset((a-this.#x0*c)*irw,(b-this.#y0*c)*irh,c,(d-this.#x0*f)*irw,(e-this.#y0*f)*irh,f,(g-this.#x0*i)*irw,(h-this.#y0*i)*irh,i)
 						this.child.draw(this.#drw2, this.ictx, sw, sh)
 					}else{
 						this.#drw.reset(a*irw,b*irh,d*irw,e*irh,(g-this.#x0)*irw,(h-this.#y0)*irh)
@@ -288,8 +288,13 @@
 				}
 			}
 			if(this.#rw < 0) return
+			const m = ctx.mask&RGBA
+			ctx.mask = SET|NEVER
+			ctx.draw(vec4.zero)
 			ctx.perspective ? ctx.reset(this.#rw, 0, 0, 0, this.#rh, 0, this.#x0, this.#y0, 1) : ctx.reset(this.#rw, 0, 0, this.#rh, this.#x0, this.#y0)
+			ctx.mask = m|IF_SET|UNSET
 			ctx.draw(this.#tex)
+			//ctx.draw(vec4(.2,0,0,.2))
 			ictx.onPointerUpdate((id, ptr) => {
 				if(!id) this.#mouseHovering = !!ptr
 				if(!ptr) return void this.ictx.setPointer(id, null)
@@ -313,7 +318,42 @@
 			ictx.onGamepadUpdate(this.ictx)
 		}
 	}
-	
+	class ParticleContainer extends GUIElement{
+		#config
+		constructor(config){ super(); this.#config = config }
+		get config(){ return this.#config }
+		set config(c){ this.#config = c; this.#free.length = 0; this.#particles.length = 0 }
+		lastT = NaN
+		#particles = []
+		#free = []
+		draw(ctx){
+			this.#config.prepare?.(ctx)
+			const dt = t - this.lastT || 0; this.lastT = t
+			const len = this.#particles.length
+			if(!len) return
+			for(let i = len-1; i >= 0; i--){
+				const p = this.#particles[i]
+				if(p && this.#config.update(ctx, p, dt)) this.#particles[i] = null, this.#free.push(i)
+			}
+			if(this.#free.length > min(len, max(5, len>>1))){
+				this.#free.length = 0
+				let i = 0
+				while(this.#particles[i]) i++
+				let j = i+1
+				while(j < len){
+					const n = this.#particles[j++]
+					if(n) this.#particles[i++] = n
+				}
+				this.#particles.length = i
+			}
+			this.invalidate()
+		}
+		add(...a){
+			const v = this.#config.init(...a)
+			if(this.#free.length) this.#particles[this.#free.pop()] = v
+			else this.#particles.push(v)
+		}
+	}
 	$.GUI = {
 		CENTERED: vec2(.5, .5),
 		LEFT: vec2(0, .5),
@@ -338,7 +378,8 @@
 		Box: (a,b=.5,c=1) => new Box(a,b,c),
 		BoxFill: (a,b=.5,c=max,d) => a.identity ? new BoxFill(a,b,c,d) : new BoxFill(null,1,1,a),
 		Transform: (el, fn=Function.prototype, x=.5, y=.5) => new Transform(el,fn,x,y),
-		Layer: (el) => new Layer(el)
+		Layer: (el) => new Layer(el),
+		ParticleContainer: e => new ParticleContainer(e)
 		//Scrollable: (c, w=1, h=-1) => new Scrollable(c, +w, +h)
 	}
 	const v4p2 = $.vec4(.2)

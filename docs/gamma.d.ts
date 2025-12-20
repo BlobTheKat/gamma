@@ -1141,10 +1141,18 @@ namespace GammaInstance{
 		 **/
 		sub(): this
 		/**
+		 * Create a subcontext with additional perspective projection.
+		 * 
+		 * Perspective transformations act on the Z component, and, as Transformable2D does not have a Z component, the projection is unchanged. Use this if you want to guarantee `.perspective == true` and the existence of `.g`, `.h` and `.i` values
+		 * 
+		 * @performance This method is CPU-logic, fast and usually inlined
+		 **/
+		subPersp(): Drawable2DPerspective
+		/**
 		 * Create a subcontext with a third dimension, which is capable of drawing 3D geometries using the family of 3D transformations. The 3D content is projected onto the current 2D plane using an orthographic projection. For a perspective projection, see `.sub3dPersp()`
 		 * @performance This method is CPU-logic, fast and usually inlined
 		 **/
-		sub3d(): this extends Transformable2Dto3D ? Drawable3DProjection : Drawable3D
+		sub3d(): this extends Transformable2Dto3D ? Drawable3DPerspective : Drawable3D
 		/**
 		 * Create a subcontext with a third dimension, which is capable of drawing 3D geometries using the family of 3D transformations. The 3D content is projected onto the current 2D plane using a perspective projection defined by the two values.
 		 * 
@@ -1153,7 +1161,7 @@ namespace GammaInstance{
 		 * Note that after you have applied any rotations, the "Z" direction controlling the scaling factor will also change, such that the vanishing point always appears where you expect it to.
 		 * @performance This method is CPU-logic, fast and usually inlined
 		 **/
-		sub3dPersp(zBase?: number, zScale?: number): Drawable3DProjection
+		sub3dPersp(zBase?: number, zScale?: number): Drawable3DPerspective
 
 		/**
 		 * The shader to be used by all drawing operations. See `Shader()` for more info on custom shaders. Can be also set to `null` to use `Shader.DEFAULT`, however reading the property never returns null
@@ -1236,12 +1244,12 @@ namespace GammaInstance{
 	}
 	interface Drawable2D extends _Drawable2D, Transformable2Dto2D{
 		a: number, b: number, c: number, d: number, e: number, f: number
-		/** Whether this drawable context has a projection component. False here. See `.sub3dPersp()` */
-		readonly projection: false
+		/** Whether this drawable context has a perspective component. False here. See `.sub3dPersp()` */
+		readonly perspective: false
 
 		/**
 		 * Reset all sub-context state (transform, shader, blend, mask, geometry) to match another drawable
-		 * @param ctx The drawable to copy state from. Resetting to a Drawable2DProjection or any kind of Drawable3D is invalid
+		 * @param ctx The drawable to copy state from. Resetting to a Drawable2DPerspective or any kind of Drawable3D is invalid
 		 * @performance This method is CPU-logic, very fast and usually inlined
 		 */
 		resetTo(ctx: Drawable2D): void
@@ -1257,16 +1265,16 @@ namespace GammaInstance{
 		 */
 		reset(a?: number, b?: number, c?: number, d?: number, e?: number, f?: number): void
 	}
-	interface Drawable2DProjection extends _Drawable2D, Transformable2Dto3D{
+	interface Drawable2DPerspective extends _Drawable2D, Transformable2Dto3D{
 		a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number
-		/** Whether this drawable context has a projection component. True here */
-		readonly projection: true
+		/** Whether this drawable context has a perspective component. True here */
+		readonly perspective: true
 		/**
 		 * Reset all sub-context state (transform, shader, blend, mask, geometry) to match another drawable
-		 * @param ctx The drawable to copy state from. Resetting to a Drawable2D (lacking projection) or any kind of Drawable3D is invalid
+		 * @param ctx The drawable to copy state from. Resetting to a Drawable2D (lacking perspective) or any kind of Drawable3D is invalid
 		 * @performance This method is CPU-logic, very fast and usually inlined
 		 */
-		resetTo(ctx: Drawable2DProjection): void
+		resetTo(ctx: Drawable2DPerspective): void
 		/**
 		 * Reset the 2D transform to a matrix defined by the 9 values, or the default matrix (where (0,0) is the bottom-left and (1,1) is the top right)
 		 * 
@@ -1300,17 +1308,17 @@ namespace GammaInstance{
 		 * Create a subcontext with one fewer dimension, which is capable of drawing 2D geometries using the (simpler) family of 2D transformations. The 2D context will have its X and Y axes correspond to this context's X and Y axes respectively
 		 * @performance This method is CPU-logic, fast and usually inlined
 		 **/
-		sub2dXY(): this extends Transformable3Dto3D ? Drawable2DProjection : Drawable2D
+		sub2dXY(): this extends Transformable3Dto3D ? Drawable2DPerspective : Drawable2D
 		/**
 		 * Create a subcontext with one fewer dimension, which is capable of drawing 2D geometries using the (simpler) family of 2D transformations. The 2D context will have its X and Y axes correspond to this context's X and Z axes respectively
 		 * @performance This method is CPU-logic, fast and usually inlined
 		 **/
-		sub2dXZ(): this extends Transformable3Dto3D ? Drawable2DProjection : Drawable2D
+		sub2dXZ(): this extends Transformable3Dto3D ? Drawable2DPerspective : Drawable2D
 		/**
 		 * Create a subcontext with one fewer dimension, which is capable of drawing 2D geometries using the (simpler) family of 2D transformations. The 2D context will have its X and Y axes correspond to this context's Z and Y axes respectively
 		 * @performance This method is CPU-logic, fast and usually inlined
 		 **/
-		sub2dZY(): this extends Transformable3Dto3D ? Drawable2DProjection : Drawable2D
+		sub2dZY(): this extends Transformable3Dto3D ? Drawable2DPerspective : Drawable2D
 		/**
 		 * Create a subcontext with additional perspective projection. This is useful for turning an orthographic projection into a perspective one, but is otherwise not particularly intuitive to use.
 		 * 
@@ -1319,7 +1327,7 @@ namespace GammaInstance{
 		 * Note that after you have applied any rotations, the "Z" direction controlling the scaling factor will also change, such that the vanishing point always appears where you expect it to.
 		 * @performance This method is CPU-logic, fast and usually inlined
 		 **/
-		subPersp(zBase?: number, zScale?: number): Drawable3DProjection
+		subPersp(zBase?: number, zScale?: number): Drawable3DPerspective
 
 		/**
 		 * Draw a sprite at `(0,0,0)` to `(1,1,1)`
@@ -1373,11 +1381,11 @@ namespace GammaInstance{
 	}
 	interface Drawable3D extends _Drawable3D, Transformable3Dto2D{
 		a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number
-		/** Whether this drawable context has a projection component. False here. See `.subPersp()` */
-		readonly projection: false
+		/** Whether this drawable context has a perspective component. False here. See `.subPersp()` */
+		readonly perspective: false
 		/**
 		 * Reset all sub-context state (transform, shader, blend, mask, geometry) to match another drawable.
-		 * @param ctx The drawable to copy state from. Resetting to a Drawable3DProjection or any kind of Drawable2D is invalid
+		 * @param ctx The drawable to copy state from. Resetting to a Drawable3DPerspective or any kind of Drawable2D is invalid
 		 * @performance This method is CPU-logic, very fast and usually inlined
 		 */
 		resetTo(ctx: Drawable3D): void
@@ -1400,7 +1408,7 @@ namespace GammaInstance{
 		project(xyz: vec3): vec2
 
 		/**
-		 * Returns the point which transforms to a w (projection value) of 0 in screen space, essentially the "camera" position in a 3D perspective transformation
+		 * Returns the point which transforms to a w (perspective value) of 0 in screen space, essentially the "camera" position in a 3D perspective transformation
 		 * 
 		 * Since this is a non-perspective transformations, this method doesn't make sense, and the returned value is always `vec3(NaN, NaN, NaN)`
 		 */
@@ -1413,16 +1421,16 @@ namespace GammaInstance{
 		perspectiveRay(x: number, y: number, origin?: vec3): vec3
 		perspectiveRay(xy: vec2, origin?: vec3): vec3
 	}
-	interface Drawable3DProjection extends _Drawable3D, Transformable3Dto3D{
+	interface Drawable3DPerspective extends _Drawable3D, Transformable3Dto3D{
 		a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number
-		/** Whether this drawable context has a projection component. True here */
-		readonly projection: true
+		/** Whether this drawable context has a perspective component. True here */
+		readonly perspective: true
 		/**
 		 * Reset all sub-context state (transform, shader, blend, mask, geometry) to match another drawable.
-		 * @param ctx The drawable to copy state from. Resetting to a Drawable3D (lacking projection) or any kind of Drawable2D is invalid
+		 * @param ctx The drawable to copy state from. Resetting to a Drawable3D (lacking perspective) or any kind of Drawable2D is invalid
 		 * @performance This method is CPU-logic, very fast and usually inlined
 		 */
-		resetTo(ctx: Drawable3DProjection): void
+		resetTo(ctx: Drawable3DPerspective): void
 		/**
 		 * Reset the 3D transform to a matrix defined by the 6 values, or the default matrix (where (0,0,1) is the bottom-left and (1,1,1) is the top right, and the vanishing point, which is in the Z+ direction, is at the bottom left)
 		 * 
@@ -1436,7 +1444,7 @@ namespace GammaInstance{
 		reset(a?: number, b?: number, c?: number, d?: number, e?: number, f?: number, g?: number, h?: number, i?: number, j?: number, k?: number, l?: number): void
 
 		/**
-		 * Returns the point which transforms to a w (projection value) of 0 in screen space, essentially the "camera" position in a 3D transformation
+		 * Returns the point which transforms to a w (perspective value) of 0 in screen space, essentially the "camera" position in a 3D transformation
 		 * @performance This performs a matrix inversion. For what it does, it is usually much faster to keep track of the camera's position manually and perform any additional math than to calculate it via this method every time it's needed
 		 */
 		perspectiveOrigin(): vec3

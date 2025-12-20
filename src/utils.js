@@ -481,37 +481,5 @@ Array.map ??= (len=0, fn) => {
 }
 Gamma.utils = $ => {
 	Object.assign($, Nanobuf)
-	$.ParticleContainer = class ParticleContainer extends Array{
-		#config
-		constructor(config){ super(); this.#config = config }
-		get config(){ return this.#config }
-		set config(c){ this.#config = c; this.#free.length = 0; this.length = 0 }
-		lastT = NaN
-		#free = []
-		draw(ctx){
-			this.#config.prepare?.(ctx)
-			const dt = t - this.lastT || 0; this.lastT = t
-			for(let i = this.length-1; i >= 0; i--){
-				const p = this[i]
-				if(p && this.#config.update(ctx, p, dt)) this[i] = null, this.#free.push(i)
-			}
-			if(this.#free.length > max(5, this.length>>1)){
-				this.#free.length = 0
-				let i = 0
-				while(this[i]) i++
-				let j = i+1
-				while(j < this.length){
-					const n = this[j++]
-					if(n) this[i++] = n
-				}
-				this.length = i
-			}
-		}
-		add(...a){
-			const v = this.#config.init(...a)
-			if(this.#free.length) this[this.#free.pop()] = v
-			else this.push(v)
-		}
-	}
 	$.screenshot = (t='image/png',q) => new Promise(r => requestAnimationFrame(() => $.canvas.toBlob(r, t, q)))
 }}

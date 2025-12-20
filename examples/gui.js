@@ -17,7 +17,7 @@ void main(){
 `, {params: COLOR})
 
 const colors = Array.map(96, i => hsla((i>>1)*7.5, (i&1)*.2+.6, .5))
-const confetti = new ParticleContainer({
+const confetti = GUI.ParticleContainer({
 	update(ctx, p, dt){
 		const {dx, dy} = p
 		p.dy -= 50*dt
@@ -70,14 +70,29 @@ const ui = GUI.Layer(
 			updateLabel()
 			for(let i = 0; i < 50000; i++) confetti.add(x, y)
 		}))
+		.add(confetti)
 )
-
+let accX = 0, accY = 0, posZ = 0.6, targetPosZ = 0.6
 render = () => {
 	const dims = getUIDimensons()
 	ctx.reset(1/dims.width, 0, 0, 1/dims.height, 0, 0)
 	ctx.clear(0, 0, 0, 1)
 	ictx.reset()
 	ictx.onPointerUpdate((_, ptr) => void ptr?.setHint(PointerState.DEFAULT))
-	ui.draw(ctx.sub(), ictx, dims.width, dims.height)
-	confetti.draw(ctx)
+	ictx.onWheel((_, dy) => {
+		targetPosZ *= .999**dy
+		return null
+	})
+	ctx.translate(.5*dims.width, .5*dims.height)
+	const ctx3 = ctx.sub3dPersp(0, 4/dims.height)
+	const {x, y} = ctx.unproject(ictx.cursor ?? {x: .5, y: .5})
+	const expDt = 1 - 0.5**dt
+	posZ += (targetPosZ-posZ)*expDt
+	ctx3.translate(0, 0, (.5+posZ)*dims.height*.25)
+	accX += (x*.01-accX)*expDt; accY += (y*.01-accY)*expDt
+	ctx3.rotateXZ(-accX)
+	ctx3.rotateZY(accY)
+	const ctx2 = ctx3.sub2dXY()
+	ctx2.translate(-.5*dims.width, -.5*dims.height)
+	ui.draw(ctx2.sub(), ictx, dims.width, dims.height)
 }

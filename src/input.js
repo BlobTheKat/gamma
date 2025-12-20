@@ -681,18 +681,15 @@ Gamma.input = ($, can = $.canvas) => {
 	can.addEventListener('mousedown', e => {
 		if(document.activeElement?._ictx != ictx) can.focus()
 		e.preventDefault()
-		$.t = performance.now()*.001
 		ictx.setKey(e.button, true)
 	})
 	can.addEventListener('mouseup', e => {
 		e.preventDefault()
-		$.t = performance.now()*.001
 		ictx.setKey(e.button, false)
 	})
 	can.addEventListener('contextmenu', e => e.preventDefault())
 	can.addEventListener('wheel', e => {
 		e.preventDefault()
-		$.t = performance.now()*.001
 		ictx.fireWheel(e.wheelDeltaX, e.wheelDeltaY)
 	}, {passive: false})
 	let prevx = NaN, prevy = NaN
@@ -715,7 +712,6 @@ Gamma.input = ($, can = $.canvas) => {
 				dx = e.offsetX-prevx, dy = e.offsetY-prevy
 			}else return
 		}finally{ prevx = e.offsetX, prevy = e.offsetY }
-		$.t = performance.now()*.001
 		ictx.fireMouse(dx, -dy)
 	})
 	let cur = 0, prevCur = 0
@@ -728,7 +724,6 @@ Gamma.input = ($, can = $.canvas) => {
 		const code = overrides[e.code] ?? e.keyCode
 		if(e.repeat){ return allowRepeats.has(code) }
 		toCaptureEl = null
-		$.t = performance.now()*.001
 		let ret = ictx.setKey(code, true)
 		if(toCaptureEl){
 			if(document.activeElement != toCaptureEl) ignoreBlur = true, toCaptureEl.focus(), ignoreBlur = false
@@ -740,7 +735,6 @@ Gamma.input = ($, can = $.canvas) => {
 	const onkeyup = e => {
 		const code = overrides[e.code] ?? e.keyCode
 		toCaptureEl = null
-		$.t = performance.now()*.001
 		let ret = ictx.setKey(code, false)
 		if(toCaptureEl){
 			if(document.activeElement != toCaptureEl) ignoreBlur = true, toCaptureEl.focus(), ignoreBlur = false
@@ -751,7 +745,6 @@ Gamma.input = ($, can = $.canvas) => {
 	}
 	const onblur = _ => {
 		if(ignoreBlur) return
-		$.t = performance.now()*.001
 		ictx.iter(n => ictx.setKey(n, false))
 		for(const k of ictx._pointers.keys()) if(k<0) ictx.setGamepad(~k, null)
 	}
