@@ -350,6 +350,7 @@
 		}
 		add(...a){
 			const v = this.#config.init(...a)
+			if(!this.#particles.length) this.lastT = t
 			if(this.#free.length) this.#particles[this.#free.pop()] = v
 			else this.#particles.push(v)
 		}
