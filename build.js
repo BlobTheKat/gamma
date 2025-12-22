@@ -112,7 +112,9 @@ const glConstants = {
 	ELEMENT_ARRAY_BUFFER: 34963,
 	STATIC_DRAW: 35044,
 	CULL_FACE: 2884,
-	CW: 2304
+	CW: 2304,
+	DEPTH: 6145,
+	UNSIGNED_SHORT: 5123
 }
 const unknownConstants = new Set()
 

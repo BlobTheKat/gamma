@@ -43,8 +43,8 @@ const resolveData = (val, cb, err) => typeof val == 'string' ?
 		: cb(val)
 
 $.Gamma = (can = document.createElement('canvas'), $ = {}, flags = 15) => {
-/** @type WebGL2RenderingContext */
 $.flags = flags
+/** @type WebGL2RenderingContext */
 const gl = $.gl = ($.canvas = can).getContext('webgl2', {preserveDrawingBuffer: !(flags&8), antialias: flags&16, depth: false, premultipliedAlpha: flags&4, stencil: flags&1, alpha: flags&2})
 gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1)
 gl.stencilMask(1)
@@ -152,7 +152,10 @@ $.Formats={
 	R32F: [33326,gl.RED,gl.FLOAT],
 	RG32F: [33328,gl.RG,gl.FLOAT],
 	RGB32F: [34837,gl.RGB,gl.FLOAT],
-	RGBA32F: [34836,gl.RGBA,gl.FLOAT]
+	RGBA32F: [34836,gl.RGBA,gl.FLOAT],
+	DEPTH32F: [36012,gl.DEPTH,gl.FLOAT],
+	DEPTH24: [33190,gl.DEPTH,gl.UNSIGNED_INT],
+	DEPTH16: [33189,gl.DEPTH,gl.UNSIGNED_SHORT]
 }
 $.vec2 = (x=0,y=x) => ({x,y})
 $.vec2.one = $.vec2(1); const v2z = $.vec2.zero = $.vec2(0)

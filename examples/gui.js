@@ -74,7 +74,7 @@ const ui = GUI.Layer(
 )
 let accX = 0, accY = 0, posZ = 0.6, targetPosZ = 0.6
 render = () => {
-	const dims = getUIDimensons()
+	const dims = getGUIDimensions()
 	ctx.reset(1/dims.width, 0, 0, 1/dims.height, 0, 0)
 	ctx.clear(0, 0, 0, 1)
 	ictx.reset()

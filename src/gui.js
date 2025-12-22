@@ -64,9 +64,10 @@
 		draw(ctx, ictx, w, h){ this.text.draw(ctx) }
 	}
 	$.canvas.style.setProperty('--__gamma__sarea__', 'env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)')
-	$.getUIDimensons = () => {
+	$.getGUIDimensions = (s=16) => {
+		s = 1/s
 		const {0: t, 1: r, 2: b, 3: l} = getComputedStyle($.canvas).getPropertyValue('--__gamma__sarea__').split(' ')
-		return { width: $.canvas.offsetWidth*.0625, height: $.canvas.offsetHeight*.0625, paddingLeft: parseFloat(l), paddingRight: parseFloat(r), paddingBottom: parseFloat(b), paddingTop: parseFloat(t) }
+		return { width: $.canvas.offsetWidth*s, height: $.canvas.offsetHeight*s, paddingLeft: parseFloat(l)*s, paddingRight: parseFloat(r)*s, paddingBottom: parseFloat(b)*s, paddingTop: parseFloat(t)*s }
 	}
 	class Box extends GUIElement{
 		constructor(el, pos, sz){ super(); this.child = el; this.pos = pos; this.size = sz }

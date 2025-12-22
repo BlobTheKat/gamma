@@ -67,6 +67,44 @@ const smoothNormalShader = Shader(`void main(){
 	vertex: Geometry3D.Vertex.WITH_NORMALS
 })
 
+const sceneIctx = InputContext()
+ictx.next = sceneIctx
+
+
+const lerp = (a,b,c) => a+(b-a)*c*c*(3-2*c)
+const uhash = (x, y) => {
+	x = imul(x, 1597334673) ^ imul(y, 3812015801)
+	x = imul(x, 0x7feb352d)
+	x = x ^ (x >>> 15)
+	x = imul(x, 0x846ca68b)
+	return x
+}
+const valnoise2 = (x, y) => {
+	let fx = floor(x), fy = floor(y)
+	x -= fx, y -= fy
+	let v = uhash(fx, fy)
+	let a = (v&0xffff)/65535, b = (v>>>16)/65535
+	v = uhash(fx+1, fy)
+	a = lerp(a, (v&0xffff)/65535, x); b = lerp(b, (v>>>16)/65535, x)
+	v = uhash(fx+1, fy+1)
+	let a2 = (v&0xffff)/65535, b2 = (v>>>16)/65535
+	v = uhash(fx, fy+1)
+	a2 = lerp((v&0xffff)/65535, a2, x); b2 = lerp((v>>>16)/65535, b2, x)
+	return vec2(lerp(a, a2, y), lerp(b, b2, y))
+}
+ictx.onPointerUpdate((_id, ptr) => {
+	if(ptr && sfx == 4){
+		let {x, y} = ptr
+		x *= ctx.width/ctx.height*10; y *= 10
+		x += .6*t; y += 1.6*t
+		let {x: offx, y: offy} = valnoise2(x, y)
+		offx += t*1.6; offy += t*.5
+		let {x: vx, y: vy} = valnoise2((x+y)*0.3571428571+offx, (x-y)*0.3571428571+offy)
+		vx = (vx-.5)*ctx.width/ctx.height*.1; vy = (vy-.5)*.1
+		ptr.x += vx, ptr.y += vy
+	}
+})
+
 ictx.onKey(MOUSE.LEFT, () => {
 	pointerLock = true
 })
@@ -104,7 +142,7 @@ function drawText(ctx){
 		ctx3.rotateXZ(t)
 		ctx3.rotateXY(t)
 		ctx3.drawCube(-1, -1, -1, 2, 2, 2, vec4(.8,0,0,1))
-	const {x, y} = ctx.unproject(pointerLock ? vec2(.5) : ictx.cursor ?? {x:0,y:0})
+	const {x, y} = ctx.unproject(sceneIctx.cursor ?? vec2(.5))
 	label.draw(ctx.sub())
 	ctx.mask |= IF_SET
 	ctx.drawRect(x-.1, y-.01, .2, .02, vec4(0,0,0,1))
@@ -235,6 +273,7 @@ ictx.onGamepadAxis(GAMEPAD.LEFT_STICK, (x, y) => {
 	ictx.setKey(KEY.S, y < -.5)
 	ictx.setKey(KEY.D, x > .5)
 })
+let oldSfx = 0
 render = () => {
 	ctxSupersample = ictx.has(KEY.V)||ictx.gamepad?.has(GAMEPAD.LEFT) ? 0.125/devicePixelRatio : 1 + (devicePixelRatio < 2)
 	if(selectedShader == -1) sfx = 0
@@ -245,22 +284,21 @@ render = () => {
 	FOV += (targetFov - FOV) * min(1, dt*20)
 	
 	skyShader.uniforms(t)
-	const {width, height} = ctx
 	let scene = ctx
-	if(!surface || surface.width != width || surface.height != height){
+	if(!surface || surface.width != ctx.width || surface.height != ctx.height){
 		surface?.delete()
-		surface = Texture(width, height, 1, SMOOTH, Formats.RGB, 999)
-		surface2 = Texture(width, height, 1, 0, Formats.RGBA32F)
+		surface = Texture(ctx.width, ctx.height, 1, SMOOTH, Formats.RGB, 999)
+		surface2 = Texture(ctx.width, ctx.height, 1, 0, Formats.RGBA32F)
 		altctx.setTarget(0, surface)
 		altctx2.setTarget(0, surface2)
-		for(const sh of [bulgeShader, ghostShader, edgeShader, waterShader]) sh.uniforms(surface, width/height)
+		for(const sh of [bulgeShader, ghostShader, edgeShader, waterShader]) sh.uniforms(surface, ctx.width/ctx.height)
 	}
 	if(sfx){
 		scene = altctx
 		scene.clearStencil()
 	}
-	scene.reset(.025*height/width, 0, 0, .025, .5, .5)
-	const h = 40, w = width/height*40
+	const {width: w, height: h} = getGUIDimensions(20)
+	scene.reset(1/w, 0, 0, 1/h, .5, .5)
 
 	let ctx3 = scene.sub3dPersp((ictx.has(KEY.P)||(ictx.gamepad?.has(GAMEPAD.DOWN)??false))*.4, 1)
 	const sc = .16/tan(FOV * PI/360)
@@ -326,7 +364,7 @@ render = () => {
 	
 	const hint = pointerLock ? 'Press 0-9 to try some special FX' : 'Click anywhere to lock pointer'
 	const sc2 = scene.sub()
-	sc2.translate(fonts.ubuntu.measure(hint)*-.5, -18)
+	sc2.translate(fonts.ubuntu.measure(hint)*-.5, -.5*h+3)
 	sc2.shader = Shader.MSDF
 	fonts.ubuntu.draw(sc2, hint, [vec4(.3+sin(t*PI)*.2)])
 	if(sfx){
@@ -364,4 +402,5 @@ render = () => {
 	const str = `FPS: ${fps==fps?fps.toFixed(1):'-'}`
 	fonts.ubuntu.draw(ctx.sub(), str, [vec4(0,0,0,1)], -.03, .07)
 	fonts.ubuntu.draw(ctx, str, [], -.03)
+	if(sfx == 4 || sfx != oldSfx) ictx.refirePointers(), oldSfx = sfx
 }

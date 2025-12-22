@@ -257,6 +257,16 @@ globalThis.BitField ??= class BitField extends Array{
 	}
 }
 {
+document.addEventListener('pointerlockchange', () => {
+	const ictx = document.pointerLockElement?._ictx
+	if(ictx){
+		if(ptrlockPointer = ictx.cursor) ictx.setPointer(0, null)
+		ptrlockIctx = ictx
+	}else if(ptrlockIctx){
+		if(ptrlockPointer) ptrlockIctx.setPointer(0, ptrlockPointer), ptrlockPointer = null
+		ptrlockIctx = null
+	}
+})
 const vib = function(leftWeak = 1, leftStrong = 1, rightWeak = 1, rightStrong = 1, duration = 1){
 	this.playEffect?.('dual-rumble', {
 		duration: duration*1000,
@@ -581,7 +591,8 @@ class Ictx extends BitField{
 		}
 		g._subscribed.push(this)
 	}
-	refirePointer(id){ this.setPointer(id, this._pointers.get(id) ?? null, true) }
+	refirePointer(id){ const p = this._pointers.get(id); this.setPointer(id, p ? new PointerState(p) : null, true) }
+	refirePointers(){ for(const {0:k,1:v} of this._pointers) if(k >= 0) this.setPointer(k, new PointerState(v), true) }
 	setGamepad(id, gamepad = null, refire = false){
 		if((id=~id) >= 0) return
 		let self = this
@@ -622,7 +633,8 @@ class Ictx extends BitField{
 		}
 		return gamepad
 	}
-	refireGamepad(id){ this.setGamepad(id, this._pointers.get(~id) ?? null, true) }
+	refireGamepad(id){ const p = this._pointers.get(~id); this.setGamepad(id, p ? new GamepadState(p) : null, true) }
+	refireGamepads(){ for(const {0:k,1:v} of this._pointers) if(k < 0) this.setGamepad(~k, new GamepadState(v), true) }
 	fireWheel(dx=0, dy=0){
 		if(typeof dx == 'object') dy = +dx.y, dx = +dx.x
 		let self = this
@@ -647,6 +659,8 @@ class Ictx extends BitField{
 	}
 	clearDeltas(){ this.mouse.x = this.mouse.y = this.wheel.x = this.wheel.y = 0 }
 }
+let ptrlockPointer = null, ptrlockIctx = null
+const pointers = []
 Gamma.input = ($, can = $.canvas) => {
 	if(can._ictx) return
 	$.MOUSE = MOUSE
@@ -725,7 +739,7 @@ Gamma.input = ($, can = $.canvas) => {
 		if(e.repeat){ return allowRepeats.has(code) }
 		toCaptureEl = null
 		let ret = ictx.setKey(code, true)
-		if(toCaptureEl){
+		if(toCaptureEl && toCaptureKey == code){
 			if(document.activeElement != toCaptureEl) ignoreBlur = true, toCaptureEl.focus(), ignoreBlur = false
 			ret = true
 		}else if(document.activeElement != can) ret = false
@@ -736,7 +750,7 @@ Gamma.input = ($, can = $.canvas) => {
 		const code = overrides[e.code] ?? e.keyCode
 		toCaptureEl = null
 		let ret = ictx.setKey(code, false)
-		if(toCaptureEl){
+		if(toCaptureEl && toCaptureKey == ~code){
 			if(document.activeElement != toCaptureEl) ignoreBlur = true, toCaptureEl.focus(), ignoreBlur = false
 			ret = true
 		}else if(document.activeElement != can) ret = false
@@ -761,15 +775,14 @@ Gamma.input = ($, can = $.canvas) => {
 	$.captureKeyEvent = (domEl, key=0, isDown=false) => {
 		if((key|=0) < 0) return
 		if(!domEl._ictx) _addFocusableAlternate(domEl)
-		toCaptureEl = domEl; toCaptureKey = key^-isDown
+		toCaptureEl = domEl; toCaptureKey = key^-!isDown
 	}
 	$.setFocused = (domEl = null) => {
 		if(!domEl) domEl = can
 		else if(!domEl._ictx) _addFocusableAlternate(domEl)
 		ignoreBlur = true; domEl.focus(); ignoreBlur = false
 	}
-	const setCursor = (t) => {cur=t}
-	const pointers = []
+	const setCursor = t => {cur=t}
 	const pointerupdate = e => {
 		if(e.pointerId==-1) return
 		const ptr = new PointerState()
@@ -781,12 +794,14 @@ Gamma.input = ($, can = $.canvas) => {
 		ptr.tiltY = e.tiltY*.017453292519943295
 		ptr.twist = e.twist*.017453292519943295
 		let id = 0
-		if(e.pointerType == 'mouse') ptr.setHint = setCursor
-		else{
+		if(e.pointerType == 'mouse'){
+			ptr.setHint = setCursor
+			if(document.pointerLockElement == can){ ptrlockPointer = ptr; return }
+		}else{
 			id = pointers.indexOf(e.pointerId)+1
 			if(!id) id = pointers.push(e.pointerId)
 		}
-		ictx.setPointer(id, ptr)
+		can._ictx.setPointer(id, ptr)
 	}
 	can.addEventListener('pointerover', pointerupdate)
 	can.addEventListener('pointerdown', pointerupdate)
@@ -802,7 +817,7 @@ Gamma.input = ($, can = $.canvas) => {
 				let i = pointers.length-1
 				do{ pointers.pop() }while(i&&!pointers[--i])
 			}else pointers[id-1] = null
-		}
+		}else if(document.pointerLockElement == can){ ptrlockPointer = null; return }
 		ictx.setPointer(id, null)
 	})
 	can.addEventListener('touchend', e => e.preventDefault())
