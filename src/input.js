@@ -471,6 +471,7 @@ class Ictx extends BitField{
 	wheel = {x: 0, y: 0} // accumulated wheel delta
 	mouse = {x: 0, y: 0} // accumulated mouse delta
 	cursor = null // "normalized" cursor position. For the main canvas this is usually in [0,1]. This value is always == .pointer(0)
+	firstPointer = null // This value is always the oldest pointer on this context, or null if no pointer are over this context
 	gamepad = null // Primary gamepad. This value is always the oldest gamepad on this context, or null if no gamepads are connected on this context
 	_pointers = new Map()
 	pointer(id){ return (id|=0) >= 0 ? this._pointers.get(id) ?? null : null }
@@ -565,6 +566,7 @@ class Ictx extends BitField{
 				if(pointer){
 					p = new PointerState(pointer)
 					if(!id) self.cursor = p
+					self.firstPointer ??= p
 					self._pointers.set(id, p)
 					let i = self._npcbs.length
 					while(i--) try{ const p2 = self._npcbs[i](id, pointer, null, self); if(typeof p2 == 'object') pointer = p2 }catch(e){Promise.reject(e)}
@@ -572,6 +574,10 @@ class Ictx extends BitField{
 			}else if(!pointer){
 				self._pointers.delete(id)
 				if(!id) self.cursor = null
+				if(p == this.firstPointer){
+					this.firstPointer = null
+					for(const {0:k,1:v} of this._pointers) if(k>=0){ this.firstPointer = v; break }
+				}
 				let i = self._dpcbs.length
 				while(i--) try{ const p2 = self._dpcbs[i](id, pointer, p, self); if(typeof p2 == 'object') pointer = p2 }catch(e){Promise.reject(e)}
 			}else p.update(pointer)
@@ -622,7 +628,7 @@ class Ictx extends BitField{
 						const n = a[i]
 						if(n.x!==0&&n.y!==0) this._fireGamepadAxisUpdate(i, 0, 0)
 					}
-					for(const {0:k,1:v} of this._pointers) if(k<0){ this.#setMainGamepad(g); break }
+					for(const {0:k,1:v} of this._pointers) if(k<0){ this.#setMainGamepad(v); break }
 				}
 				let i = self._dgcbs.length
 				while(i--) try{ const p2 = self._dgcbs[i](id, gamepad, g, self); if(typeof p2 == 'object') gamepad = p2 }catch(e){Promise.reject(e)}

@@ -440,7 +440,7 @@ class Tex{
 		if(t.i < 0) gl.bindTexture(gl.TEXTURE_2D_ARRAY, null)
 	}
 }
-$.Drawable = (stencil = false) => new Drw2D({ _fb: gl.createFramebuffer(), _stencil: 0, _stenBuf: stencil ? gl.createRenderbuffer() : null, w: 0, h: 0, u: 0 })
+$.Drawable = (stencil = false) => new Drw2D({ _fb: gl.createFramebuffer(), _stencil: 0, _stenBuf: stencil ? gl.createRenderbuffer() : null, w: 0, h: 0, u: 0, m: 0 })
 $.Drawable.MAX_TARGETS = gl.getParameter(gl.MAX_COLOR_ATTACHMENTS)
 $.Drawable.DRAW_32F = !!gl.getExtension('EXT_color_buffer_float')
 let arr = new Float32Array(1024), iarr = new Int32Array(arr.buffer), i = 0
@@ -1370,9 +1370,10 @@ const x = Object.getOwnPropertyDescriptors({
 		if(!t.w){
 			t.w = tex.width
 			t.h = tex.height
+			t.m = tex.msaa??0
 			if(t._stenBuf){
 				gl.bindRenderbuffer(gl.RENDERBUFFER, t._stenBuf)
-				gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, t.w, t.h)
+				t.m ? gl.renderbufferStorageMultisample(gl.RENDERBUFFER, t.m, gl.STENCIL_INDEX8, t.w, t.h) : gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, t.w, t.h)
 				gl.framebufferRenderbuffer(gl.DRAW_FRAMEBUFFER, gl.STENCIL_ATTACHMENT, gl.RENDERBUFFER, t._stenBuf)
 			}
 		}else if(t.w!=tex.width||t.h!=tex.height) return
@@ -1388,7 +1389,7 @@ const x = Object.getOwnPropertyDescriptors({
 		i&&draw()
 		if(lastd == this) lastd = null
 		let u = t.u
-		t.u = t.w = t.h = 0
+		t.u = t.w = t.h = t.m = 0
 		if(t._stenBuf){
 			gl.framebufferRenderbuffer(gl.DRAW_FRAMEBUFFER, gl.STENCIL_ATTACHMENT, gl.RENDERBUFFER, null)
 			gl.deleteRenderbuffer(t._stenBuf)
@@ -1413,7 +1414,7 @@ const x = Object.getOwnPropertyDescriptors({
 			if(curfb != t._fb) gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, curfb = t._fb), curt=lastd=null
 			if(b){
 				gl.bindRenderbuffer(gl.RENDERBUFFER, b)
-				gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, t.w, t.h)
+				t.m ? gl.renderbufferStorageMultisample(gl.RENDERBUFFER, t.m, gl.STENCIL_INDEX8, t.w, t.h) : gl.renderbufferStorage(gl.RENDERBUFFER, gl.STENCIL_INDEX8, t.w, t.h)
 				gl.framebufferRenderbuffer(gl.DRAW_FRAMEBUFFER, gl.STENCIL_ATTACHMENT, gl.RENDERBUFFER, b)
 			}else{
 				gl.framebufferRenderbuffer(gl.DRAW_FRAMEBUFFER, gl.STENCIL_ATTACHMENT, gl.RENDERBUFFER, null)
@@ -2048,7 +2049,7 @@ $.flush = () => {
 	}
 	for(const f of onfl) try{f()}catch(e){Promise.reject(e)}
 }
-const ctx = $.ctx = new Drw2D(curt = {_fb: null, _stencil: 0, _stenBuf: null, w: 0, h: 0, u: 0})
+const ctx = $.ctx = new Drw2D(curt = {_fb: null, _stencil: 0, _stenBuf: null, w: 0, h: 0, u: 0, m: 0})
 $.setSize = (w = 0, h = 0) => {
 	gl.canvas.width = w; gl.canvas.height = h
 	ctx.t.w = gl.drawingBufferWidth, ctx.t.h = gl.drawingBufferHeight

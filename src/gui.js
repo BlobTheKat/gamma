@@ -27,12 +27,37 @@
 		get width(){ let w = this.#w; if(w!==w){ const d = this._dimensions(); w = this.#w = d.x; this.#h = d.y } return w }
 		get height(){ let h = this.#h; if(h!==h){ const d = this._dimensions(); this.#w = d.x; h = this.#h = d.y } return h }
 	}
+	class GUIElementManualValidate{
+		#drawDep = null; _invalidated = false
+		invalidate = () => {
+			if(this._invalidated) return
+			this._invalidated = true
+			const hook = this.#drawDep
+			if(!hook) return
+			if(typeof hook == 'function') try{ hook() }catch(e){ Promise.reject(e) }
+			else for(const f of hook) try{ f() }catch(e){ Promise.reject(e) }
+		}
+		addDependency(cb){ if(typeof cb !== 'function') return; const l = this.#drawDep; if(!l) this.#drawDep = cb; else if(typeof l == 'function') this.#drawDep = [l, cb]; else l.push(cb) }
+		removeDependency(cb){
+			const l = this.#drawDep
+			if(!l) return
+			if(typeof l == 'function'){
+				if(l === cb) this.#drawDep = null
+				return
+			}
+			let i = l.indexOf(cb)
+			if(i < 0) return
+			while(i<l.length) l[i] = l[++i]
+			l.pop()
+		}
+	}
 	const zdraw = function(ctx, ictx, w, h){
+		this._invalidated = false
 		let i = this.children.length
 		for(const el of this.children) el.draw?.(--i ? ctx.sub() : ctx, ictx, w, h)
 	}
 	const list = (draw, layout) => {
-		class list extends GUIElement{
+		class list extends GUIElementManualValidate{
 			children = []
 			add(el){ this.children.push(el); el.addDependency(this.invalidate); return this }
 			remove(n){
@@ -69,7 +94,7 @@
 		const {0: t, 1: r, 2: b, 3: l} = getComputedStyle($.canvas).getPropertyValue('--__gamma__sarea__').split(' ')
 		return { width: $.canvas.offsetWidth*s, height: $.canvas.offsetHeight*s, paddingLeft: parseFloat(l)*s, paddingRight: parseFloat(r)*s, paddingBottom: parseFloat(b)*s, paddingTop: parseFloat(t)*s }
 	}
-	class Box extends GUIElement{
+	class Box extends GUIElementManualValidate{
 		constructor(el, pos, sz){ super(); this.child = el; this.pos = pos; this.size = sz }
 		width = 0; height = 0
 		replace(other){
@@ -78,6 +103,7 @@
 		}
 		sized(w, h){ this.width = w; this.height = h; return this }
 		draw(ctx, ictx, w, h){
+			this._invalidated = false
 			if(!this.child.draw) return
 			const {width, height} = this.child
 			let {size, pos} = this, xs = 1, ys = 1
@@ -95,7 +121,7 @@
 			this.child.draw(ctx, ictx, width, height)
 		}
 	}
-	class Transform extends GUIElement{
+	class Transform extends GUIElementManualValidate{
 		constructor(el, tr, ax, ay){ super(); this.child = el; this.child.addDependency(this.invalidate); this.transform = tr; this.anchorX = ax; this.anchorY = ay }
 		get width(){ return this.child.width }
 		get height(){ return this.child.height }
@@ -104,10 +130,11 @@
 			void (this.child = other).addDependency(this.invalidate)
 		}
 		draw(ctx, ictx, w, h){
+			this._invalidated = false
 			if(!this.child.draw) return
 			ctx.translate(w*this.anchorX, h*this.anchorY)
-			this.transform(ctx, w, h)
 			const {width, height} = this.child
+			this.transform(ctx, w, h, width, height)
 			ctx.translate(-width*this.anchorX, -height*this.anchorY)
 			this.child.draw(ctx, ictx, width, height)
 		}
@@ -183,58 +210,7 @@
 		}
 		draw(ctx, ictx, w, h){ ictx.onPointerUpdate(this.#onPointerUpdate.bind(this, ctx, w, h)) }
 	}
-	class Scrollable extends GUIElement{
-		x = 0; y = 0
-		sensitivity = .5
-		width = 0; height = 0
-		constructor(c){ this.child = c }
-		sized(w, h){ this.width = w; this.height = h; return this }
-		scrollBarX = dfs
-		scrollBarY = dfs
-		get scrollbar(){return this.scrollBarY}
-		set scrollbar(a){this.scrollBarX = this.scrollBarY = a}
-		consumeInputs(ctx){
-			const {x: wx, y: wy} = ctx.fromDelta(scrollDelta), s = this.sensitivity
-			scrollDelta.x = scrollDelta.y = 0
-			const w = this.contents.width, h = this.contents.height
-			this.x = this.width > 0 ? max(0, min(this.x + wx*s, w-this.width)) : min(0, max(this.x + wx*s, -w-this.width))
-			this.y = this.height > 0 ? max(0, min(this.y + wy*s, h-this.height)) : min(0, max(this.y + wy*s, -h-this.height))
-			ictx.wheel.x = ictx.wheel.y = 0
-			const c = this.contents
-			if(!c) return
-			ctx = ctx.sub()
-			ctx.translate((c.xOffset??0)-this.x, (c.yOffset??0)-this.y)
-			c.consumeInputs?.(ctx)
-		}
-		draw(ctx, ictx){
-			const c = this.contents
-			if(!c?.draw) return
-			const m = ctx.mask
-			const ct2 = ctx.sub()
-			ct2.mask = 128 // SET
-			ct2.drawRect(0, 0, this.width, this.height)
-			ct2.mask = m&15|16 // RGBA | IF_SET
-			ct2.translate((c.xOffset??0)-this.x, (c.yOffset??0)-this.y)
-			this.contents.draw(ct2, ictx)
-			ctx.clearStencil()
-			if(this.scrollBarX && this.height){
-				const ct2 = ctx.sub()
-				ct2.translate(0, this.height)
-				if(this.height > 0) ct2.scale(1, -1)
-				const w = abs(this.width), w1 = w / c.width
-				if(w1 < 1) this.scrollBarX(ct2, abs(this.x) * w1, w * w1)
-			}
-			if(this.scrollBarY && this.width){
-				const ct2 = ctx.sub()
-				ct2.translate(this.width, 0)
-				ct2.multiply(0, 1)
-				if(this.width > 0) ct2.scale(1, -1)
-				const h = abs(this.height), h1 = h / c.height
-				if(h1 < 1) this.scrollBarY(ct2, abs(this.y) * h1, h * h1)
-			}
-		}
-	}
-	class Layer extends GUIElement{
+	class Layer extends GUIElementManualValidate{
 		width = 0; height = 0
 		ictx = InputContext()
 		constructor(c){ super(); this.child = c; this.child.addDependency(this.invalidate) }
@@ -281,7 +257,6 @@
 				if(abs(d-this.#d)*width + abs(e-this.#e)*height > tol1) break a
 				diff = false
 			}
-			// The order here is specific and intentional 🙏
 			if(sw!=this.#sw||this._invalidated||diff||sh!=this.#sh){
 				const bound = ctx.loopBoundary()
 				this.#sw = sw; this.#sh = sh; this._invalidated = false; this.#tw = width; this.#th = height
@@ -349,6 +324,42 @@
 			ictx.onGamepadUpdate(this.ictx)
 		}
 	}
+	class Scrollable extends Layer{
+		x = 0; y = 0
+		sensitivity = .5
+		constructor(c){ this.child = c }
+		scrollBarX = dfs
+		scrollBarY = dfs
+		get scrollbar(){return this.scrollBarY}
+		set scrollbar(a){ this.scrollBarX = this.scrollBarY = a }
+		draw(ctx, ictx){
+			const c = this.contents
+			if(!c?.draw) return
+			const m = ctx.mask
+			const ct2 = ctx.sub()
+			ct2.mask = 128 // SET
+			ct2.drawRect(0, 0, this.width, this.height)
+			ct2.mask = m&15|16 // RGBA | IF_SET
+			ct2.translate((c.xOffset??0)-this.x, (c.yOffset??0)-this.y)
+			this.contents.draw(ct2, ictx)
+			ctx.clearStencil()
+			if(this.scrollBarX && this.height){
+				const ct2 = ctx.sub()
+				ct2.translate(0, this.height)
+				if(this.height > 0) ct2.scale(1, -1)
+				const w = abs(this.width), w1 = w / c.width
+				if(w1 < 1) this.scrollBarX(ct2, abs(this.x) * w1, w * w1)
+			}
+			if(this.scrollBarY && this.width){
+				const ct2 = ctx.sub()
+				ct2.translate(this.width, 0)
+				ct2.multiply(0, 1)
+				if(this.width > 0) ct2.scale(1, -1)
+				const h = abs(this.height), h1 = h / c.height
+				if(h1 < 1) this.scrollBarY(ct2, abs(this.y) * h1, h * h1)
+			}
+		}
+	}
 	class ParticleContainer extends GUIElement{
 		#config
 		constructor(config){ super(); this.#config = config }
@@ -366,7 +377,7 @@
 				const p = this.#particles[i]
 				if(p && this.#config.update(ctx, p, dt)) this.#particles[i] = null, this.#free.push(i)
 			}
-			if(this.#free.length > min(len, max(5, len>>1))){
+			if(this.#free.length >= min(len, max(5, len>>1))){
 				this.#free.length = 0
 				let i = 0
 				while(this.#particles[i]) i++

@@ -24,13 +24,13 @@ const confetti = GUI.ParticleContainer({
 		const drag = p.drag*dt+1, hdt = dt*.5; p.dx *= drag; p.dy *= drag
 		p.x += (p.dx+dx)*hdt; p.y += (p.dy+dy)*hdt
 		ctx.drawRect(p.x-p.r, p.y-p.r, p.r*2, p.r*2, p.col)
-		return (p.t -= dt) < 0
+		return p.y < -p.r
 	},
 	init(x, y){
-		const th = random()*PI2, r = sqrt(random())*50
+		const th = random()*PI2, r = sqrt(random())*30
 		const col = (sin(th+t*3)+1)*.15
 		const sz = random()*.2+.1
-		return {x, y, dx: sin(th)*r, dy: cos(th)*r + 25, r: sz, col: colors[floor((col+this.seed+random()*.35)*96)%96], t: 5, drag: log(.9-sz)}
+		return {x, y, dx: sin(th)*r, dy: cos(th)*r + 25, r: sz, col: colors[floor((col+this.seed+random()*.35)*96)%96], drag: log(.9-sz)}
 	},
 	seed: random(),
 	prepare(ctx){
@@ -59,16 +59,16 @@ updateLabel()
 const ui = GUI.Layer(
 	GUI.ZStack()
 		.add(GUI.BoxFill(Texture.from('/examples/mountains.jpeg'), GUI.BOTTOM, max, vec4(.5)))
-		.add(GUI.Transform(label, function(ctx){
+		.add(GUI.Transform(label, function(ctx, w, h, w2, h2){
 			let a = max(0, lastPressed-t+.5); a *= a
-			ctx.scale(3+a*3)
+			ctx.scale(min((w-2)/w2, 3+a*3))
 			ctx.rotate(-.5*a)
 			if(a) this.invalidate()
 		}))
 		.add(GUI.Target((x, y) => {
 			n++; lastPressed = t
 			updateLabel()
-			for(let i = 0; i < 50000; i++) confetti.add(x, y)
+			for(let i = 0; i < 2000; i++) confetti.add(x, y)
 		}))
 		.add(confetti)
 )
@@ -85,7 +85,7 @@ render = () => {
 	})
 	ctx.translate(.5*dims.width, .5*dims.height)
 	const ctx3 = ctx.sub3dPersp(0, 4/dims.height)
-	const {x, y} = ctx.unproject(ictx.cursor ?? {x: .5, y: .5})
+	const {x, y} = ctx.unproject(ictx.firstPointer ?? {x: .5, y: .5})
 	const expDt = 1 - 0.5**dt
 	posZ += (targetPosZ-posZ)*expDt
 	ctx3.translate(0, 0, (.5+posZ)*dims.height*.25)
@@ -95,6 +95,6 @@ render = () => {
 	const ctx2 = ctx3.sub2dXY()
 	ctx2.translate(-.5*dims.width, -.5*dims.height)
 	ui.draw(ctx2.sub(), ictx, dims.width, dims.height)
-	const a = ui.lastRedraw-t+.25
-	if(a>0) ctx2.drawRect(0, 0, dims.width, dims.height, vec4(a*a*4,0,0,0))
+	//const a = ui.lastRedraw-t+.25
+	//if(a>0) ctx2.drawRect(0, 0, dims.width, dims.height, vec4(a*a*4,0,0,0))
 }
