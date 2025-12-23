@@ -95,4 +95,6 @@ render = () => {
 	const ctx2 = ctx3.sub2dXY()
 	ctx2.translate(-.5*dims.width, -.5*dims.height)
 	ui.draw(ctx2.sub(), ictx, dims.width, dims.height)
+	const a = ui.lastRedraw-t+.25
+	if(a>0) ctx2.drawRect(0, 0, dims.width, dims.height, vec4(a*a*4,0,0,0))
 }

@@ -249,13 +249,40 @@
 			this.child.removeDependency(this.invalidate)
 			void (this.child = other).addDependency(this.invalidate)
 		}
+		tolerance = 0.25
+		depthTolerance = 0.01
+		lastRedraw = -1
 		draw(ctx, ictx, sw, sh){
-			let a, b, c, d, e, f, g, h, i
-			if(ctx.perspective) ({a, b, c, d, e, f, g, h, i} = ctx); else ({a, b, c: d, d: e, e: g, f: h} = ctx), c=0,f=0,i=1
-			// The order here is specific and intentional 🙏
+			let a, b, c, d, e, f, g, h, i, diff = true
 			const {width, height} = ctx
 			ctx.scale(sw, sh)
-			if(sw!=this.#sw||this._invalidated||a!=this.#a||b!=this.#b||sh!=this.#sh||c!=this.#c||d!=this.#d||e!=this.#e||f!=this.#f||g!=this.#g||h!=this.#h||i!=this.#i||this.#tw!=width||this.#th!=height){
+			// Tolerance of 1/4px
+			const tol1 = +this.tolerance, tg = this.#g, th = this.#h
+			a: if(ctx.perspective){
+				const tol2 = tol1*(1-this.depthTolerance)
+				void ({a, b, c, d, e, f, g, h, i} = ctx)
+				if(tg !== tg) break a
+				let i0 = i, i1 = this.#i; if(i0>i1) i0 = i1, i1 = i
+				if(max(abs(g-tg)*width + abs(h-th)*height, max(i1, 1e-6)*tol2) > max(i0, 1e-6)*tol1) break a
+				const gd = g+d, gd2 = tg+this.#d, he = h+e, he2 = th+this.#e, fi = i+f, fi2 = this.#i + this.#f
+				if(fi>fi2) i0 = fi2, i1 = fi; else i0 = fi, i1 = fi2
+				if(max(abs(gd-gd2)*width + abs(he-he2)*height, max(i1, 1e-6)*tol2) > max(i0, 1e-6)*tol1) break a
+				i0 = fi+c, i1 = fi2+this.#c; if(i0>i1) i0 = i1, i1 = fi2+c
+				if(max(abs(gd+a-(gd2+this.#a))*width + abs(he+b-(he2+this.#b))*height, max(i1, 1e-6)*tol2) > max(i0, 1e-6)*tol1) break a
+				i0 = i+c, i1 = this.#i+this.#c; if(i0>i1) i0 = i1, i1 = i+c
+				if(max(abs(g+a-(tg+this.#a))*width + abs(h+b-(th+this.#b))*height, max(i1, 1e-6)*tol2) > max(i0, 1e-6)*tol1) break a
+				diff = false
+			}else{
+				void ({a, b, c: d, d: e, e: g, f: h} = ctx)
+				c = 0, f = 0, i = 1
+				if(tg !== tg) break a
+				if(abs(g-tg)*width + abs(h-th)*height > tol1) break a
+				if(abs(a-this.#a)*width + abs(b-this.#b)*height > tol1) break a
+				if(abs(d-this.#d)*width + abs(e-this.#e)*height > tol1) break a
+				diff = false
+			}
+			// The order here is specific and intentional 🙏
+			if(sw!=this.#sw||this._invalidated||diff||sh!=this.#sh){
 				const bound = ctx.loopBoundary()
 				this.#sw = sw; this.#sh = sh; this._invalidated = false; this.#tw = width; this.#th = height
 				this.#a = a; this.#b = b; this.#c = c; this.#d = d; this.#e = e; this.#f = f; this.#g = g; this.#h = h; this.#i = i
@@ -265,6 +292,7 @@
 					this.#rw = -1
 					if(tex) this.#drw.setTarget(0, null), tex.delete(), this.#tex = null
 				}else{
+					this.lastRedraw = t
 					const o = this.options
 					const x0 = floor(bound.x0*width), rw = ceil(bound.x1*width)-x0
 					const y0 = floor(bound.y0*height), rh = ceil(bound.y1*height)-y0
@@ -280,9 +308,11 @@
 					const irw = 1/this.#rw, irh = 1/this.#rh
 					if(ctx.perspective){
 						this.#drw2.reset((a-this.#x0*c)*irw,(b-this.#y0*c)*irh,c,(d-this.#x0*f)*irw,(e-this.#y0*f)*irh,f,(g-this.#x0*i)*irw,(h-this.#y0*i)*irh,i)
+						this.#drw2.scale(1/sw, 1/sh)
 						this.child.draw(this.#drw2, this.ictx, sw, sh)
 					}else{
 						this.#drw.reset(a*irw,b*irh,d*irw,e*irh,(g-this.#x0)*irw,(h-this.#y0)*irh)
+						this.#drw.scale(1/sw, 1/sh)
 						this.child.draw(this.#drw, this.ictx, sw, sh)
 					}
 					if(this.mipmaps) tex.genMipmaps()
