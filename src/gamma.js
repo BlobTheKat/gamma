@@ -769,7 +769,7 @@ class t2t3D{
 	multiply(x=1, y=0){
 		const {a,b,c,d,e,f} = this
 		this.a=a*x-d*y;this.b=b*x-e*y;this.c=c*x-f*y
-		this.d=a*y+d*x;this.d=b*y+e*x;this.f=c*y+f*x
+		this.d=a*y+d*x;this.e=b*y+e*x;this.f=c*y+f*x
 	}
 	box(x=0,y=0,w=1,h=w){
 		this.g+=x*this.a+y*this.d

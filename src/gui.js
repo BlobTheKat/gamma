@@ -54,10 +54,13 @@
 	const zdraw = function(ctx, ictx, w, h){
 		this._invalidated = false
 		let i = this.children.length
+		w = this.width || w; h = this.height || h
 		for(const el of this.children) el.draw?.(--i ? ctx.sub() : ctx, ictx, w, h)
 	}
 	const list = (draw, layout) => {
 		class list extends GUIElementManualValidate{
+			width = 0; height = 0
+			sized(w, h){ this.width = w; this.height = h; return this }
 			children = []
 			add(el){ this.children.push(el); el.addDependency(this.invalidate); return this }
 			remove(n){
@@ -97,11 +100,11 @@
 	class Box extends GUIElementManualValidate{
 		constructor(el, pos, sz){ super(); this.child = el; this.pos = pos; this.size = sz }
 		width = 0; height = 0
+		sized(w, h){ this.width = w; this.height = h; return this }
 		replace(other){
 			this.child.removeDependency(this.invalidate)
 			void (this.child = other).addDependency(this.invalidate)
 		}
-		sized(w, h){ this.width = w; this.height = h; return this }
 		draw(ctx, ictx, w, h){
 			this._invalidated = false
 			if(!this.child.draw) return
@@ -281,15 +284,15 @@
 					if(this.#tex.options != o) this.#tex.option = o
 					this.ictx.reset()
 					const irw = 1/this.#rw, irh = 1/this.#rh
-					if(ctx.perspective){
-						this.#drw2.reset((a-this.#x0*c)*irw,(b-this.#y0*c)*irh,c,(d-this.#x0*f)*irw,(e-this.#y0*f)*irh,f,(g-this.#x0*i)*irw,(h-this.#y0*i)*irh,i)
-						this.#drw2.scale(1/sw, 1/sh)
-						this.child.draw(this.#drw2, this.ictx, sw, sh)
-					}else{
-						this.#drw.reset(a*irw,b*irh,d*irw,e*irh,(g-this.#x0)*irw,(h-this.#y0)*irh)
-						this.#drw.scale(1/sw, 1/sh)
-						this.child.draw(this.#drw, this.ictx, sw, sh)
-					}
+					let ct
+					if(ctx.perspective)
+						(ct = this.#drw2).reset((a-this.#x0*c)*irw,(b-this.#y0*c)*irh,c,(d-this.#x0*f)*irw,(e-this.#y0*f)*irh,f,(g-this.#x0*i)*irw,(h-this.#y0*i)*irh,i)
+					else
+						(ct = this.#drw).reset(a*irw,b*irh,d*irw,e*irh,(g-this.#x0)*irw,(h-this.#y0)*irh)
+					ct.scale(1/sw, 1/sh)
+					const postdraw = this.predraw?.(ct, this.ictx, sw, sh)
+					this.child.draw(ct, this.ictx, sw, sh)
+					postdraw?.()
 					if(this.mipmaps) tex.genMipmaps()
 				}
 			}
@@ -324,40 +327,74 @@
 			ictx.onGamepadUpdate(this.ictx)
 		}
 	}
-	class Scrollable extends Layer{
+	class ScrollableLayer extends Layer{
+		constructor(el, ax, ay){ super(el); this.anchorX = ax; this.anchorY = ay }
 		x = 0; y = 0
-		sensitivity = .5
-		constructor(c){ this.child = c }
+		scrollSpanX = 0; scrollSpanY = 0
+		sensitivity = .0625
+		easing = .05
+		_velocityX = 0; _velocityY = 0
 		scrollBarX = dfs
 		scrollBarY = dfs
 		get scrollbar(){return this.scrollBarY}
 		set scrollbar(a){ this.scrollBarX = this.scrollBarY = a }
-		draw(ctx, ictx){
-			const c = this.contents
-			if(!c?.draw) return
-			const m = ctx.mask
-			const ct2 = ctx.sub()
-			ct2.mask = 128 // SET
-			ct2.drawRect(0, 0, this.width, this.height)
-			ct2.mask = m&15|16 // RGBA | IF_SET
-			ct2.translate((c.xOffset??0)-this.x, (c.yOffset??0)-this.y)
-			this.contents.draw(ct2, ictx)
-			ctx.clearStencil()
-			if(this.scrollBarX && this.height){
-				const ct2 = ctx.sub()
-				ct2.translate(0, this.height)
-				if(this.height > 0) ct2.scale(1, -1)
-				const w = abs(this.width), w1 = w / c.width
-				if(w1 < 1) this.scrollBarX(ct2, abs(this.x) * w1, w * w1)
+		predraw(ctx, ictx, w, h){
+			let {width, height} = this.child
+			width = max(width - w, 0); height = max(height - h, 0)
+			const xsctx = this.scrollBarX && width ? ctx.sub() : null
+			const ysctx = this.scrollBarY && height ? ctx.sub() : null
+			const aw = -width*this.anchorX, ah = -height*this.anchorY
+			let {_velocityX: vx, _velocityY: vy} = this
+			if(vx||vy){
+				const dt2 = dt/this.easing
+				if(vx){
+					if(abs(vx) > dt2){ const a = sign(vx)*dt2; this._velocityX = vx-a; vx -= a*.5 }
+					else this._velocityX = 0, vx *= .5
+					const x = this.x + vx*dt2
+					if(x != (this.x = clamp(x, aw, width+aw))) this._velocityX = 0
+				}
+				if(vy){
+					if(abs(vy) > dt2){ const a = sign(vy)*dt2; this._velocityY = vy-a; vy -= a*.5 }
+					else this._velocityY = 0, vy *= .5
+					const y = this.y + vy*dt2
+					if(y != (this.y = clamp(y, ah, height+ah))) this._velocityY = 0
+				}
+				this.invalidate()
 			}
-			if(this.scrollBarY && this.width){
-				const ct2 = ctx.sub()
-				ct2.translate(this.width, 0)
-				ct2.multiply(0, 1)
-				if(this.width > 0) ct2.scale(1, -1)
-				const h = abs(this.height), h1 = h / c.height
-				if(h1 < 1) this.scrollBarY(ct2, abs(this.y) * h1, h * h1)
-			}
+			const tx = ctx.getTransform()
+			ctx.translate(aw-this.x, ah-this.y)
+			ictx.onWheel((dx, dy) => {
+				if(!ictx.cursor) return
+				const p = tx.unproject(ictx.cursor)
+				if(p.x < 0 || p.y < 0 || p.x > w || p.y > h) return
+				dx *= this.sensitivity; dy *= this.sensitivity
+				if(this.easing){
+					// Move (dx, dy) in {easing} seconds, following a quadratic curve
+					// We assume easing = 1s, as the speed is applied per frame instead of here, for correct behavior when easing is changed mid-animation
+					const {_velocityX: vx, _velocityY: vy} = this
+					dx = vx*abs(vx)+dx+dx; dy = vy*abs(vy)+dy+dy
+					this._velocityX = sqrt(abs(dx))*sign(dx)
+					this._velocityY = sqrt(abs(dy))*sign(dy)
+				}else{
+					this.x = clamp(this.x + dx, aw, width+aw)
+					this.y = clamp(this.y + dy, ah, height+ah)
+				}
+				this.invalidate()
+				return null
+			})
+			return xsctx || ysctx ? () => {
+				if(xsctx){
+					xsctx.translate(0, h)
+					const iw = 1 / (w + width)
+					this.scrollBarX(xsctx, (this.x-aw) * iw, w * iw, w)
+				}
+				if(ysctx){
+					ysctx.translate(w, 0)
+					ysctx.multiply(0, -1)
+					const ih = 1 / (h + height)
+					this.scrollBarY(ysctx, (this.y-ah) * ih, h * ih, h)
+				}
+			} : undefined
 		}
 	}
 	class ParticleContainer extends GUIElement{
@@ -398,7 +435,7 @@
 		}
 	}
 	$.GUI = {
-		CENTERED: vec2(.5, .5),
+		MIDDLE: vec2(.5, .5),
 		LEFT: vec2(0, .5),
 		RIGHT: vec2(1, .5),
 		BOTTOM: vec2(.5, 0),
@@ -422,14 +459,14 @@
 		BoxFill: (a,b=.5,c=max,d) => a.identity ? new BoxFill(a,b,c,d) : new BoxFill(null,1,1,a),
 		Transform: (el, fn=Function.prototype, x=.5, y=.5) => new Transform(el,fn,x,y),
 		Layer: (el) => new Layer(el),
-		ParticleContainer: e => new ParticleContainer(e)
-		//Scrollable: (c, w=1, h=-1) => new Scrollable(c, +w, +h)
+		ParticleContainer: e => new ParticleContainer(e),
+		ScrollableLayer: (c, ax=0, ay=1) => (typeof ax=='object'&&({x:ax,y:ay}=ax),new ScrollableLayer(c, ax, ay))
 	}
 	const v4p2 = $.vec4(.2)
-	/*const dfs = $.GUI.Scrollable.defaultScrollbar = (ctx, x0, w) => {
+	const dfs = $.GUI.ScrollableLayer.defaultScrollbar = (ctx, x, w, width) => {
 		ctx.shader = null
-		ctx.drawRect(x0, 0, w, .1, v4p2)
-	}*/
+		ctx.drawRect(x*width, 0, w*width, .5, v4p2)
+	}
 
 	const rem = ({target:t}) => (t._field._f&256||(t._field._f|=256,setImmediate(t._field.recalc)), t.remove(), $.setFocused(curf = null))
 	// putting some stuff here allows us to catch system-defined key repeats
