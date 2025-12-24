@@ -17,7 +17,7 @@ void main(){
 `, {params: COLOR})
 
 const colors = Array.map(96, i => hsla((i>>1)*7.5, (i&1)*.2+.6, .5))
-const confetti = GUI.ParticleContainer({
+const confetti = new ParticleContainer({
 	update(ctx, p, dt){
 		const {dx, dy} = p
 		p.dy -= 50*dt
@@ -30,7 +30,7 @@ const confetti = GUI.ParticleContainer({
 		const th = random()*PI2, r = sqrt(random())*30
 		const col = (sin(th+t*3)+1)*.15
 		const sz = random()*.2+.1
-		return {x, y, dx: sin(th)*r, dy: cos(th)*r + 25, r: sz, col: colors[floor((col+this.seed+random()*.35)*96)%96], drag: log(.9-sz)}
+		return {x, y, dx: sin(th)*r, dy: cos(th)*r + 20, r: sz, col: colors[floor((col+this.seed+random()*.35)*96)%96], drag: log(.9-sz)}
 	},
 	seed: random(),
 	prepare(ctx){

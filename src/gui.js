@@ -221,7 +221,7 @@
 		#mouseHovering = false
 		#a = NaN; #b = NaN; #c = NaN; #d = NaN; #e = NaN; #f = NaN; #g = NaN; #h = NaN; #i = NaN; #sw = NaN; #sh = NaN; #tw = 0; #th = 0
 		#x0 = 0; #rw = -1; #y0 = 0; #rh = 0
-		options = 0; format = Formats.RGBA; mipmaps = 1; hasStencil = true
+		options = 0; format = Formats.RGBA; mipmaps = 1
 		#tex = null
 		#drw = Drawable(); #drw2 = this.#drw.subPersp()
 		replace(other){
@@ -264,7 +264,6 @@
 				const bound = ctx.loopBoundary()
 				this.#sw = sw; this.#sh = sh; this._invalidated = false; this.#tw = width; this.#th = height
 				this.#a = a; this.#b = b; this.#c = c; this.#d = d; this.#e = e; this.#f = f; this.#g = g; this.#h = h; this.#i = i
-				this.#drw.hasStencil = this.hasStencil
 				let tex = this.#tex
 				if(!bound){
 					this.#rw = -1
@@ -280,7 +279,7 @@
 						tex = this.#tex = Texture(rw, rh, 1, o, this.format, this.mipmaps)
 						this.#drw.setTarget(0, tex)
 						this.mipmaps = tex.mipmaps; this.format = tex.format
-					}else this.#drw.clear(0, 0, 0, 0), this.hasStencil&&this.#drw.clearStencil()
+					}else this.#drw.clear(0, 0, 0, 0)
 					if(this.#tex.options != o) this.#tex.option = o
 					this.ictx.reset()
 					const irw = 1/this.#rw, irh = 1/this.#rh
@@ -397,7 +396,9 @@
 			} : undefined
 		}
 	}
-	class ParticleContainer extends GUIElement{
+	class ParticleContainer extends GUIElementManualValidate{
+		width = 0; height = 0
+		sized(w, h){ this.width = w; this.height = h; return this }
 		#config
 		constructor(config){ super(); this.#config = config }
 		get config(){ return this.#config }
@@ -405,8 +406,9 @@
 		lastT = NaN
 		#particles = []
 		#free = []
-		draw(ctx){
-			this.#config.prepare?.(ctx)
+		draw(ctx, a, b, c){
+			this._invalidated = false
+			ctx = this.#config.prepare?.(ctx, a, b, c) ?? ctx
 			const dt = t - this.lastT || 0; this.lastT = t
 			const len = this.#particles.length
 			if(!len) return
@@ -459,9 +461,9 @@
 		BoxFill: (a,b=.5,c=max,d) => a.identity ? new BoxFill(a,b,c,d) : new BoxFill(null,1,1,a),
 		Transform: (el, fn=Function.prototype, x=.5, y=.5) => new Transform(el,fn,x,y),
 		Layer: (el) => new Layer(el),
-		ParticleContainer: e => new ParticleContainer(e),
 		ScrollableLayer: (c, ax=0, ay=1) => (typeof ax=='object'&&({x:ax,y:ay}=ax),new ScrollableLayer(c, ax, ay))
 	}
+	$.ParticleContainer = ParticleContainer
 	const v4p2 = $.vec4(.2)
 	const dfs = $.GUI.ScrollableLayer.defaultScrollbar = (ctx, x, w, width) => {
 		ctx.shader = null

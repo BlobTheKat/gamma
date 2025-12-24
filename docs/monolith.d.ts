@@ -1,2 +1,5 @@
 export type * from "./font.d.ts"
 export type * from "./gamma.d.ts"
+export type * from "./gui.d.ts"
+export type * from "./input.d.ts"
+export type * from "./utils.d.ts"

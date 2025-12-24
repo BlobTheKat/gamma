@@ -132,11 +132,12 @@ globalThis.look = look
 
 function drawText(ctx){
 	ctx.translate(label.width*-.5 + .5, 0)
-	ctx.mask |= SET
+	ctx.mask = RGBA|SET|IF_CLOSER
 	ctx.drawRect(-1.5, -.75, label.width+2, 1.5, vec4(0,0,0,.5))
-	ctx.mask = RGBA
+	ctx.mask = RGBA|IF_CLOSER
 	let ctx3 = ctx.sub(); ctx3.translate(-.75, 0)
-	ctx3 = ctx3.sub3dPersp(4, 1)
+	ctx3 = ctx3.sub3dPersp(1, 0)
+		ctx3.scale(0.3)
 		ctx3.shader = Shader.SHADED_3D
 		ctx3.geometry = Geometry3D.CUBE
 		ctx3.rotateXZ(t)
@@ -147,12 +148,14 @@ function drawText(ctx){
 	ctx.mask |= IF_SET
 	ctx.drawRect(x-.1, y-.01, .2, .02, vec4(0,0,0,1))
 	ctx.drawRect(x-.01, y-.1, .02, .2, vec4(0,0,0,1))
+	ctx.mask = DEPTH | IF_CLOSER
+	ctx.drawRect(-1.5, -.75, label.width+2, 1.5)
 }
 
-let surface = null, surface2 = null
+let surface = null, surface2 = null, dsurface = null
 
 let FOV = 90, targetFov = 90
-const altctx = Drawable(true), altctx2 = Drawable(false)
+const scene = Drawable(), altctx2 = Drawable()
 
 const bulgeShader = Shader(`void main(){
 	vec2 uv = pos-.5; float j = 0.;
@@ -256,7 +259,7 @@ void main(){
 let sfx = 0
 let frames = []
 
-const fogXzShader = Shader(`void main(){ color = param0(pos.xz)*(1.-1./(i_depth*i_depth)); }`, {params: COLOR, vertex: Geometry3D.Vertex.DEFAULT})
+const fogXzShader = Shader(`void main(){ color = param0(pos.xz)*(1.-depth*depth); }`, {params: COLOR, vertex: Geometry3D.Vertex.DEFAULT})
 
 let selectedShader = -1
 
@@ -274,37 +277,90 @@ ictx.onGamepadAxis(GAMEPAD.LEFT_STICK, (x, y) => {
 	ictx.setKey(KEY.D, x > .5)
 })
 let oldSfx = 0
+
+Shader.AA_CIRCLE ??= Shader(`
+void main(){
+	float dist = 0.5 - length(pos - 0.5);
+
+	// Make [0, 1] the range covered by one pixel
+	float alpha = clamp(dist/fwidth(dist) + 0.5, 0.0, 1.0);
+
+	color = param0(pos) * alpha;
+}
+`, {params: COLOR})
+const colors = Array.map(96, i => hsla((i>>1)*7.5, (i&1)*.2+.6, .5))
+const confetti = new ParticleContainer({
+	floor: -2,
+	update(ctx, p, dt){
+		const {dx, dy, dz} = p
+		p.dy -= 50*dt
+		const drag = p.drag*dt+1, hdt = dt*.5; p.dx *= drag; p.dy *= drag; p.dz *= drag
+		p.x += (p.dx+dx)*hdt; p.y += (p.dy+dy)*hdt; p.z += (p.dz+dz)*hdt
+		const floor = this.floor+p.r
+		if(p.y<floor) p.y = floor, p.r *= drag
+		const p2 = this.projection.point(p.x, p.y, p.z)
+		if(p2.z>0){
+			const szx = p.r*this.i_width, szy = p.r*this.i_height
+			ctx.setTransform(szx*2, 0, 0, 0, szy*2, 0, p2.x-szx, p2.y-szy, p2.z)
+			ctx.draw(p.col)
+		}
+		return (p.t -= dt) < 0
+	},
+	init(x, y, z){
+		let dx, dy, dz
+		do{ dx = random()*30-15, dy = random()*30-15, dz = random()*30-15 }while((dx*dx+dy*dy+dz*dz)>15*15)
+		const col = (dy+15)*.02
+		const sz = random()*.15+.1
+		return {x, y, z, dx, dy: dy+10, dz, r: sz, col: colors[floor((col+this.seed+random()*.35)*96)%96], drag: log(.9-sz), t: 4+random()*2}
+	},
+	seed: random(),
+	projection: null,
+	i_width: 0, i_height: 0,
+	prepare(ctx){
+		this.seed = random()
+		ctx.shader = Shader.AA_CIRCLE
+		ctx.blend = Blend.ADD
+		ctx.mask = RGBA | IF_CLOSER
+		if(!ctx.perspective) return ctx.subPersp()
+	}
+})
+ictx.onKey(KEY.NUM_0, isDown => {
+	if(isDown){
+		const R = 10
+		let z = cos(look.x), x = sin(look.x), y = sin(look.y)*R, d = cos(look.y)*R
+		z *= d; x *= d; x += pos.x; y += pos.y; z += pos.z
+		for(let i = 0; i < 10_000; i++) confetti.add(x, y, z)
+	}
+})
 render = () => {
-	ctxSupersample = ictx.has(KEY.V)||ictx.gamepad?.has(GAMEPAD.LEFT) ? 0.125/devicePixelRatio : 1 + (devicePixelRatio < 2)
+	ctxSupersample = ictx.has(KEY.NUM_9)||ictx.gamepad?.has(GAMEPAD.LEFT) ? 0.125/devicePixelRatio : 1 + (devicePixelRatio < 2)
 	if(selectedShader == -1) sfx = 0
 	for(let k = 0; k < 10; k++)
 		if(ictx.has(KEY.NUM_0 + k)){ selectedShader = -1; sfx = k; break }
-	if(ictx.has(KEY.C) || ictx.gamepad?.has(GAMEPAD.UP)) targetFov = min(targetFov / SQRT2**dt, 15)
+	if(ictx.has(KEY.NUM_8) || ictx.gamepad?.has(GAMEPAD.UP)) targetFov = min(targetFov / SQRT2**dt, 15)
 	else targetFov = 90
 	FOV += (targetFov - FOV) * min(1, dt*20)
 	
 	skyShader.uniforms(t)
-	let scene = ctx
 	if(!surface || surface.width != ctx.width || surface.height != ctx.height){
-		surface?.delete()
+		surface?.delete(); surface2?.delete(); dsurface?.delete()
 		surface = Texture(ctx.width, ctx.height, 1, SMOOTH, Formats.RGB, 999)
 		surface2 = Texture(ctx.width, ctx.height, 1, 0, Formats.RGBA32F)
-		altctx.setTarget(0, surface)
+		dsurface = Texture.Surface(ctx.width, ctx.height, 0, Formats.DEPTH32F_STENCIL)
+		scene.setTarget(0, surface)
+		scene.setTarget(-1, dsurface, 0)
 		altctx2.setTarget(0, surface2)
 		for(const sh of [bulgeShader, ghostShader, edgeShader, waterShader]) sh.uniforms(surface, ctx.width/ctx.height)
 	}
-	if(sfx){
-		scene = altctx
-		scene.clearStencil()
-	}
+	scene.mask |= DEPTH
+	scene.clear()
 	const {width: w, height: h} = getGUIDimensions(20)
 	scene.reset(1/w, 0, 0, 1/h, .5, .5)
 
-	let ctx3 = scene.sub3dPersp((ictx.has(KEY.P)||(ictx.gamepad?.has(GAMEPAD.DOWN)??false))*.4, 1)
+	let ctx3 = scene.sub3dPersp((ictx.has(KEY.NUM_7)||(ictx.gamepad?.has(GAMEPAD.DOWN)??false))*.4, 1)
 	const sc = .16/tan(FOV * PI/360)
 	// Scale FOV without changing depth values (used for fog)
 	ctx3.scale(sc, sc, .01)
-
 	{
 		let rotRight = (ictx.gamepad?.axis(GAMEPAD.RIGHT_STICK)?.x??0)*20
 		let rotUp = (ictx.gamepad?.axis(GAMEPAD.RIGHT_STICK)?.y??0)*20
@@ -339,6 +395,8 @@ render = () => {
 	ctx3.geometry = Geometry3D.INSIDE_CUBE
 	ctx3.drawCube(-20, -20, -20, 40, 40, 40)
 	ctx3.translate(-pos.x, -pos.y, -pos.z)
+	ctx3.mask |= DEPTH | IF_CLOSER
+	confetti.config.projection = ctx3.getTransform()
 
 	ctx3.geometry = Geometry3D.XZ_FACE
 	ctx3.shader = fogXzShader
@@ -351,45 +409,40 @@ render = () => {
 		cubeCtx.rotateXZ(t*.1)
 		cubeCtx.rotateXY(t*.1)
 	
-	ctx3.translate(0, 0, -3)
-	
-	if(pos.z > -3){
-		const ct2 = ctx3.sub2dXY()
-		ct2.scale(-1,1)
-		drawText(ct2)
-	}
+	ctx3.translate(0, 0, sin(t)*-3)
+
 	cubeCtx.draw(vec4(.2,.85,.1,1), cubeCtx.metricFrom(light))
-	if(!(pos.z > -3))
-		drawText(ctx3.sub2dXY())
+	drawText(ctx3.sub2dXY())
 	
 	const hint = pointerLock ? 'Press 0-9 to try some special FX' : 'Click anywhere to lock pointer'
 	const sc2 = scene.sub()
 	sc2.translate(fonts.ubuntu.measure(hint)*-.5, -.5*h+3)
 	sc2.shader = Shader.MSDF
 	fonts.ubuntu.draw(sc2, hint, [vec4(.3+sin(t*PI)*.2)])
-	if(sfx){
-		surface.genMipmaps()
-		switch(sfx){
-			case 1:
-				ctx.shader = bulgeShader
-				ctx.draw()
-				break
-			case 2:
-				altctx2.shader = ghostShader
-				altctx2.draw(1-.1**dt)
-				ctx.draw(surface2)
-				break
-			case 3:
-				ctx.shader = edgeShader
-				ctx.draw()
-				break
-			case 4:
-				ctx.shader = waterShader
-				ctx.draw(t)
-				break
-			default:
-				ctx.draw(surface)
-		}
+	confetti.config.i_width = sc/w
+	confetti.config.i_height = sc/h
+	confetti.draw(sc2)
+	surface.genMipmaps()
+	switch(sfx){
+		case 1:
+			ctx.shader = bulgeShader
+			ctx.draw()
+			break
+		case 2:
+			altctx2.shader = ghostShader
+			altctx2.draw(1-.1**dt)
+			ctx.draw(surface2)
+			break
+		case 3:
+			ctx.shader = edgeShader
+			ctx.draw()
+			break
+		case 4:
+			ctx.shader = waterShader
+			ctx.draw(t)
+			break
+		default:
+			ctx.draw(surface)
 	}
 	ctx.resetTo(scene)
 	ctx.translate(-.5*w, .5*h - 1)
@@ -399,8 +452,14 @@ render = () => {
 	const fps = (frames.length-1)/(t+1-frames[0])
 	while(frames[i] < t) i++
 	if(i) frames.splice(0, i)
-	const str = `FPS: ${fps==fps?fps.toFixed(1):'-'}`
-	fonts.ubuntu.draw(ctx.sub(), str, [vec4(0,0,0,1)], -.03, .07)
-	fonts.ubuntu.draw(ctx, str, [], -.03)
+	for(const str of [`FPS: ${fps==fps?fps.toFixed(1):'-'}`, `D: ${frameDrawCalls} / M: ${Number.formatData(frameData)} / S: ${frameSprites}`]){
+		fonts.ubuntu.draw(ctx.sub(), str, [vec4(0,0,0,1)], -.03, .07)
+		fonts.ubuntu.draw(ctx.sub(), str, [], -.03)
+		ctx.translate(0, -1)
+	}
 	if(sfx == 4 || sfx != oldSfx) ictx.refirePointers(), oldSfx = sfx
 }
+
+ictx.onKeyPress(KEY.F2, () => {
+	screenshot().then(file => download(file, Date.kebab()))
+})

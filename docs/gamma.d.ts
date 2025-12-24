@@ -433,6 +433,19 @@ namespace GammaInstance{
 		/** Half-float 2-channel format. All reads/writes are performed using normal (32 bit) floats */ RG16F_32F,
 		/** Half-float 3-channel format. All reads/writes are performed using normal (32 bit) floats */ RGB16F_32F,
 		/** Half-float 4-channel format. All reads/writes are performed using normal (32 bit) floats */ RGBA16F_32F,
+
+		/**
+		 * Depth texture, can be used by targets' `-1` slot to perform depth testing, or can be used much like a float texture, but with `dGetValue()`/`dGetPixel()`
+		 */
+		DEPTH32F,
+		/**
+		 * Stencil texture, can be used by targets' `-1` slot to perform stencil testing. Cannot be used by shaders, cannot perform CPU/GPU read/write operations such `readData()` or `pasteData()`
+		 */
+		STENCIL,
+		/**
+		 * Depth/stencil texture, can be used by targets' `-1` slot to perform depth and stencil testing together, or can be used identically to a depth texture.
+		 */
+		DEPTH32F_STENCIL,
 	}
 
 	/**
@@ -452,6 +465,9 @@ namespace GammaInstance{
 		/** Not all implementations support linear filtering (SMOOTH) for xxx32F textures. This boolean indicates if this kind of filtering is supported. If it is not, nearest-neighbor (pixelated) will be used instead for those texture types */
 		const FILTER_32F: boolean
 
+		/** Anisotropy value supported by the hardware. If anisotropic filtering is not supported, the value will be `0` */
+		const ANISOTROPY: number
+
 		/**
 		 * The maximum texture width supported by the underlying hardware
 		 * According to OpenGL ES Specs, this value is required to be at least 2048, however virtually all environments will support at least 4096. Support for > 4096 is not very common
@@ -468,35 +484,66 @@ namespace GammaInstance{
 		 */
 		const MAX_LAYERS: number
 
-		/** Maximum number of samples per pixels supported by the underlying hardware. Any value you pass to `Texture.MSAA()` higher than this will be clamped to this value */
+		/** Maximum number of samples per pixels supported by the underlying hardware. Any value you pass to `Texture.Surface()` higher than this will be clamped to this value */
 		const MAX_MSAA: number
 
-		interface MSAA{
-			/** Width of MSAA surface in logical pixels */
-			width: number
-			/** Height of MSAA surface in logical pixels */
-			height: number
+		interface Surface{
+			/** Width of the surface in logical pixels */
+			readonly width: number
+			/** Height of the surface in logical pixels */
+			readonly height: number
 			/** Number of samples per pixel for this surface */
-			msaa: number
+			readonly msaa: number
+			/** Surface format. See `Formats` */
+			readonly format: Formats
 			/**
-			 * Free the resources of this surface as soon as possible. It is invalid to use the MSAA object for anything beyond this point, the object should be "forgotten"
-			 * Under the hood, the MSAA's data will be freed by the GPU once all draw operations using it have finished
+			 * Copy data from this surface to CPU memory, asynchronously
 			 * 
-			 * @performance This method is relatively fast, however, consider reusing MSAA surfaces where possible rather than quickly creating and deleting them, as reconstruction will be expensive and older drivers might not be optimized for rapid texture freeing/allocation
+			 * This method is asynchronous due to how GPUs work: The CPU send commands to the GPU, but for performance reasons, the CPU does not wait for the GPU to finish executing those commands before moving on. This means that if we were to read data back immediately, we would have to wait for the GPU to finish all previous commands, which could be very slow. Instead, we issue a command to copy the surface data to a temporary buffer, then later, when that command has finished executing, we copy that temporary buffer to CPU memory and resolve the promise with that data. Despite this, the data is still guaranteed to be from the time readData() was called (i.e any draw operations issued after readData() will not be reflected in the data returned by the promise)
+			 * 
+			 * Note that reading from the main target (the canvas) is not possible. Instead, draw to a separate Drawable, paste it to the main target, and read from the drawable
+			 * 
+			 * @param x Left edge of area to copy from, in pixels. Default: 0
+			 * @param y Bottom edge of area to copy from, in pixels. Default: 0
+			 * @param width Width of area to copy from in pixels. Defaults to this surface's width
+			 * @param height Height of area to copy from in pixels. Defaults to this surface's height
+			 * 
+			 * @performance This method performs a download from the GPU, which is notoriously difficult to perform quickly due to the need to synchronize the CPU and GPU. The operation is primarily bandwidth-bound for typical-size textures, however there is a significant amount of overhead performed in additional copies, and the need to synchronize the CPU and GPU (e.g fences). It is recommended to avoid reading back from the GPU if it is not strictly needed, and if necessary, to read back large chunks of data infrequently (e.g once per frame) rather than small chunks frequently
+			 * 
+			 * @returns
+			 * | For format                        | A promise is returned resolving to | of length          |
+			 * |-----------------------------------|------------------------------------|--------------------|
+			 * | R, RG, RGB, RGBA                  | `Uint8Array` / `Uint8ClampedArray` | `w*h*d * channels` |
+			 * | R8, RG8, RGB8, RGBA8              | `Uint8Array` / `Uint8ClampedArray` | `w*h*d * channels` |
+			 * | R16, RG16, RGB16, RGBA16          | `Uint16Array`                      | `w*h*d * channels` |
+			 * | R32, RG32, RGB32, RGBA32          | `Uint32Array`                      | `w*h*d * channels` |
+			 * | RGB565, RGB5_A1, RGBA4            | `Uint16Array`                      | `w*h*d`            |
+			 * | RGB10_A2, R11F_G11F_B10F, RGB9_E5 | `Uint32Array`                      | `w*h*d`            |
+			 * | R16F, RG16F, RGB16F, RGBA16F      | `Uint16Array` / `Float16Array`     | `w*h*d * channels` |
+			 * | R32F, RG32F, RGB32F, RGBA32F      | `Float32Array`                     | `w*h*d * channels` |
+			 * | DEPTH32F, DEPTH32F_STENCIL        | `Float32Array`                     | `w*h*d`            |
+			 * | STENCIL                           | Invalid                            | Invalid            |
+			 */
+			readData(x?: number, y?: number, w?: number, h?: number): Promise<ArrayBufferView>
+			/**
+			 * Free the resources of this surface as soon as possible. It is invalid to use the surface object for anything beyond this point, the object should be "forgotten"
+			 * Under the hood, the surface's data will be freed by the GPU once all draw operations using it have finished
+			 * 
+			 * @performance This method is relatively fast, however, consider reusing surfaces where possible rather than quickly creating and deleting them, as reconstruction will be expensive and older drivers might not be optimized for rapid texture freeing/allocation
 			 */
 			delete(): void
 		}
 		/**
-		 * Create a multisampled surface
+		 * Create a (possibly multisampled) surface
 		 * 
 		 * @param width Width of surface, in logical pixels
 		 * @param height Height of surface, in logical pixels
-		 * @param format Most hardware will only support `Formats.RGBA8`, `Formats.RGB565`, `Formats.RGBA4` and `Formats.RGB5_A1`
+		 * @param format Most hardware will only support `Formats.RGBA8`, `Formats.RGB565`, `Formats.RGBA4`, `Formats.RGB5_A1`, `Formats.DEPTH32F`, `Formats.DEPTH32F_STENCIL`, and `Formats.STENCIL`
 		 * @param msaa How many samples per logical pixel to allocate. This is a hint; the actual value may be rounded or clamped. Set to a high value (e.g, 256) to use as many samples as available
 		 * 
-		 * @performance This method performs the allocation of the MSAA, which will use a lot of video memory. Drawing to a multisampled target will not perform more shader invocation but may slow down rendering due to slower rasterization and greatly increased video memory access
+		 * @performance This method performs the allocation of the target, which may use a lot of video memory, dependent on the MSAA value requested. Drawing to a multisampled target will not perform more shader invocation but may slow down rendering due to slower rasterization and greatly increased video memory access
 		 */
-		function MSAA(width: number, height: number, msaa: number, format: Formats): MSAA
+		function Surface(width: number, height: number, msaa: number, format: Formats): Surface
 		
 		/**
 		 * Create an image-backed texture. This texture is lazily loaded from the source(s)
@@ -533,6 +580,8 @@ namespace GammaInstance{
 		readonly height: number
 		/** Number of layers. A single texture object can hold multiple layers, thus acting like an array of textures. Most textures will only have 1 layer. Number of layers is supplied on texture creation and cannot be changed later */
 		readonly layers: number
+		/** MSAA value. Since WebGL2 does not support MSAA textures, this value is always 0 */
+		readonly msaa: number
 
 		/**
 		 * Width, in pixels of a sub-texture, when accounting for its crop
@@ -735,6 +784,8 @@ namespace GammaInstance{
 		 * | RGB10_A2, R11F_G11F_B10F, RGB9_E5 | `Uint32Array`                      | `w*h*d`            |
 		 * | R16F, RG16F, RGB16F, RGBA16F      | `Uint16Array` / `Float16Array`     | `w*h*d * channels` |
 		 * | R32F, RG32F, RGB32F, RGBA32F      | `Float32Array`                     | `w*h*d * channels` |
+		 * | DEPTH32F, DEPTH32F_STENCIL        | `Float32Array`                     | `w*h*d`            |
+		 * | STENCIL                           | Invalid                            | Invalid            |
 		 */
 		readData(x?: number, y?: number, l?: number, w?: number, h?: number, d?: number, mip?: number): this extends Promise<Texture> ? Promise<ArrayBufferView>|null : Promise<ArrayBufferView>
 		
@@ -779,15 +830,13 @@ namespace GammaInstance{
 	/**
 	 * Create a drawable context optionally with a stencil buffer
 	 * 
-	 * Conceptually, a `Drawable` is an object describing where and how to draw, its methods being used to actually draw. The 'target' behind a `Drawable` can be the canvas (as is the case for the main target), or one or more texture layer / multisampled buffer (see `Texture.MSAA`). You can add up to `Drawable.MAX_TARGETS` targets, differentiated by their IDs (0, 1, 2, ...)
+	 * Conceptually, a `Drawable` is an object describing where and how to draw, its methods being used to actually draw. The 'target' behind a `Drawable` can be the canvas (as is the case for the main target), or one or more texture layer / multisampled buffer (see `Texture.Surface`). You can add up to `Drawable.MAX_TARGETS` targets, differentiated by their IDs (0, 1, 2, ...)
 	 * 
 	 * To actually add targets to a drawable, see `Drawable.setTarget()`.
 	 * 
-	 * @param stencil Whether to also allocate a stencil buffer for IF_SET/IF_UNSET/SET/UNSET functionality. When this parameter is false, the stencil buffer will not be allocated and will behave as if it is always 0. Default: false (for performance reasons. Set to true only when you actually need it)
-	 * 
 	 * @performance This method itself is mostly CPU-only logic (a bit more expensive if a stencil buffer is allocated). However, using many drawables, especially interlaced, will have severe performance implications. See `Drawable2D.draw()` for more info
 	 */
-	function Drawable(stencil?: boolean): Drawable2D
+	function Drawable(): Drawable2D
 	namespace Drawable{
 		/** Maximum number of targets that can be set with `Drawable.setTarget()`. The targets are differentiated by their IDs (0, 1, 2, ..., up to this value) */
 		const MAX_TARGETS: number
@@ -796,6 +845,41 @@ namespace GammaInstance{
 	}
 
 	interface Transformable2D{
+		/** Create a new transformable which is a copy of this one */
+		sub(): this
+		/**
+		 * Create a new transformable which is a copy of this one with 3 output components, usually for perspective projection.
+		 * 
+		 * The additional output component by default cannot be used without an input Z component. Use this if you want to guarantee `.perspective == true` and the existence of `.g`, `.h` and `.i` values
+		 * 
+		 * @performance This method is CPU-logic, fast and usually inlined
+		 **/
+		subPersp(): Transformable2D & Transformable2Dto3D
+		/**
+		 * Create a new transformable which is a copy of this one with an additional input component, usually for orthographic projection.
+		 * @performance This method is CPU-logic, fast and usually inlined
+		 **/
+		sub3d(): Transformable3D & (this extends Transformable2Dto3D ? Transformable3Dto3D : Transformable3Dto2D)
+		/**
+		 * Create a subtransformable which is a copy of this one with 3 input and output components, usually for perspective projection.
+		 * 
+		 * Perspective transformation means that the Z component acts as a "scaling" factor for the X and Y components. By default, content drawn at (x,y,z) will appear at (x, y)/z. This can be changed with the `zBase` and `zScale` parameters. Content will then be drawn at (x, y)/(z*zScale + zBase). For example, `.sub3dPersp(0, 1)`, the default, gives a typical perspective transform while `.sub3dPersp(1, 0)` gives an orthographic transform (constant scaling). See `Drawable2D.sub3dPersp()`
+		 * 
+		 * @performance This method is CPU-logic, fast and usually inlined
+		 **/
+		sub3dPersp(zBase?: number, zScale?: number): Transformable3D & Transformable3Dto3D
+		/**
+		 * Transform a point `(x, y)` by the current transformation matrix to screen space, returning the transformed point as an object `{x, y}`. The third output component is treated as the scaling factor `w` that makes perspective transformations. If it is greater than 0, the first 2 values are divided by `w`, otherwise, `{x: NaN, y: NaN}` is returned
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		project(x: number, y: number): vec2
+		project(xy: vec2): vec2
+		/**
+		 * Un-transform a point in screen space `(x, y)` by the current transformation matrix, returning the original point as an object `{x, y}`
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		uproject(x: number, y: number): vec2
+		uproject(xy: vec2): vec2
 		/**
 		 * Translate (move) all following draw operations, x+ normally corresponds to right and y+ normally corresponds to up
 		 * @performance This method is CPU-arithmetic, very fast and usually inlined
@@ -877,9 +961,83 @@ namespace GammaInstance{
 		 */
 		metricFrom(x: number, y: number): vec2
 		metricFrom(xy: vec2): vec2
+		/**
+		 * Reset the 2D transform to a matrix defined by the 6 values, or the default matrix (where (0,0) is the bottom-left and (1,1) is the top right)
+		 * 
+		 * The matrix is column-major, for right-multiplication
+		 * ```txt
+		 * in x y 1
+		 *  [ a c e ] -> out x
+		 *  [ b d f ] -> out y
+		 * ```
+		 */
+		reset(a?: number, b?: number, c?: number, d?: number, e?: number, f?: number): void
+	}
+	interface Transformable2Dto3D{
+		/**
+		 * Transform a point `(x, y)` by the current transformation matrix, returning the transformed point as an object `{x, y, z}`
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		point(x: number, y: number): vec3
+		point(xy: vec2): vec3
+		/** Inverse-transforms are not available on Transformable2Dto3D */
+		pointFrom(x: number, y: number): never
+		pointFrom(xy: vec2): never
+		/**
+		 * Transform a metric `(dx, dy)` by the current transformation matrix, returning the transformed metric as an object `{x, y, z}`. Unlike points, metrics do not observe the matrix's translation component
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		metric(x: number, y: number): vec3
+		metric(xy: vec2): vec3
+		/** Inverse-transforms are not available on Transformable2Dto3D */
+		metricFrom(x: number, y: number): never
+		metricFrom(xy: vec2): never
+		/**
+		 * Reset the 2D transform to a matrix defined by the 9 values, or the default matrix (where (0,0) is the bottom-left and (1,1) is the top right)
+		 * 
+		 * The matrix is column-major, for right-multiplication
+		 * ```txt
+		 * in x y 1
+		 *  [ a d g ] -> out x
+		 *  [ b e h ] -> out y
+		 *  [ c f i ] -> out w
+		 * ```
+		 */
+		reset(a?: number, b?: number, c?: number, d?: number, e?: number, f?: number, g?: number, h?: number, i?: number): void
 	}
 
 	interface Transformable3D{
+		/** Create a new transformable which is a copy of this one */
+		sub(): this
+		/**
+		 * Create a new transformable which is a copy of this one with one fewer input component. The 2D transformable will have its X and Y axes correspond to this transformable's X and Y axes respectively
+		 * @performance This method is CPU-logic, fast and usually inlined
+		 **/
+		sub2dXY(): Transformable2D & (this extends Transformable3Dto3D ? Transformable2Dto3D : Transformable2Dto2D)
+		/**
+		 * Create a new transformable which is a copy of this one with one fewer input component. The 2D transformable will have its X and Y axes correspond to this transformable's X and Z axes respectively
+		 * @performance This method is CPU-logic, fast and usually inlined
+		 **/
+		sub2dXZ(): Transformable2D & (this extends Transformable3Dto3D ? Transformable2Dto3D : Transformable2Dto2D)
+		/**
+		 * Create a new transformable which is a copy of this one with one fewer input component. The 2D transformable will have its X and Y axes correspond to this transformable's Z and Y axes respectively
+		 * @performance This method is CPU-logic, fast and usually inlined
+		 **/
+		sub2dZY(): Transformable2D & (this extends Transformable3Dto3D ? Transformable2Dto3D : Transformable2Dto2D)
+		/**
+		 * Create a new transformable which is a copy of this one with 3 output components. This is useful for turning an orthographic projection into a perspective one, but is otherwise not particularly intuitive to use.
+		 * 
+		 * Perspective transformation means that the Z component acts as a "scaling" factor for the X and Y components. By default, content drawn at (x,y,z) will appear at (x, y)/z. This can be changed with the `zBase` and `zScale` parameters. Content will then be drawn at (x, y)/(z*zScale + zBase). For example, `.sub3dPersp(0, 1)`, the default, gives a typical perspective transform while `.sub3dPersp(1, 0)` gives an orthographic transform (constant scaling). See `Drawable3D.subPersp()`
+		 * 
+		 * @performance This method is CPU-logic, fast and usually inlined
+		 **/
+		subPersp(zBase?: number, zScale?: number): Transformable3D & Transformable3Dto3D
+		/**
+		 * Transform a point `(x, y, z)` by the current transformation matrix to screen space, returning the transformed point as an object `{x, y}`. The third output component is treated as the scaling factor `w` that makes perspective transformations. If it is greater than 0, the first 2 values are divided by `w`, otherwise, `{x: NaN, y: NaN}` is returned
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		project(x: number, y: number, z: number): vec2
+		project(xyz: vec3): vec2
 		/**
 		 * Translate (move) all following draw operations. Conventionally, y+ represents up, and, in scenes or objects with a definable "forward" direction, z+ represents that direction, since it is the default "forward" direction in a 3D transformation
 		 * @performance This method is CPU-arithmetic, very fast and usually inlined
@@ -992,6 +1150,51 @@ namespace GammaInstance{
 		 */
 		box(x: number, y: number, z: number, w: number, h: number, d: number): void
 	}
+	interface Transformable3Dto2D{
+		/**
+		 * Transform a point `(x, y, z)` by the current transformation matrix, returning the transformed point as an object `{x, y}`
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		point(x: number, y: number, z: number): vec2
+		point(xyz: vec3): vec2
+		/** Inverse-transforms are not available on Transformable3Dto2D */
+		pointFrom(x: number, y: number): never
+		pointFrom(xy: vec2): never
+		/**
+		 * Transform a metric `(dx, dy, dz)` by the current transformation matrix, returning the transformed metric as an object `{x, y}`. Unlike points, metrics do not observe the matrix's translation component
+		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 */
+		metric(x: number, y: number, z: number): vec2
+		metric(xyz: vec3): vec2
+		/** Inverse-transforms are not available on Transformable3Dto2D */
+		metricFrom(x: number, y: number): never
+		metricFrom(xy: vec2): never
+		/**
+		 * Reset the 3D transform to a matrix defined by the 8 values, or the default matrix (where (0,0,z) is the bottom-left and (1,1,z) is the top right for any z)
+		 * 
+		 * 
+		 * The matrix is column-major, for right-multiplication
+		 * ```txt
+		 * in x y z 1
+		 *  [ a c e g ] -> out x
+		 *  [ b d f h ] -> out y
+		 */
+		reset(a?: number, b?: number, c?: number, d?: number, e?: number, f?: number, g?: number, h?: number): void
+
+		/**
+		 * Returns the point which transforms to a w (perspective value) of 0 in screen space, essentially the "camera" position in a 3D perspective transformation
+		 * 
+		 * Since this is a non-perspective transformations, this method doesn't make sense, and the returned value is always `vec3(NaN, NaN, NaN)`
+		 */
+		perspectiveOrigin(): vec3
+		/**
+		 * Returns a normalized metric which, when transformed, connects the perspective origin to a point in sreen space
+		 * 
+		 * Since this is a non-perspective transformations, this method doesn't make sense, and the returned value is always `vec3(NaN, NaN, NaN)`
+		 */
+		perspectiveRay(x: number, y: number, origin?: vec3): vec3
+		perspectiveRay(xy: vec2, origin?: vec3): vec3
+	}
 	interface Transformable3Dto3D{
 		/**
 		 * Transform a point `(x, y, z)` by the current transformation matrix, returning the transformed point as an object `{x, y, z}`
@@ -1017,48 +1220,31 @@ namespace GammaInstance{
 		 */
 		metricFrom(x: number, y: number, z: number): never
 		metricFrom(xyz: vec3): never
-	}
-
-	interface Transformable2Dto3D{
 		/**
-		 * Transform a point `(x, y)` by the current transformation matrix, returning the transformed point as an object `{x, y, z}`
-		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 * Reset the 3D transform to a matrix defined by the 12 values, or the default matrix (where (0,0,1) is the bottom-left and (1,1,1) is the top right, and the vanishing point, which is in the Z+ direction, is at the bottom left)
+		 * 
+		 * The matrix is column-major, for right-multiplication
+		 * ```txt
+		 * in x y z 1
+		 *  [ a d g j ] -> out x
+		 *  [ b e h k ] -> out y
+		 *  [ c f i l ] -> out w
 		 */
-		point(x: number, y: number): vec3
-		point(xy: vec2): vec3
-		/** Inverse-transforms are not available on Transformable2Dto3D */
-		pointFrom(x: number, y: number): never
-		pointFrom(xy: vec2): never
+		reset(a?: number, b?: number, c?: number, d?: number, e?: number, f?: number, g?: number, h?: number, i?: number, j?: number, k?: number, l?: number): void
 		/**
-		 * Transform a metric `(dx, dy)` by the current transformation matrix, returning the transformed metric as an object `{x, y, z}`. Unlike points, metrics do not observe the matrix's translation component
-		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 * Returns the point which transforms to a w (perspective value) of 0 in screen space, essentially the "camera" position in a 3D transformation
+		 * @performance This performs a matrix inversion. For what it does, it is usually much faster to keep track of the camera's position manually and perform any additional math than to calculate it via this method every time it's needed
 		 */
-		metric(x: number, y: number): vec3
-		metric(xy: vec2): vec3
-		/** Inverse-transforms are not available on Transformable2Dto3D */
-		metricFrom(x: number, y: number): never
-		metricFrom(xy: vec2): never
-	}
-
-	interface Transformable3Dto2D{
+		perspectiveOrigin(): vec3
 		/**
-		 * Transform a point `(x, y, z)` by the current transformation matrix, returning the transformed point as an object `{x, y}`
-		 * @performance This method is CPU-arithmetic, very fast and usually inlined
+		 * Returns a normalized metric which, when transformed, connects the perspective origin to a point in sreen space
+		 * 
+		 * This can be used to cast a ray from a visual point on the screen to a vector in the world. If `origin` is passed, it is modified to contain the perspective origin (see `.perspectiveOrigin()`), which is cheaper to calculate at the same time as the ray than separately with a call to `perspectiveOrigin()`. The returned vector is always normalized, i.e `vec3.magnitude(ray) == 1`
+		 * 
+		 * @performance This performs a matrix inversion. Depending on your use case, it may be faster to keep track of the camera's position & orientation manually and perform any additional math than to calculate it via this method every time it's needed
 		 */
-		point(x: number, y: number, z: number): vec2
-		point(xyz: vec3): vec2
-		/** Inverse-transforms are not available on Transformable3Dto2D */
-		pointFrom(x: number, y: number, z: number): never
-		pointFrom(xyz: vec3): never
-		/**
-		 * Transform a metric `(dx, dy, dz)` by the current transformation matrix, returning the transformed metric as an object `{x, y}`. Unlike points, metrics do not observe the matrix's translation component
-		 * @performance This method is CPU-arithmetic, very fast and usually inlined
-		 */
-		metric(x: number, y: number, z: number): vec2
-		metric(xyz: vec3): vec2
-		/** Inverse-transforms are not available on Transformable3Dto2D */
-		metricFrom(x: number, y: number, z: number): never
-		metricFrom(xyz: vec3): never
+		perspectiveRay(x: number, y: number, origin?: vec3): vec3
+		perspectiveRay(xy: vec2, origin?: vec3): vec3
 	}
 
 	interface Drawable{
@@ -1069,21 +1255,16 @@ namespace GammaInstance{
 		/** The backing target's whole height in pixels */
 		readonly height: number
 		/**
-		 * Whether this drawable has a stencil buffer, allowing for IF_SET/IF_UNSET/SET/UNSET functionality. This value can be changed for all drawables except the main context
-		 * @performance Changing this value may create a heavy draw boundary if it causes a draw target change (See `Drawable2D.draw()` for more info). Allocating a stencil buffer may be slightly expensive for large targets, removing it is relatively fast. If you assign without changing (e.g `ctx.hasStencil = true` when it was already true), then no work is actually done. This may be preferable to a check-and-assign
-		 */
-		hasStencil: boolean
-		/**
 		 * Set a drawable target for this drawable context
 		 * 
 		 * This method is not valid on the main context. Additionally, all targets added to a single `Drawable` must have the same width and height
-		 * @param id The slot ID to set the target on. See `Drawable()` and `Drawable.MAX_TARGETS`
-		 * @param target A texture or MSAA to which draw operations should go to, or null to remove the current target at that slot. Note that sub-texture layer/crop are ignored, the drawable always draws to the entire layer
+		 * @param id The slot ID to set the target on. See `Drawable()` and `Drawable.MAX_TARGETS`. Slot ID `-1` is a special slot reserved for depth/stencil buffers (See `Formats.DEPTH32F`, `Formats.STENCIL`, `Formats.DEPTH32F_STENCIL`)
+		 * @param target A texture or Texture.Surface to which draw operations should go to, or null to remove the current target at that slot. Note that sub-texture layer/crop are ignored, the drawable always draws to the entire layer
 		 * @param layer Draw to a specific layer of the texture (Default: 0)
 		 * @param mip Draw to a specific mipmap of the texture (Default: 0)
 		 */
 		setTarget(id: number, target: Texture, layer?: number, mip?: number): void
-		setTarget(id: number, target: Texture.MSAA): void
+		setTarget(id: number, target: Texture.Surface): void
 		setTarget(id: number, target?: null): void
 		/**
 		 * Clear all currently bound targets (see `Drawable.setTarget()`)
@@ -1121,12 +1302,15 @@ namespace GammaInstance{
 		 */
 		blend: Blend
 		/**
-		 * Clear the whole draw target to a solid color
+		 * Clear the whole draw target to a solid color. This method is affected by `.mask & RGBA`, and `.mask & DEPTH`
+		 * 
+		 * @param depth The depth value to clear to. Default: `Infinity`
+		 * @param stencil Whether to also clear the stencil buffer to zero. Default: `true`
 		 * 
 		 * @performance Will create a light draw boundary (See `Drawable2D.draw()` for more info)
 		 */
-		clear(r: number, g : number, b : number, a: number): void
-		clear(r: vec4): void
+		clear(r: number, g: number, b: number, a: number, depth?: number, stencil?: boolean): void
+		clear(rgba: vec4, depth?: number, stencil?: boolean): void
 		/**
 		 * Clear the whole stencil buffer to 0
 		 * 
@@ -1256,6 +1440,8 @@ namespace GammaInstance{
 		/**
 		 * Reset the 2D transform to a matrix defined by the 6 values, or the default matrix (where (0,0) is the bottom-left and (1,1) is the top right)
 		 * 
+		 * Also resets mask, blend, shader, geometry, etc...
+		 * 
 		 * The matrix is column-major, for right-multiplication
 		 * ```txt
 		 * in x y 1
@@ -1277,6 +1463,8 @@ namespace GammaInstance{
 		resetTo(ctx: Drawable2DPerspective): void
 		/**
 		 * Reset the 2D transform to a matrix defined by the 9 values, or the default matrix (where (0,0) is the bottom-left and (1,1) is the top right)
+		 * 
+		 * Also resets mask, blend, shader, geometry, etc...
 		 * 
 		 * The matrix is column-major, for right-multiplication
 		 * ```txt
@@ -1390,7 +1578,9 @@ namespace GammaInstance{
 		 */
 		resetTo(ctx: Drawable3D): void
 		/**
-		 * Reset the 3D transform to a matrix defined by the 6 values, or the default matrix (where (0,0,z) is the bottom-left and (1,1,z) is the top right for any z)
+		 * Reset the 3D transform to a matrix defined by the 8 values, or the default matrix (where (0,0,z) is the bottom-left and (1,1,z) is the top right for any z)
+		 * 
+		 * Also resets mask, blend, shader, geometry, etc...
 		 * 
 		 * The matrix is column-major, for right-multiplication
 		 * ```txt
@@ -1399,27 +1589,6 @@ namespace GammaInstance{
 		 *  [ b d f h ] -> out y
 		 */
 		reset(a?: number, b?: number, c?: number, d?: number, e?: number, f?: number, g?: number, h?: number): void
-
-		/**
-		 * Transform a point `(x, y)` by the current transformation matrix, returning the transformed point as an object `{x, y}`
-		 * @performance This method is CPU-arithmetic, very fast and usually inlined
-		 */
-		project(x: number, y: number, z: number): vec2
-		project(xyz: vec3): vec2
-
-		/**
-		 * Returns the point which transforms to a w (perspective value) of 0 in screen space, essentially the "camera" position in a 3D perspective transformation
-		 * 
-		 * Since this is a non-perspective transformations, this method doesn't make sense, and the returned value is always `vec3(NaN, NaN, NaN)`
-		 */
-		perspectiveOrigin(): vec3
-		/**
-		 * Returns a normalized metric which, when transformed, connects the perspective origin to a point in sreen space
-		 * 
-		 * Since this is a non-perspective transformations, this method doesn't make sense, and the returned value is always `vec3(NaN, NaN, NaN)`
-		 */
-		perspectiveRay(x: number, y: number, origin?: vec3): vec3
-		perspectiveRay(xy: vec2, origin?: vec3): vec3
 	}
 	interface Drawable3DPerspective extends _Drawable3D, Transformable3Dto3D{
 		a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number, j: number, k: number, l: number
@@ -1432,31 +1601,18 @@ namespace GammaInstance{
 		 */
 		resetTo(ctx: Drawable3DPerspective): void
 		/**
-		 * Reset the 3D transform to a matrix defined by the 6 values, or the default matrix (where (0,0,1) is the bottom-left and (1,1,1) is the top right, and the vanishing point, which is in the Z+ direction, is at the bottom left)
+		 * Reset the 3D transform to a matrix defined by the 12 values, or the default matrix (where (0,0,1) is the bottom-left and (1,1,1) is the top right, and the vanishing point, which is in the Z+ direction, is at the bottom left)
+		 * 
+		 * Also resets mask, blend, shader, geometry, etc...
 		 * 
 		 * The matrix is column-major, for right-multiplication
 		 * ```txt
 		 * in x y z 1
 		 *  [ a d g j ] -> out x
 		 *  [ b e h k ] -> out y
-		 *  [ c f i l ]
+		 *  [ c f i l ] -> out w
 		 */
 		reset(a?: number, b?: number, c?: number, d?: number, e?: number, f?: number, g?: number, h?: number, i?: number, j?: number, k?: number, l?: number): void
-
-		/**
-		 * Returns the point which transforms to a w (perspective value) of 0 in screen space, essentially the "camera" position in a 3D transformation
-		 * @performance This performs a matrix inversion. For what it does, it is usually much faster to keep track of the camera's position manually and perform any additional math than to calculate it via this method every time it's needed
-		 */
-		perspectiveOrigin(): vec3
-		/**
-		 * Returns a normalized metric which, when transformed, connects the perspective origin to a point in sreen space
-		 * 
-		 * This can be used to cast a ray from a visual point on the screen to a vector in the world. If `origin` is passed, it is modified to contain the perspective origin (see `.perspectiveOrigin()`), which is cheaper to calculate at the same time as the ray than separately with a call to `perspectiveOrigin()`. The returned vector is always normalized, i.e `vec3.magnitude(ray) == 1`
-		 * 
-		 * @performance This performs a matrix inversion. Depending on your use case, it may be faster to keep track of the camera's position & orientation manually and perform any additional math than to calculate it via this method every time it's needed
-		 */
-		perspectiveRay(x: number, y: number, origin?: vec3): vec3
-		perspectiveRay(xy: vec2, origin?: vec3): vec3
 	}
 
 	/** See `Drawable.mask` */ const R = 1
@@ -1504,7 +1660,7 @@ namespace GammaInstance{
 	 * - `MIN` (min(s,d))
 	 * - `MAX` (max(s,d))
 	 * 
-	 * Any of these values can be mixed to apply different rules for rgb values as for alpha values, for example, `RGB_ADD | A_MAX` will apply `ADD` to rgb channels and `MAX` to the alpha channel, and `RGB_SRC_ALPHA | ZERO` will use `SRC_ALPHA` for rgb and `ZERO` for alpha. Note that there are no `RGB_ZERO` or `A_ZERO` as these are just `ZERO` (even that can be omitted altogether as it is `== 0`)
+	 * Any of these values can be mixed to apply different rules for rgb values as for alpha values, for example, `RGB_ADD | A_MAX` will apply `ADD` to rgb channels and `MAX` to the alpha channel, and `RGB_SRC_ALPHA | ZERO` will use `SRC_ALPHA` for rgb and `ZERO` for alpha. Note that there are no `RGB_ZERO` or `A_ZERO` as these are just `ZERO` (even that can be omitted altogether as `ZERO === 0`)
 	 * 
 	 * @param alphaToCoverage Use the alpha value in conjunction with MSAA draw targets to simulate higher fidelity blending. Only a portion of the per-pixel samples are written, depending on the source's alpha. Note that when using this you should not provide premultiplied source, nor multiply the destination by `ONE_MINUS_SRC_ALPHA`
 	 * @performance This function is pure arithmetic and often even constant-folded
