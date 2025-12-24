@@ -49,7 +49,6 @@ const gl = $.gl = ($.canvas = can).getContext('webgl2', {preserveDrawingBuffer: 
 gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1)
 gl.stencilMask(1)
 gl.clearStencil(0)
-gl.enable(gl.BLEND)
 gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1)
 gl.pixelStorei(gl.PACK_ALIGNMENT, 1)
 // No clip control = [-1,1]->[0,1] remapping = lost precision = we need to set depth in the fragment to keep precision = early Z testing disabled
@@ -437,7 +436,9 @@ class Tex{
 Tex.prototype.msaa = 0
 $.Drawable = () => new Drw2D({ s: null, _fb: gl.createFramebuffer(), w: 0, h: 0, m: 0, t: [] })
 $.Drawable.MAX_TARGETS = gl.getParameter(gl.MAX_COLOR_ATTACHMENTS)
+$.Drawable.DRAW_16F = !!gl.getExtension('EXT_color_buffer_half_float')
 $.Drawable.DRAW_32F = !!gl.getExtension('EXT_color_buffer_float')
+$.Drawable.BLEND_32F = $.Drawable.DRAW_32F&&!!gl.getExtension('EXT_float_blend')
 let arr = new Float32Array(1024), iarr = new Int32Array(arr.buffer), i = 0
 $.Texture = (w = 0, h = 0, d = 1, o = 0, f = Formats.RGBA, mips = 0) => {
 	mips = min((mips>>>0)||1, floor(log2(max(w, h)))+1)
@@ -1417,9 +1418,15 @@ const x = Object.getOwnPropertyDescriptors({
 			}
 			if(d&256) gl.depthMask(m&256)
 			if(d&1536) m&1536 ? ((pmask&1536)||gl.enable(gl.DEPTH_TEST), gl.depthFunc(521-(m>>9&3)*3)) : gl.disable(gl.DEPTH_TEST)
-			if(d&2113929216) gl.blendEquationSeparate((m>>25&7)+32773,(m>>28&7)+32773)
-			if(d&33552384){ const a = m>>11&15, b = m>>18&15, c = m>>15&7, d = m>>22&7; gl.blendFuncSeparate(a+766*(a>1), b+766*(b>1), c+766*(c>1), d+766*(d>1)) }
-			if(d&-2147483648) m&-2147483648 ? gl.enable(gl.SAMPLE_ALPHA_TO_COVERAGE) : gl.disable(gl.SAMPLE_ALPHA_TO_COVERAGE)
+			if(d>>11){
+				if((m<<1>>12)==147473) gl.disable(gl.BLEND)
+				else{
+					if((pmask<<1>>12)==147473) gl.enable(gl.BLEND)
+					if(d&2113929216) gl.blendEquationSeparate((m>>25&7)+32773,(m>>28&7)+32773)
+					if(d&33552384){ const a = m>>11&15, b = m>>18&15, c = m>>15&7, d = m>>22&7; gl.blendFuncSeparate(a+766*(a>1), b+766*(b>1), c+766*(c>1), d+766*(d>1)) }
+				}
+				if(d&-2147483648) m&-2147483648 ? gl.enable(gl.SAMPLE_ALPHA_TO_COVERAGE) : gl.disable(gl.SAMPLE_ALPHA_TO_COVERAGE)
+			}
 			pmask = m
 		}
 		lastd = this

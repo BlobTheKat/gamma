@@ -265,10 +265,10 @@ let selectedShader = -1
 
 ictx.onGamepadButtonPress([GAMEPAD.LB, GAMEPAD.RB], (key) => {
 	if(selectedShader == -1) selectedShader = sfx = 0
-	sfx = selectedShader = (selectedShader + (key == GAMEPAD.LB ? 9 : 1)) % 10
+	sfx = selectedShader = (selectedShader + (key == GAMEPAD.LB ? 5 : 1)) % 6
 })
-ictx.onGamepadButton([GAMEPAD.A, GAMEPAD.B], (isDown, btn) => {
-	ictx.setKey(btn == GAMEPAD.A ? KEY.SPACE : KEY.SHIFT, isDown)
+ictx.onGamepadButton([GAMEPAD.A, GAMEPAD.B, GAMEPAD.X], (isDown, btn) => {
+	ictx.setKey(btn == GAMEPAD.A ? KEY.SPACE : btn == GAMEPAD.B ? KEY.SHIFT : KEY.NUM_0, isDown)
 })
 ictx.onGamepadAxis(GAMEPAD.LEFT_STICK, (x, y) => {
 	ictx.setKey(KEY.W, y > .5)
@@ -345,7 +345,7 @@ render = () => {
 	if(!surface || surface.width != ctx.width || surface.height != ctx.height){
 		surface?.delete(); surface2?.delete(); dsurface?.delete()
 		surface = Texture(ctx.width, ctx.height, 1, SMOOTH, Formats.RGB, 999)
-		surface2 = Texture(ctx.width, ctx.height, 1, 0, Formats.RGBA32F)
+		surface2 = Texture(ctx.width, ctx.height, 1, 0, Drawable.BLEND_32F ? Formats.RGBA32F : Formats.RGBA16F)
 		dsurface = Texture.Surface(ctx.width, ctx.height, 0, Formats.DEPTH32F_STENCIL)
 		scene.setTarget(0, surface)
 		scene.setTarget(-1, dsurface, 0)
