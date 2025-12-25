@@ -22,7 +22,7 @@ render = () => {
 	}
 	if(useMSAA && (!msaa || msaa.width != w || msaa.height != h)){
 		msaa?.delete()
-		msaa = Texture.MSAA(w, h, 999, Formats.RGBA)
+		msaa = Texture.Surface(w, h, 999, Formats.RGBA)
 	}
 	d.setTarget(0, useMSAA ? msaa : tex)
 	drawSquare(d)

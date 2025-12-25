@@ -51,7 +51,7 @@ class Tooltip{
 
 const food = new Set()
 
-food.add(vec2(0, 200))
+food.add(vec2(0, 10))
 
 function eat(){
 	eatTooltip.hide()
@@ -59,7 +59,7 @@ function eat(){
 	fade = .125 ** (1/(circles.length+3))
 	const targetFood = floor(sqrt(circles.length))
 	while(food.size < targetFood){
-		const th = random()*PI2, r = random() * targetFood * 500
+		const th = random()*PI2, r = random() * targetFood * 30
 		food.add(vec2(sin(th)*r,cos(th)*r))
 	}
 }
@@ -73,17 +73,17 @@ let elasticWheel = 0
 const colors = Array.map(8, i => (i *= PI2/8, vec4(cos(i)*.5+.5,cos(i+PI2/3)*.5+.5,cos(i+PI2*2/3)*.5+.5,1)))
 
 function checkFood(f, pos, radius){
-	if(hypot(f.x-pos.x, f.y-pos.y) < radius+10){
+	if(hypot(f.x-pos.x, f.y-pos.y) < radius+1){
 		food.delete(f)
 		eat()
 	}
 }
 
-onKey(MOUSE.LEFT, () => pointerLock = true)
+ictx.onKey(MOUSE.LEFT, () => pointerLock = true)
 
 let head = vec2()
 render = () => {
-	const w = ctx.width/pixelRatio, h = ctx.height/pixelRatio
+	const {width: w, height: h} = getGUIDimensions(16)
 	ctx.reset(1/w, 0, 0, 1/h, .5, .5)
 	// Let's implement cover fill
 	// We know:
@@ -105,15 +105,14 @@ render = () => {
 	ctx.scale(1/cam.z)
 	if(ictx.has(MOUSE.LEFT)){
 		const mov = ictx.mouse
-		cam.x -= mov.x; cam.y -= mov.y
+		cam.x -= mov.x*.1; cam.y -= mov.y*.1
 		panTooltip.hide()
 	}
 	ctx.translate(-cam.x, -cam.y)
-	cursorType = 'none'
 	const inflate = sqrt(cam.z)
 	{
 		const ct2 = ctx.sub()
-		ct2.scale(50)
+		ct2.scale(2)
 		ct2.translate(0, -1)
 		zoomTooltip.draw(ct2.sub())
 		ct2.translate(0, -1)
@@ -130,7 +129,7 @@ render = () => {
 
 	ctx.shader = Shader.AA_CIRCLE
 
-	head = pointerLock ? ictx.has(MOUSE.LEFT) ? head : vec2.add(head, ictx.mouse) : ctx.unproject(cursor)
+	head = pointerLock ? ictx.has(MOUSE.LEFT) ? head : vec2.add(head, vec2.multiply(ictx.mouse, .05)) : ctx.unproject(ictx.cursor ?? vec2(.5))
 	let {x, y} = head
 	if(pointerLock){
 		const wq = w*.333*cam.z
@@ -144,11 +143,11 @@ render = () => {
 		if(y-hq>cam.y)
 			cam.y += (y-hq-cam.y)*dt*2
 	}
-	let radius = 50
+	let radius = 3
 	for(const f of food){
 		checkFood(f, head, radius)
 		const col = (f.x*f.x+f.y*f.y)*8 & 7
-		const r = 10*inflate
+		const r = inflate*.6
 		ctx.drawRect(f.x-r, f.y-r, 2*r, 2*r, colors[col])
 	}
 	ctx.drawRect(x-radius, y-radius, radius*2, radius*2, vec4(.5))
@@ -176,6 +175,6 @@ render = () => {
 		pos.x = x
 		pos.y = y
 
-		ctx.drawRect(x-radius, y-radius, radius*2, radius*2, vec4(radius/100))
+		ctx.drawRect(x-radius, y-radius, radius*2, radius*2, vec4(radius/5))
 	}
 }

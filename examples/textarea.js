@@ -51,7 +51,6 @@ input.transformer = txt => {
 }
 input.maxWidth = 20
 input.allowTabs = true
-const scr = Scrollable(input, 20, -20)
 
 
 Shader.AA_CIRCLE = Shader(`
@@ -64,7 +63,7 @@ const gammaIcon = Texture.from('/gamma.png')
 
 let cx = 0, cxi = 0, zoom = NaN, zoomi = 0
 render = () => {
-	const w = ctx.width/pixelRatio, h = ctx.height/pixelRatio
+	const {width: w, height: h} = getGUIDimensions(16)
 	if(zoom != zoom) zoom = zoomi = w/21
 	ctx.reset(1/w, 0, 0, 1/h, .5, .5)
 	const a = max(0, lastUpdate-t+.5)
@@ -88,7 +87,7 @@ render = () => {
 	else
 		ctx.translate(-cxi,0)
 	if(!input.isSelecting)
-		cx = (input.sel0pos + input.sel1pos)*.5 * (input.multiline ? input.lineHeight : 1) + scr.y
+		cx = (input.sel0pos + input.sel1pos)*.5 * (input.multiline ? input.lineHeight : 1)
 
 	//if(input.isSelecting || c.x > -.5 && c.x < input.width + .5 && c.y > -.5 && c.y < 1)
 	ictx.reset()

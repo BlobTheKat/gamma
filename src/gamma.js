@@ -277,17 +277,18 @@ class Tex{
 	paste(tex, x=0, y=0, l=0, dstMip=0, srcX=0, srcY=0, srcL=0, srcW=0, srcH=0, srcD=0, srcMip=0){
 		const {t} = this
 		if(t.src) return null
-		const fmt = t.f[3]
+		const fmt = t.f[3]||4230368
 		if(tex.msaa){
-			if(!(fmt&4194304)||tex.f[3]!=fmt) return this
+			const fmt2 = tex.f[3]||4230368, m = (fmt&fmt2)>>16
 			i&&draw()
 			srcH = srcW || tex.height; srcW = srcL || tex.width
 			if(curfb != drawfb) gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, curfb = drawfb), curt=lastd=null
-			if(~pmask&15) gl.colorMask(1, 1, 1, 1), pmask |= 15, lastd = null
-			gl.framebufferRenderbuffer(gl.READ_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, tex._tex)
-			gl.framebufferTextureLayer(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, t._tex, dstMip, l)
-			gl.blitFramebuffer(srcX, srcY, srcX+srcW, srcY+srcH, x, y, x+srcW, y+srcH, 16384, gl.NEAREST)
-			gl.framebufferRenderbuffer(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, null), gl.framebufferRenderbuffer(gl.READ_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.RENDERBUFFER, null)
+			if(m&64){ if(~pmask&15) gl.colorMask(1, 1, 1, 1), pmask |= 15, lastd = null }
+			else if((m&1)&&(~pmask&256)) gl.depthMask(1), pmask |= 256, lastd = null
+			gl.framebufferRenderbuffer(gl.READ_FRAMEBUFFER, fmt2&65535, gl.RENDERBUFFER, tex._tex)
+			fmt==298272 ? gl.framebufferRenderbuffer(gl.DRAW_FRAMEBUFFER, gl.STENCIL_ATTACHMENT, gl.RENDERBUFFER, t._tex[dstMip+(l++)*t.m]) : gl.framebufferTextureLayer(gl.DRAW_FRAMEBUFFER, fmt&65535, t._tex, dstMip, l)
+			gl.blitFramebuffer(srcX, srcY, srcX+srcW, srcY+srcH, x, y, x+srcW, y+srcH, m<<8, gl.NEAREST)
+			gl.framebufferRenderbuffer(gl.DRAW_FRAMEBUFFER, fmt&65535, gl.RENDERBUFFER, null), gl.framebufferRenderbuffer(gl.READ_FRAMEBUFFER, fmt2&65535, gl.RENDERBUFFER, null)
 			return this
 		}
 		if(fmt==298272){
@@ -302,7 +303,7 @@ class Tex{
 				gl.framebufferRenderbuffer(gl.DRAW_FRAMEBUFFER, gl.STENCIL_ATTACHMENT, gl.RENDERBUFFER, t._tex[dstMip+(l++)*t.m])
 				gl.blitFramebuffer(srcX, srcY, srcX+srcW, srcY+srcH, x, y, x+srcW, y+srcH, m<<8, gl.NEAREST)
 			}
-			gl.framebufferRenderbuffer(gl.DRAW_FRAMEBUFFER, fmt&65535, gl.RENDERBUFFER, null), gl.framebufferRenderbuffer(gl.READ_FRAMEBUFFER, fmt2&65535, gl.RENDERBUFFER, null)
+			gl.framebufferRenderbuffer(gl.DRAW_FRAMEBUFFER, gl.STENCIL_ATTACHMENT, gl.RENDERBUFFER, null), gl.framebufferRenderbuffer(gl.READ_FRAMEBUFFER, fmt2&65535, gl.RENDERBUFFER, null)
 			return this
 		}
 		if(!(tex instanceof Tex)) return resolveData(tex, i => {
