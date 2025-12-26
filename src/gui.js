@@ -396,6 +396,18 @@
 			} : undefined
 		}
 	}
+	class Padding extends GUIElement{
+		constructor(el, b, l, t, r){ this.child = el; this.bottom = b; this.left = l; this.top = t; this.right = r; this.child.addDependency(this.invalidate) }
+		replace(other){
+			this.child.removeDependency(this.invalidate)
+			void (this.child = other).addDependency(this.invalidate)
+		}
+		_dimensions(){ return vec2(this.child.width + this.left + this.right, this.child.height + this.bottom + this.top) }
+		draw(ctx, ictx, w, h){
+			ctx.translate(this.left, this.bottom)
+			this.child.draw?.(ctx, ictx, w-this.left-this.right, h-this.top-this.bottom)
+		}
+	}
 	class ParticleContainer extends GUIElementManualValidate{
 		width = 0; height = 0
 		sized(w, h){ this.width = w; this.height = h; return this }
@@ -461,8 +473,11 @@
 		BoxFill: (a,b=.5,c=max,d) => a.identity ? new BoxFill(a,b,c,d) : new BoxFill(null,1,1,a),
 		Transform: (el, fn=Function.prototype, x=.5, y=.5) => new Transform(el,fn,x,y),
 		Layer: (el) => new Layer(el),
-		ScrollableLayer: (c, ax=0, ay=1) => (typeof ax=='object'&&({x:ax,y:ay}=ax),new ScrollableLayer(c, ax, ay))
+		ScrollableLayer: (c, ax=0, ay=1) => (typeof ax=='object'&&({x:ax,y:ay}=ax),new ScrollableLayer(c, ax, ay)),
+		Padding: (c, b=0, l=b, t=b, r=l) => new Padding(c, b, l, t, r),
+		TextField: (multiline=false) => new _txtfield(multiline<<11&2048)
 	}
+	$.GUI.TextField.cursorTimer = () => $.t-ltf
 	$.ParticleContainer = ParticleContainer
 	const v4p2 = $.vec4(.2)
 	const dfs = $.GUI.ScrollableLayer.defaultScrollbar = (ctx, x, w, width) => {
@@ -518,7 +533,7 @@
 		ctx.shader = null
 		if(($.t-ltf)%1<.5) ctx.drawRect(0, font.ascend-1, .05, 1, v4.one)
 	}
-	class _txtfield{
+	class _txtfield extends GUIElementManualValidate{
 		_f=0; #s=0; #e=0
 		get allowTabs(){return(this._f&1)!=0}
 		set allowTabs(a){this._f=this._f&-2|a&1}
@@ -714,7 +729,7 @@
 		lineAscend = .9
 		#lc = 0
 		#ptrDown = -1
-		#onPointerUpdate(ctx, id, ptr){
+		#onPointerUpdate(ctx, w, h, id, ptr){
 			if(!ptr){
 				if(id == this.#ptrDown){
 					// pointer up
@@ -770,17 +785,15 @@
 			return null
 		}
 		get height(){return this.lineHeight*(this.#pa?this.#pa.length:1)}
-		layout(ctx, ictx, x=-Infinity, y=-Infinity, w=Infinity, h=Infinity){
-			ictx.onPointerUpdate(this.#onPointerUpdate.bind(this, ctx))
-			ictx.onKeyUpdate((key, isDown) => {
-				$.captureKeyEvent(this.#i, key, isDown)
-				return false
-			})
-		}
 		get height(){return this.#pa?this.#pa.length*this.lineHeight:this.lineHeight}
 		get xOffset(){return 0}
 		get yOffset(){return -this.lineAscend}
-		draw(ctx, ictx){
+		draw(ctx, ictx, w, h){
+			ictx.onPointerUpdate(this.#onPointerUpdate.bind(this, ctx, w, h))
+			ictx.onKeyUpdate((key, isDown) => {
+				if(this.focus) $.captureKeyEvent(this.#i, key, isDown)
+				return false
+			})
 			if(this.#pa){
 				for(const l of this.#pa){
 					l.draw(ctx.sub())
@@ -805,6 +818,4 @@
 			f._f&256||(f._f|=256,setImmediate(f.recalc))
 		}))
 	}
-	$.TextField = (multiline=false) => new _txtfield(multiline<<11&2048)
-	$.TextField.cursorTimer = () => $.t-ltf
 }}

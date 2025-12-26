@@ -3,7 +3,7 @@
 const font = await Font.chlumsky('fonts/ankacoder/')
 // One tab = 3 spaces. Cry about it
 font.setChar(0x09, font.getWidth(0x20) * 3)
-const input = TextField(true)
+const input = GUI.TextField(true)
 //input.simpleTransformer(font, 'Write some text...')
 const styles = new Map()
 	.set(/(let|const|var|if|else|while|for|do|try|catch|finally|throw|return|function|class|extends|static|with|switch|case|default|in|instanceof|new|delete|typeof|async|await)(?!\w)/y, vec4(.95,.3,.05))
