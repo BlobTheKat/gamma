@@ -785,22 +785,23 @@
 			return null
 		}
 		get height(){return this.lineHeight*(this.#pa?this.#pa.length:1)}
-		get height(){return this.#pa?this.#pa.length*this.lineHeight:this.lineHeight}
-		get xOffset(){return 0}
-		get yOffset(){return -this.lineAscend}
 		draw(ctx, ictx, w, h){
 			ictx.onPointerUpdate(this.#onPointerUpdate.bind(this, ctx, w, h))
 			ictx.onKeyUpdate((key, isDown) => {
 				if(this.focus) $.captureKeyEvent(this.#i, key, isDown)
 				return false
 			})
+			let y = h-this.lineAscend
+			
 			if(this.#pa){
 				for(const l of this.#pa){
+					ctx.translate(0, y)
+					y = -this.lineHeight
 					l.draw(ctx.sub())
-					ctx.translate(0,-this.lineHeight)
 				}
 			}else this.#p?.draw(ctx)
 		}
+		// TODO: put all 3 listeners outside the module constructor
 		static #_ = (document.addEventListener('input', ({target}) => {
 			const f = target._field
 			if(!f) return
