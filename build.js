@@ -181,7 +181,8 @@ for(const src of fs.readdirSync('src')){
 			let {code} = res
 			const fn = postprocessors[src] ?? null
 			if(fn) code = fn(code)
-			all += code
+			if(src == 'gamma.js') all = code + all
+			else all += code
 			return fsa.writeFile('min/'+src.slice(0, -3) + '.min.js', code)
 		}))
 }
