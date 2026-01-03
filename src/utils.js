@@ -59,23 +59,12 @@ Uint16Array.fromHex = function(hex){
 	}
 	return res.slice(0, i)
 }
-globalThis.hsla = (h,s,l,a=1) => {
-	h *= 1/30; h %= 12; h += (h<0)*12
-	const f = s*(l<.5?l:1-l)
-   return vec4(max(0, l-f*max(3-abs(h-6),-1)),max(0, l-f*max(3-abs(h+(h<4)*12-10),-1)),max(0, l-f*max(3-abs(h-(h>=8)*12-2),-1)),a)
-}
 const h = '0123456789abcdef'
 Number.prototype.toHex = function(){return h[this>>>28]+h[this>>24&15]+h[this>>20&15]+h[this>>16&15]+h[this>>12&15]+h[this>>8&15]+h[this>>4&15]+h[this&15]}
 Number.formatData = bytes => bytes < 512 ? bytes.toFixed(0)+'B' : bytes < 524288 ? (bytes/1024).toFixed(1)+'KiB' : bytes < 536870912 ? (bytes/1048576).toFixed(1)+'MiB' : bytes < 549755813888 ? (bytes/1073741824).toFixed(1)+'GiB' : (bytes/1099511627776).toFixed(1)+'TiB'
 Date.kebab = (d = new Date()) => `${d.getYear()+1900}-${('0'+d.getMonth()).slice(-2)}-${('0'+d.getDate()).slice(-2)}-at-${('0'+d.getHours()).slice(-2)}-${('0'+d.getMinutes()).slice(-2)}-${('0'+d.getSeconds()).slice(-2)}`
 globalThis.randint ??= Math.randint ??= () => Math.random() * 4294967296 | 0
 const a = document.createElement('a')
-globalThis.download = (file, name = file.name ?? (file.type[0]=='@' ? 'file' : file.type.split('/',1)[0])) => {
-	a.href = URL.createObjectURL(file)
-	a.download = name
-	a.click()
-	URL.revokeObjectURL(a.href)
-}
 const {floor, trunc, fround} = Math
 const grow = 'transfer' in ArrayBuffer.prototype ? (b,n=0)=>{ b.buf8 = new Uint8Array((b.buf = new DataView(b.buf.buffer.transfer(b.cap=(b.cap<<1)+n))).buffer) } : (b, n = 0) => {
 	const r = new Uint8Array(new ArrayBuffer(b.cap=(b.cap<<1)+n))
@@ -480,6 +469,17 @@ Array.map ??= (len=0, fn) => {
 	return a
 }
 Gamma.utils = $ => {
+	$.download = (file, name = file.name ?? (file.type[0]=='@' ? 'file' : file.type.split('/',1)[0])) => {
+		a.href = URL.createObjectURL(file)
+		a.download = name
+		a.click()
+		URL.revokeObjectURL(a.href)
+	}
 	Object.assign($, Nanobuf)
 	$.screenshot = (t='image/png',q) => new Promise(r => requestAnimationFrame(() => $.canvas.toBlob(r, t, q)))
+	$.hsla = (h,s,l,a=1) => {
+		h *= 1/30; h %= 12; h += (h<0)*12
+		const f = s*(l<.5?l:1-l)
+		return vec4(max(0, l-f*max(3-abs(h-6),-1)),max(0, l-f*max(3-abs(h+(h<4)*12-10),-1)),max(0, l-f*max(3-abs(h-(h>=8)*12-2),-1)),a)
+	}
 }}

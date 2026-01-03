@@ -1,10 +1,19 @@
-{Gamma.gui = $ => {
+{
+document.addEventListener('input', ({target}) => {
+	if(target === document.activeElement) target._field?._setSelectionFrom(target)
+}),
+document.addEventListener('selectionchange', ({target}) => {
+	if(target === document.activeElement) target._field?._setSelectionFrom(target)
+})
+Gamma.gui = $ => {
 	if(!$.Font) throw 'Initialize Gamma.font before Gamma.gui'
+	// Width/height are basically "recommended" dimensions. The parent follows the request and passes the values to .draw() if it wants to, but a parent may choose to resize the child and provide more (or less) space. A child should always respect the values passed to .draw() if it is able to. width==0 or height==0 are also used to mean no specific size is requested. If the parent does not have a reasonable "fallback" or "override" size to provide to the child, the child may end up with a zero size.
 	$.GUIElement = class GUIElement{
-		#w = NaN; #h = NaN; #drawDep = null; _invalidated = false
+		#w = NaN; #h = NaN; #drawDep = null
 		_dimensions(){ return vec2.zero }
+		get width(){ let w = this.#w; if(w!==w){ const d = this._dimensions(); w = this.#w = d.x; this.#h = d.y } return w }
+		get height(){ let h = this.#h; if(h!==h){ const d = this._dimensions(); this.#w = d.x; h = this.#h = d.y } return h }
 		invalidate = () => {
-			this._invalidated = true
 			this.#w = this.#h = NaN
 			const hook = this.#drawDep
 			if(!hook) return
@@ -24,8 +33,6 @@
 			while(i<l.length) l[i] = l[++i]
 			l.pop()
 		}
-		get width(){ let w = this.#w; if(w!==w){ const d = this._dimensions(); w = this.#w = d.x; this.#h = d.y } return w }
-		get height(){ let h = this.#h; if(h!==h){ const d = this._dimensions(); this.#w = d.x; h = this.#h = d.y } return h }
 	}
 	class GUIElementManualValidate{
 		#drawDep = null; _invalidated = false
@@ -54,13 +61,26 @@
 	const zdraw = function(ctx, ictx, w, h){
 		this._invalidated = false
 		let i = this.children.length
-		w = this.width || w; h = this.height || h
 		for(const el of this.children) el.draw?.(--i ? ctx.sub() : ctx, ictx, w, h)
 	}
 	const list = (draw, layout) => {
 		class list extends GUIElementManualValidate{
-			width = 0; height = 0
-			sized(w, h){ this.width = w; this.height = h; return this }
+			#w = NaN; #h = NaN
+			get width(){
+				let w = this.#w
+				if(w===w) return w
+				w = 0
+				for(const {width: w2} of this.children) if(w2 > w) w = w2
+				return this.#w = w
+			}
+			get height(){
+				let h = this.#h
+				if(h===h) return h
+				h = 0
+				for(const {height: h2} of this.children) if(h2 > h) h = h2
+				return this.#h = h
+			}
+			constructor(){ super(); this.addDependency(() => { this.#w = this.#h = NaN }) }
 			children = []
 			add(el){ this.children.push(el); el.addDependency(this.invalidate); return this }
 			remove(n){
@@ -98,8 +118,8 @@
 		return { width: $.canvas.offsetWidth*s, height: $.canvas.offsetHeight*s, paddingLeft: parseFloat(l)*s, paddingRight: parseFloat(r)*s, paddingBottom: parseFloat(b)*s, paddingTop: parseFloat(t)*s }
 	}
 	class Box extends GUIElementManualValidate{
-		constructor(el, pos, sz){ super(); this.child = el; this.pos = pos; this.size = sz }
-		width = 0; height = 0
+		constructor(el, pos, sz, f){ super(); this.child = el; this.child.addDependency(this.invalidate); this.pos = pos; this.size = sz; this.flags = f }
+		width = 0; height = 0; flags = 0
 		sized(w, h){ this.width = w; this.height = h; return this }
 		replace(other){
 			this.child.removeDependency(this.invalidate)
@@ -108,18 +128,20 @@
 		draw(ctx, ictx, w, h){
 			this._invalidated = false
 			if(!this.child.draw) return
-			const {width, height} = this.child
+			let {width, height} = this.child
 			let {size, pos} = this, xs = 1, ys = 1
 			if(typeof size == 'function') size = size(w/width, h/height)
 			if(typeof size == 'number') xs = ys = size
 			else if(typeof size == 'object') size && (xs = size.x, ys = size.y)
-			const difw = w-width*xs, difh = h-height*ys
+			const awidth = width*xs, aheight = height*ys
+			const difw = w-awidth, difh = h-aheight
 			if(typeof pos == 'function') pos = pos(difw, difh)
-			if(typeof pos == 'object') pos && ctx.translate(pos.x*difw, pos.y*difh)
-			else{
-				if(typeof pos != 'number') pos = 0.5
-				ctx.translate(pos*difw, pos*difh)
-			}
+			let x = 0, y = 0
+			if(typeof pos == 'object' && pos) ({x, y} = pos)
+			else x = y = typeof pos == 'number' ? pos : .5
+			if(this.flags&(1<<(awidth>w))) width = w/xs, x = 0
+			if(this.flags&(4<<(aheight>h))) height = h/ys, y = 0
+			if(x||y) ctx.translate(x*difw, y*difh)
 			ctx.scale(xs, ys)
 			this.child.draw(ctx, ictx, width, height)
 		}
@@ -190,12 +212,12 @@
 		#ptrCapt = -1
 		#onPointerUpdate(ctx, w, h, id, ptr){
 			let p = null
-			switch(!ptr){
-			case false:
+			switch(!!ptr){
+			case true:
 				if(this.#ptrCapt >= 0 && id != this.#ptrCapt) return
 				p = ctx.unproject(ptr)
 				if(p.x >= 0 && p.x < w && p.y >= 0 && p.y < h && (this.hitTest?.(p.x, p.y, w, h)??true)) break
-			case true:
+			case false:
 				if(id == this.#ptrCapt){
 					this.#ptrCapt = -1
 					const pr = this.state; this.state = 0
@@ -449,6 +471,9 @@
 		}
 	}
 	$.GUI = {
+		FILL_WIDTH: 1, CLAMP_WIDTH: 2, INHERIT_WIDTH: 3,
+		FILL_HEIGHT: 4, CLAMP_HEIGHT: 8, INHERIT_HEIGHT: 12,
+		FILL: 5, CLAMP: 10, INHERIT: 15,
 		MIDDLE: vec2(.5, .5),
 		LEFT: vec2(0, .5),
 		RIGHT: vec2(1, .5),
@@ -469,15 +494,16 @@
 			return new Text(rt)
 		},
 		Target: (cb = null, cur = PointerState.POINTER, cur2 = PointerState.POINTER) => new Target(cb,cur,cur2),
-		Box: (a,b=.5,c=1) => new Box(a,b,c),
+		Box: (a,b=.5,c=1,d=0) => new Box(a,b,c,d),
 		BoxFill: (a,b=.5,c=max,d) => a.identity ? new BoxFill(a,b,c,d) : new BoxFill(null,1,1,a),
 		Transform: (el, fn=Function.prototype, x=.5, y=.5) => new Transform(el,fn,x,y),
 		Layer: (el) => new Layer(el),
 		ScrollableLayer: (c, ax=0, ay=1) => (typeof ax=='object'&&({x:ax,y:ay}=ax),new ScrollableLayer(c, ax, ay)),
 		Padding: (c, b=0, l=b, t=b, r=l) => new Padding(c, b, l, t, r),
-		TextField: (multiline=false) => new _txtfield(multiline<<11&2048)
+		TextField: (f, ...v) => {const a = new _txtfield(0); if(typeof f == 'function') a.transformer = f; else if(f && typeof f == 'object') a.simpleTransformer(f, ...v); return a },
 	}
 	$.GUI.TextField.cursorTimer = () => $.t-ltf
+	$.GUI.TextField.multiline = (f, ...v) => {const a = new _txtfield(2048); if(typeof f == 'function') a.transformer = f; else if(f && typeof f == 'object') a.simpleTransformer(f, ...v); return a }
 	$.ParticleContainer = ParticleContainer
 	const v4p2 = $.vec4(.2)
 	const dfs = $.GUI.ScrollableLayer.defaultScrollbar = (ctx, x, w, width) => {
@@ -488,6 +514,7 @@
 	const rem = ({target:t}) => (t._field._f&256||(t._field._f|=256,setImmediate(t._field.recalc)), t.remove(), $.setFocused(curf = null))
 	// putting some stuff here allows us to catch system-defined key repeats
 	const keydown = e => {
+		ltf = $.t
 		const i = e.target, tf = i._field
 		if(e.keyCode == 38 || e.keyCode == 40){
 			if((tf._f>>1&1)^e.shiftKey) e.keyCode == 38 ? tf.upArrowCb?.() : tf.downArrowCb?.()
@@ -549,10 +576,10 @@
 		tabCb = null
 		scrollable = null
 		#i
-		constructor(t){this.#i=crInput(t?'textarea':'input', this);this._f=t}
-		get value(){return this.#i.value}
-		set value(a){this.#i.value=a;this._f&256||(this._f|=256,setImmediate(this.recalc))}
-		get sel0(){return this.#s}
+		constructor(t){ super(); this.#i = crInput(t?'textarea':'input', this); this._f = t }
+		get value(){ return this.#i.value }
+		set value(a){ this.#i.value=a;this._f&256||(this._f|=256,setImmediate(this.recalc)) }
+		get sel0(){ return this.#s }
 		set sel0(a){
 			a >>>= 0
 			if(this.#e >= this.#s){
@@ -572,7 +599,7 @@
 			}
 			this.#s = a
 		}
-		get sel1(){return this.#e}
+		get sel1(){ return this.#e }
 		set sel1(a){
 			a >>>= 0
 			if(this.#e >= this.#s){
@@ -609,11 +636,14 @@
 		get selEnd(){ return max(this.#s, this.#e) }
 		get isSelecting(){ return (this._f&512)!=0 }
 		#tr=null
-		get transformer(){return this.#tr}
-		set transformer(a){this.#tr!=(this.#tr=a)&&!(this._f&256)&&(this._f|=256,setImmediate(this.recalc))}
+		get transformer(){ return this.#tr }
+		set transformer(a){ this.#tr!=(this.#tr=a)&&!(this._f&256)&&(this._f|=256,setImmediate(this.recalc)) }
+		calcAscend(font, sz=1){ if(!font.ready) return font.then(this.calcAscend.bind(this, font, sz)), this; if(this.lineHeight < 0) this.lineAscend = sz*(1-font.ascend); else this.lineAscend = sz*font.ascend; return this }
+		invertWrapDirection(){ this.lineHeight *= -1; this.lineAscend = 1-this.lineAscend; return this }
 		simpleTransformer(font, placeholder='', ...v){
 			let w = v.slice()
 			w[0] = v[0] ? v4.multiply(v[0], .4) : v4(.4)
+			this.calcAscend(font)
 			this.#tr = value => {
 				const p = $.RichText(font)
 				if(v.length) p.setTextPass(0, v)
@@ -626,6 +656,7 @@
 				return p
 			}
 			this._f&256||(this._f|=256,setImmediate(this.recalc))
+			return this
 		}
 		#cr = defaultCr
 		#sr = defaultSr
@@ -658,8 +689,8 @@
 		get width(){return this.#w}
 		get line(){return this.#p}
 		get lines(){return this.#pa}
-		get cursor(){return this.#cr}
-		set cursor(a){this.#cr!=(this.#cr=a)&&!(this._f&256)&&(this._f|=256,setImmediate(this.recalc))}
+		get drawCursor(){return this.#cr}
+		set drawCursor(a){this.#cr!=(this.#cr=a)&&!(this._f&256)&&(this._f|=256,setImmediate(this.recalc))}
 		get selector(){return this.#sr}
 		set selector(a){this.#sr!=(this.#sr=a)&&!(this._f&256)&&(this._f|=256,setImmediate(this.recalc))}
 		get maxWidth(){return this.#mw}
@@ -668,7 +699,7 @@
 			const f = this._f
 			if(!(f&256)) return
 			const i = this.#i, s = min(this.#s, this.#e), e = max(this.#s, this.#e)
-			this._f = f&-257; ltf = $.t
+			this._f = f&-257
 			const v = i.value
 			const p = this.#tr?.(v, this) ?? $.RichText()
 			if(s == e){
@@ -708,6 +739,8 @@
 				}
 				this.#ew = l?l-1:0
 			}else this.#p = p, this.#w = p.width
+			if(!p.ready) p.then(() => {this._f&256||(this._f|=256,setImmediate(this.recalc))})
+			this.invalidate()
 		}
 		insert(t='', off = t.length){
 			const i = this.#i, s = i.selectionStart
@@ -725,12 +758,18 @@
 				this._f&256||(this._f|=256,setImmediate(this.recalc))
 			}else if(curf == this.#i) curf.remove(), $.setFocused(curf = null)
 		}
+		autoWidth = false
+		setAutoWidth(b=true){ this.autoWidth=b; return this }
 		lineHeight = 1.3
 		lineAscend = .9
 		#lc = 0
 		#ptrDown = -1
 		#onPointerUpdate(ctx, w, h, id, ptr){
-			if(!ptr){
+			switch(!!ptr){
+			case true:
+				const {x, y} = ctx.unproject(ptr)
+				if(x>=0&&y>=0&&x<w&&y<h) break
+			case false:
 				if(id == this.#ptrDown){
 					// pointer up
 					this.#ptrDown = -1
@@ -786,37 +825,28 @@
 		}
 		get height(){return this.lineHeight*(this.#pa?this.#pa.length:1)}
 		draw(ctx, ictx, w, h){
-			ictx.onPointerUpdate(this.#onPointerUpdate.bind(this, ctx, w, h))
+			this._invalidated = false
+			ictx.onPointerUpdate(this.#onPointerUpdate.bind(this, ctx.getTransform(), w, h))
 			ictx.onKeyUpdate((key, isDown) => {
 				if(this.focus) $.captureKeyEvent(this.#i, key, isDown)
 				return false
 			})
-			let y = h-this.lineAscend
-			
+			if(this.autoWidth && this.#mw !== w){ this.#mw = w; this._f|=256; this.recalc() }
+			let y = this.lineHeight<0||Object.is(this.lineHeight,-0) ? this.lineAscend : h-this.lineAscend
 			if(this.#pa){
+				y -= (this.lineHeight-1)*.5
 				for(const l of this.#pa){
 					ctx.translate(0, y)
 					y = -this.lineHeight
 					l.draw(ctx.sub())
 				}
-			}else this.#p?.draw(ctx)
+			}else ctx.translate(0, (y+this.lineHeight-1)*.5), this.#p?.draw(ctx)
 		}
-		// TODO: put all 3 listeners outside the module constructor
-		static #_ = (document.addEventListener('input', ({target}) => {
-			const f = target._field
-			if(!f) return
-			const { selectionStart: s, selectionEnd: e, selectionDirection: d } = target
-			if(d == 'backward') f.#s = e, f.#e = s
-			else f.#s = s, f.#e = e
-			f._f&256||(f._f|=256,setImmediate(f.recalc))
-		}),
-		document.addEventListener('selectionchange', ({target}) => {
-			const f = target._field
-			if(!f) return
-			const { selectionStart: s, selectionEnd: e, selectionDirection: d } = target
-			if(d == 'backward') f.#s = e, f.#e = s
-			else f.#s = s, f.#e = e
-			f._f&256||(f._f|=256,setImmediate(f.recalc))
-		}))
+		_setSelectionFrom({ selectionStart: s, selectionEnd: e, selectionDirection: d }){
+			ltf = $.t
+			if(d == 'backward') this.#s = e, this.#e = s
+			else this.#s = s, this.#e = e
+			this._f&256||(this._f|=256,setImmediate(this.recalc))
+		}
 	}
 }}

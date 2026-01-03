@@ -258,6 +258,12 @@ declare global{
 		 * See `RichText.index` for more on how the "original text" is counted.
 		 */
 		toString(): string
+
+		/** Whether all fonts this `RichText` uses are all fully loaded */
+		ready: boolean
+
+		/** Add a callback for when all fonts this `RichText` uses are all fully loaded. If all fonts are already loaded, then this method doesn't exist (undefined) */
+		then: ((resolve: (self: RichText) => any, reject: any) => undefined) | undefined
 	}
 	/** See `RichText.break()` */
 	type MeasurementOffsets = {scale: number, letterSpacing: number, curve: number}

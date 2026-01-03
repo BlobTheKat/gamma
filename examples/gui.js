@@ -56,10 +56,11 @@ function updateLabel(){
 let n = 0
 let lastPressed = -1
 updateLabel()
+
 const ui = GUI.Layer(
 	GUI.ZStack()
 		.add(GUI.BoxFill(Texture.from('/examples/mountains.jpeg'), GUI.BOTTOM, max, vec4(.5)))
-		.add(GUI.Transform(label, function(ctx, w, h, w2, h2){
+		/*.add(GUI.Transform(label, function(ctx, w, h, w2, h2){
 			let a = max(0, lastPressed-t+.5); a *= a
 			ctx.scale(min((w-2)/w2, 3+a*3))
 			ctx.rotate(-.5*a)
@@ -69,9 +70,14 @@ const ui = GUI.Layer(
 			n++; lastPressed = t
 			updateLabel()
 			for(let i = 0; i < 2000; i++) confetti.add(x, y)
-		}))
+		}))*/
+		.add(GUI.Box(GUI.ZStack()
+			.add(GUI.BoxFill(vec4(0,0,0,.5)))
+			.add(GUI.TextField.multiline(font, 'Enter some text').setAutoWidth())
+		, GUI.BOTTOM, 4, GUI.INHERIT_WIDTH))
 		.add(confetti)
 )
+
 let accX = 0, accY = 0, posZ = 0.6, targetPosZ = 0.6
 render = () => {
 	const dims = getGUIDimensions()
@@ -95,6 +101,6 @@ render = () => {
 	const ctx2 = ctx3.sub2dXY()
 	ctx2.translate(-.5*dims.width, -.5*dims.height)
 	ui.draw(ctx2.sub(), ictx, dims.width, dims.height)
-	//const a = ui.lastRedraw-t+.25
+	const a = ui.lastRedraw-t+.25
 	//if(a>0) ctx2.drawRect(0, 0, dims.width, dims.height, vec4(a*a*4,0,0,0))
 }

@@ -882,8 +882,8 @@ namespace GammaInstance{
 		 * Un-transform a point in screen space `(x, y)` by the current transformation matrix, returning the original point as an object `{x, y}`
 		 * @performance This method is CPU-arithmetic, very fast and usually inlined
 		 */
-		uproject(x: number, y: number): vec2
-		uproject(xy: vec2): vec2
+		unproject(x: number, y: number): vec2
+		unproject(xy: vec2): vec2
 		/**
 		 * Translate (move) all following draw operations, x+ normally corresponds to right and y+ normally corresponds to up
 		 * @performance This method is CPU-arithmetic, very fast and usually inlined

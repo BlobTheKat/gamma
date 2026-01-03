@@ -84,7 +84,13 @@ $.Shader.sdf = (src, o={}) => {
 	}
 	class itxtstream extends Array{
 		#_f=null;#_sh=msdfShader;#_geo=dfgeo;#_sc=1;#_yo=0;#_st=1;#_sk=0;#_lsb=0;#_arc=0
-		#_v=DEFAULT_PASSES;#len=0;#w=NaN;#l=null;#_m=true
+		#_v=DEFAULT_PASSES;#len=0;#w=NaN;#l=null;#_m=true;#wt=0;#th=null
+		#done(){
+			this.#w = NaN
+			if(--this.#wt) return
+			const f = this.#th
+			if(f) for(let i = 0; i < f.length; i += 2) try{ f[i](f[i+1]) }catch(e){ Promise.reject(e) }
+		}
 		static public = class txtstream{
 			constructor(q){ this.#q = q }
 			sub(){const s=new txtstream(this.#q);s.#f=this.#f;s.#sh=this.#sh;s.#geo=this.#geo;s.#sc=this.#sc;s.#st=this.#st;s.#sk=this.#sk;s.#lsb=this.#lsb;s.#arc=this.#arc;s.#v=this.#v;s.#m=this.#m;return s}
@@ -333,6 +339,13 @@ $.Shader.sdf = (src, o={}) => {
 					}
 				}
 			}
+			#then(cb){
+				const f = this.#q.#th
+				if(!f) this.#q.#th = [cb, this]
+				else f.push(cb, this)
+			}
+			get ready(){ return !this.#q.#wt }
+			get then(){ return this.#q.#wt?this.#then:undefined }
 			get index(){ return this.#m }
 			set index(a){ this.#m = !!a; this.#q.#l==this&&(this.#q.#l=null) }
 			advance(gap = 0){
@@ -341,7 +354,10 @@ $.Shader.sdf = (src, o={}) => {
 				q.push(ADV, +gap); q.#w=NaN
 			}
 			#setv(q){
-				if(this.#f!=q.#_f)q.push(q.#_f=this.#f)
+				if(this.#f!=q.#_f){
+					q.push(q.#_f=this.#f)
+					if(!this.#f.ready) q.#wt++, this.#f.then(q.#done.bind(q))
+				}
 				if(this.#sh!=q.#_sh)q.push(SH,q.#_sh=this.#sh)
 				if(this.#geo!=q.#_geo)q.push(GEO,q.#_geo=this.#geo)
 				if(this.#sc!=q.#_sc)q.push(SC,q.#_sc=this.#sc)
@@ -781,12 +797,12 @@ $.Shader.sdf = (src, o={}) => {
 			}
 			break(widths = Infinity, toks = defaultSet, offs = {scale: 1, letterSpacing: 0, curve: 0}){
 				const q = this.#q
-				let m = true, str = '', i = 0
+				let f = false, str = '', i = 0
 				while(i < q.length){
 					const s = q[i++]
 					if(typeof s == 'number'){ i++; continue }
-					if(typeof s == 'boolean') m = s
-					else if(typeof s == 'string' && m) str += s
+					if(typeof s == 'object' && !Array.isArray(s)) f = !!s
+					else if(typeof s == 'string' && f) str += s
 				}
 				const lines = []
 				let maxW = typeof widths=='number'?widths:typeof widths=='function'?widths(lines.length, offs):widths[min(lines.length,widths.length-1)]
@@ -1075,6 +1091,7 @@ ffffffffffffffff\
 	class font extends Map{
 		rangeFactor = 0; ascend = 0; #cb = []
 		_default = {x:0.05,y:-0.0625,w:0.5,h:0.75,width:0.6,tex:defaultChar}
+		get ready(){return !this.#cb}
 		get then(){return this.#cb?this.#then:undefined}
 		#then(cb,rj){this.#cb?.push(cb,rj)}
 		done(){
