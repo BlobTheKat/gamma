@@ -64,29 +64,36 @@ Gamma is well into development, with approximately 4,300 lines of code and a 100
 - Creating and manipulating Textures of any format
 - Custom blend modes and draw masks
 - Render to texture, including MRT
+- Access to stencil/depth buffer for more complex drawing techniques
 - Greedy sprite batching
-- **TODO** `DrawBuffer`s for efficiently reusing batches multiple times
 
 ### Gamma.font
 - SDF/MSDF rendering, see [Chlumksy's tool](https://github.com/Chlumsky/msdf-atlas-gen) based on his amazing work on the [MSDF rendering technique](https://github.com/Chlumsky/msdfgen/files/3050967/thesis.pdf)
 - Text-breaking and text-measuring algorithm for rich text involving multiple styles
-- Support for kerning and **TODO** [ligatures](https://github.com/Chlumsky/msdf-atlas-gen/issues/137)
+- Support for directly manipulating font glyphs and font kerning
 
 ### Gamma.input
 - Mouse and keyboard input, exposed in both an event-based and query-based interface
-- **TODO** Touch and gamepad input
+- Touch, stylus and gamepad (e.g controller) input
+- Recursive, highly manipulable and relatively _novel_ event propagation system
+- **TODO** Gyroscope/accelerometer input
+- **TODO** Microphone input
 
 ### Gamma.gui
-- Textfield inputs with accessibility (both single and multiline)
-- **TODO** Buttons, sliders, etc... with accessibility
+- Hierarchical GUI library with strong interoperability with low level rendering techniques
+- Conditional rerendering for performance / energy efficiency
+- `ParticleContainer` for quick particle effects
+- Textfield inputs with accessibility (both single- and multi-line, making use of `Gamma.font`)
+- **TODO** Prebuilt buttons, sliders, etc... with accessibility
 
 ### Gamma.wave
 This extension is planned but development has not yet been started. It will add support for importing, playing, mixing, and procedurally generating audio.
 
 ### Gamma.util
+- Misc. useful JS utilities relevant for graphical applications
 - Capturing screenshots/screen recordings
 - Downloading files
 - Buffer serialization library for networking or savedata
 - **TODO** Local DB store
-- **TODO** Class for spatial indexing in 2D or 3D
+- **TODO** Spatial indexing in 2D or 3D
 - And likely more...

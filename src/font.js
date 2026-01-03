@@ -1080,14 +1080,9 @@ $.Shader.sdf = (src, o={}) => {
 		}
 	}
 	$.RichText = itxtstream.public.ctor
-	const defaultChar = Texture(4, 6, 1, 0, Formats.RGBA4).pasteData(Uint8Array.fromHex(`\
-ffffffffffffffff\
-ffff00000000ffff\
-ffff00000000ffff\
-ffff00000000ffff\
-ffff00000000ffff\
-ffffffffffffffff\
-`))
+	const df = new Uint16Array(24)
+	for(let i=0;i<24;i++)df[i]=-107372545<<i>>31
+	const defaultChar = Texture(4, 6, 1, 0, Formats.RG).pasteData(df)
 	class font extends Map{
 		rangeFactor = 0; ascend = 0; #cb = []
 		_default = {x:0.05,y:-0.0625,w:0.5,h:0.75,width:0.6,tex:defaultChar}
