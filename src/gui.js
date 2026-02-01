@@ -253,6 +253,7 @@ Gamma.gui = $ => {
 		tolerance = 0.25
 		depthTolerance = 0.01
 		lastRedraw = -1
+		debug = null
 		draw(ctx, ictx, sw, sh){
 			let a, b, c, d, e, f, g, h, i, diff = true
 			const {width, height} = ctx
@@ -324,7 +325,7 @@ Gamma.gui = $ => {
 			ctx.perspective ? ctx.reset(this.#rw, 0, 0, 0, this.#rh, 0, this.#x0, this.#y0, 1) : ctx.reset(this.#rw, 0, 0, this.#rh, this.#x0, this.#y0)
 			ctx.mask = m|IF_SET|UNSET
 			ctx.draw(this.#tex)
-			//ctx.draw(vec4(.2,0,0,.2))
+			if(this.debug) ctx.mask = m, this.debug(ctx)
 			ictx.onPointerUpdate((id, ptr) => {
 				if(!id) this.#mouseHovering = !!ptr
 				if(!ptr) return void this.ictx.setPointer(id, null)

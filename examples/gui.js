@@ -77,6 +77,7 @@ const ui = GUI.Layer(
 		, GUI.BOTTOM, 4, GUI.INHERIT_WIDTH))
 		.add(confetti)
 )
+ui.debug = ctx => ctx.draw(vec4(.2,0,0,.2))
 
 let accX = 0, accY = 0, posZ = 0.6, targetPosZ = 0.6
 render = () => {
