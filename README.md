@@ -4,16 +4,17 @@
 
 Gamma is a WIP comprehensive game library written in pure javascript, making use of Web APIs such as WebGL2 and Web Audio.
 
-- 🚀 Very performant
+- 🚀 Very performant and light (not 15 layers of abstraction glued together)
 - 🧩 Custom GLSL Shaders
 - 📦 3D support
 - 👍 Simple API that feels like `Canvas2D`
 - 🔌 Bridge between low/high-level rendering
 - 📖 Permissive license
+- 🚫 Absolutely no AI-written code
 
 Gamma has two primary goals to set itself apart from existing graphics/multimedia libraries:
-- Provide a high-level interface at a low-level performance cost
-- First-class support for high-level constructs (such as text rendering or accessibility), which seamlessly integrate with any low-level control you wish to make use of
+- Provide a high-level interface at a low-level performance
+- First-class support for incredibly general implementations of constructs such as text rendering or accessibility, which lets you do much more than other solutions such as Unity or HTML without reinventing the wheel.
 
 
 # Simple example

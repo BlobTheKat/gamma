@@ -505,6 +505,7 @@ Gamma.gui = $ => {
 	}
 	$.GUI.TextField.cursorTimer = () => $.t-ltf
 	$.GUI.TextField.multiline = (f, ...v) => {const a = new _txtfield(2048); if(typeof f == 'function') a.transformer = f; else if(f && typeof f == 'object') a.simpleTransformer(f, ...v); return a }
+	$.GUI.Layer.flashRedraw = function(ctx){ let a = .5-t+this.lastRedraw; if(a>0){ a *= a; ctx.draw(vec4(a,0,0,a)) } }
 	$.ParticleContainer = ParticleContainer
 	const v4p2 = $.vec4(.2)
 	const dfs = $.GUI.ScrollableLayer.defaultScrollbar = (ctx, x, w, width) => {
