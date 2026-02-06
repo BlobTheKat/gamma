@@ -792,12 +792,13 @@ Gamma.gui = $ => {
 				return null
 			}
 			// pointer move
-			let {x, y} = ctx.unproject(ptr); y = this.lineAscend-y
+			let {x, y} = ctx.unproject(ptr)
 			const sel = this._f>>9&3
 			if(sel==3) return null
 			let j = 0
 			if(this.#p) j = this.#p.indexAt(x)
 			else if(this.#pa){
+				y = this.lineHeight*this.#pa.length-y
 				let i = floor(y/this.lineHeight)
 				i = i>=0?i>=this.#pa.length?this.#pa.length-1:i>>>0:0
 				j = this.#pa[i].indexAt(x)
@@ -843,6 +844,7 @@ Gamma.gui = $ => {
 					l.draw(ctx.sub())
 				}
 			}else ctx.translate(0, (y+this.lineHeight-1)*.5), this.#p?.draw(ctx)
+			if(this.focus) this.invalidate()
 		}
 		_setSelectionFrom({ selectionStart: s, selectionEnd: e, selectionDirection: d }){
 			ltf = $.t

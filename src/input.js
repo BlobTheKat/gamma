@@ -665,6 +665,7 @@ class Ictx extends BitField{
 	}
 	clearDeltas(){ this.mouse.x = this.mouse.y = this.wheel.x = this.wheel.y = 0 }
 }
+
 let ptrlockPointer = null, ptrlockIctx = null
 const pointers = []
 Gamma.input = ($, can = $.canvas) => {
@@ -827,4 +828,11 @@ Gamma.input = ($, can = $.canvas) => {
 		ictx.setPointer(id, null)
 	})
 	can.addEventListener('touchend', e => e.preventDefault())
+	window.addEventListener('deviceorientation', e => {
+		const a = +e.alpha, b = +e.beta, g = +e.gamma
+		//alert([a, b, g])
+	})
+	window.addEventListener('devicemotion', e => {
+		
+	})
 }}

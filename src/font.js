@@ -356,7 +356,7 @@ $.Shader.sdf = (src, o={}) => {
 			#setv(q){
 				if(this.#f!=q.#_f){
 					q.push(q.#_f=this.#f)
-					if(!this.#f.ready) q.#wt++, this.#f.then(q.#done.bind(q))
+					if(this.#f&&!this.#f.ready) q.#wt++, this.#f.then(q.#done.bind(q))
 				}
 				if(this.#sh!=q.#_sh)q.push(SH,q.#_sh=this.#sh)
 				if(this.#geo!=q.#_geo)q.push(GEO,q.#_geo=this.#geo)
