@@ -42,6 +42,672 @@ const resolveData = (val, cb, err) => typeof val == 'string' ?
 		createImageBitmap(val, imageBitmapOpts).then(cb, err)
 		: cb(val)
 
+// Linear algebra time!
+// Some info:
+// All matrices are "column-major"
+// All multiplication is right-multiplication
+// We only use the minimum matrix and operations for a given use case, hence why there are so many classes and methods
+// t2D & t2t3D implement the Transformable2D interface. t3t2D & t3D implement the Transformable3D interface
+// The interface represents the "input" vector type. The last component is always 1 and is used to make the transformations support translation
+// The output vector type is irrelevant to the interface and only matters for how the content is eventually rendered (specifically, 2 outputs means 2D and 3 outputs means 2D + perspective)
+
+
+
+// Highly optimized algorithm to find the minimum boundary of a loop line in 2D space within the bounds of the [0,0,1,1] rect
+let larr = []
+function _loopBoundary2(){
+	if(!larr.length) return null
+	let x0 = 1, x1 = 0, y0 = 1, y1 = 0
+	let prevx = larr[0], prevy = larr[1], prevInB = abs(prevy-.5)<=.5
+	for(let i = larr.length; i;){
+		i -= 2
+		const x = larr[i], y = larr[i+1]
+		if(!prevInB){
+			let f = ((prevy>=y)-y)/(prevy-y)
+			if(abs(f-.5)<=.5){ f = x+f*(prevx-x); if(f<x0)x0=f; if(f>x1)x1=f }
+		}
+		prevInB = abs(y-.5)<=.5
+		if(prevInB){ if(x<x0)x0=x; if(x>x1)x1=x }
+		else{
+			let f = ((y>=prevy)-prevy)/(y-prevy)
+			if(abs(f-.5)<=.5){ f = prevx+f*(x-prevx); if(f<x0)x0=f; if(f>x1)x1=f }
+		}
+		prevx = x; prevy = y
+	}
+	prevInB = abs(prevx-.5)<=.5
+	for(let i = larr.length; i;){
+		i -= 2
+		const x = larr[i], y = larr[i+1]
+		if(!prevInB){
+			let f = ((prevx>=x)-x)/(prevx-x)
+			if(abs(f-.5)<=.5){ f = y+f*(prevy-y); if(f<y0)y0=f; if(f>y1)y1=f }
+		}
+		prevInB = abs(x-.5)<=.5
+		if(prevInB){ if(y<y0)y0=y; if(y>y1)y1=y }
+		else{
+			let f = ((x>=prevx)-prevx)/(x-prevx)
+			if(abs(f-.5)<=.5){ f = prevy+f*(y-prevy); if(f<y0)y0=f; if(f>y1)y1=f }
+		}
+		prevx = x; prevy = y
+	}
+	larr.length = 0
+	return x1>x0&&y1>y0 ? {x0, y0, x1, y1} : null
+}
+function _loopBoundary3(){
+	if(!larr.length) return null
+	let x0 = 1, x1 = 0, y0 = 1, y1 = 0
+	let prevx = larr[0], prevy = larr[1], prevz = larr[2]
+	prevx*=prevz; prevy*=prevz
+	let prevInB = abs(prevy-.5)<=.5
+	let n0 = 1, n1 = 0
+	for(let i = larr.length; i;){
+		i -= 3
+		let x = larr[i], y = larr[i+1], z = larr[i+2]
+		x*=z; y*=z
+		let inB = abs(y-.5)<=.5
+		a: if(z*prevz>=0){
+			if(!prevInB){
+				// reverse cut
+				let f = ((prevy>=y)-y)/(prevy-y)
+				if(abs(f-.5)<=.5){
+					f = x+f*(prevx-x)
+					if(z>=0){ if(f<x0)x0=f; if(f>x1)x1=f }
+					else{ if(f<n0)n0=f; if(f>n1)n1=f }
+				}
+			}
+			let f
+			if(inB) f = x
+			else{
+				f = ((y>=prevy)-prevy)/(y-prevy)
+				if(abs(f-.5)<=.5) f = prevx+f*(x-prevx)
+				else break a
+			}
+			if(z>=0){ if(f<x0)x0=f; if(f>x1)x1=f }
+			else{ if(f<n0)n0=f; if(f>n1)n1=f }
+		}else{
+			if(!inB){
+				// reverse cut
+				let f = ((prevy>=y)-prevy)/(prevy-y)
+				if(f>=0){
+					f = prevx+f*(prevx-x)
+					if(prevz>=0){ if(f<x0)x0=f; if(f>x1)x1=f }
+					else{ if(f<n0)n0=f; if(f>n1)n1=f }
+				}
+			}
+			if(inB){
+				if(z>=0){ if(x<x0)x0=x; if(x>x1)x1=x }
+				else{ if(x<n0)n0=x; if(x>n1)n1=x }
+			}
+			if(!prevInB){
+				let f = ((y>=prevy)-y)/(y-prevy)
+				if(f>=0){
+					f = x+f*(x-prevx)
+					if(z>=0){ if(f<x0)x0=f; if(f>x1)x1=f }
+					else{ if(f<n0)n0=f; if(f>n1)n1=f }
+				}
+			}
+		}
+		prevx = x; prevy = y; prevz = z; prevInB = inB
+	}
+	a: if(n1>=n0){
+		if(n1<x0){ x1=1; break a }
+		if(n0>x1){ x0=0; break a }
+		x1 = 1; x0 = 0
+	}
+	n0 = 1, n1 = 0
+	prevInB = prevz>0&&abs(prevx-.5)<=.5
+	for(let i = larr.length; i;){
+		i -= 3
+		let x = larr[i], y = larr[i+1], z = larr[i+2]
+		x*=z; y*=z
+		let inB = abs(x-.5)<=.5
+		a: if(z*prevz>=0){
+			if(!prevInB){
+				// reverse cut
+				let f = ((prevx>=x)-x)/(prevx-x)
+				if(abs(f-.5)<=.5){
+					f = y+f*(prevy-y)
+					if(z>=0){ if(f<y0)y0=f; if(f>y1)y1=f }
+					else{ if(f<n0)n0=f; if(f>n1)n1=f }
+				}
+			}
+			let f
+			if(inB) f = y
+			else{
+				f = ((x>=prevx)-prevx)/(x-prevx)
+				if(abs(f-.5)<=.5) f = prevy+f*(y-prevy)
+				else break a
+			}
+			if(z>=0){ if(f<y0)y0=f; if(f>y1)y1=f }
+			else{ if(f<n0)n0=f; if(f>n1)n1=f }
+		}else{
+			if(!inB){
+				// reverse cut
+				let f = ((prevx>=x)-prevx)/(prevx-x)
+				if(f>=0){
+					f = prevy+f*(prevy-y)
+					if(prevz>=0){ if(f<y0)y0=f; if(f>y1)y1=f }
+					else{ if(f<n0)n0=f; if(f>n1)n1=f }
+				}
+			}
+			if(inB){
+				if(z>=0){ if(y<y0)y0=y; if(y>y1)y1=y }
+				else{ if(y<n0)n0=y; if(y>n1)n1=y }
+			}
+			if(!prevInB){
+				let f = ((x>=prevx)-x)/(x-prevx)
+				if(f>=0){
+					f = y+f*(y-prevy)
+					if(z>=0){ if(f<y0)y0=f; if(f>y1)y1=f }
+					else{ if(f<n0)n0=f; if(f>n1)n1=f }
+				}
+			}
+			
+		}
+		prevx = x; prevy = y; prevz = z; prevInB = inB
+	}
+	a: if(n1>=n0){
+		if(n1<y0){ y1=1; break a }
+		if(n0>y1){ y0=0; break a }
+		y1 = 1; y0 = 0
+	}
+	larr.length = 0
+	return x1>x0&&y1>y0 ? {x0: x0<0?0:x0, y0: y0<0?0:y0, x1: x1>1?1:x1, y1: y1>1?1:y1} : null
+}
+
+// 3x2 matrix, maps R² -> R²
+// x y 1
+// v v v
+// a c e > x
+// b d f > y
+class t2D{
+	constructor(a=1,b=0,c=0,d=1,e=0,f=0){ this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f }
+	sub(){ return new t2D(this.a,this.b,this.c,this.d,this.e,this.f) }
+	subPersp(zsc=1){ return new t2t3D(this.a,this.b,this.c,this.d,this.e,this.f,0,0,zsc) }
+	sub3d(){ return new t3t2D(this.a,this.b,this.c,this.d,0,0,this.e,this.f) }
+	sub3dPersp(z0=0,zsc=1){ return new t3D(this.a,this.b,0,this.c,this.d,0,this.e*zsc,this.f*zsc,zsc,this.e*z0,this.f*z0,z0) }
+	reset(a=1,b=0,c=0,d=1,e=0,f=0){ if(typeof a=='object')({a,b,c,d,e,f}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f }
+	project(x=0, y=0){ if(typeof x=='object')({x,y}=x); return {x:this.a*x+this.c*y+this.e,y:this.b*x+this.d*y+this.f} }
+	unproject(x=0, y=0){
+		if(typeof x=='object')({x,y}=x)
+		const {a,b,c,d} = this, i_det = 1/(a*d-b*c)
+		x -= this.e; y -= this.f
+		return {
+			x: (x*d - y*c)*i_det,
+			y: (y*a - x*b)*i_det
+		}
+	}
+	translate(x=0,y=0){ this.e+=x*this.a+y*this.c;this.f+=x*this.b+y*this.d }
+	scale(x=1,y=x){ this.a*=x; this.b*=x; this.c*=y; this.d*=y }
+	rotate(r=0){
+		const cs = cos(r), sn = sin(r), {a,b,c,d} = this
+		this.a=a*cs-c*sn; this.b=b*cs-d*sn
+		this.c=a*sn+c*cs; this.d=b*sn+d*cs
+	}
+	transform(a,b,c,d,e=0,f=0){
+		if(typeof a=='object')({a,b,c,d,e,f}=a)
+		const A=this.a,B=this.b,C=this.c,D=this.d
+		this.a = A*a+C*b; this.b = B*a+D*b
+		this.c = A*c+C*d; this.d = B*c+D*d
+		this.e += A*e+C*f; this.f += B*e+D*f
+	}
+	transformInverse(a,b,c,d,e=0,f=0){
+		if(typeof a=='object')({a,b,c,d,e,f}=a)
+		const i_det = 1/(a*d-b*c)
+		const A=this.a,B=this.b,C=this.c,D=this.d
+		this.a = (A*d-C*b)*i_det; this.b = (B*d-D*b)*i_det
+		this.c = (C*a-A*c)*i_det; this.d = (D*a-B*c)*i_det
+		const e2 = (c * f - d * e) * i_det, f2 = (b * e - a * f) * i_det
+		this.e += A*e2+C*f2; this.f += B*e2+D*f2
+	}
+	skew(x=0, y=0){
+		const {a,b,c,d} = this
+		this.a=a+c*y; this.b=b+d*y
+		this.c=c+a*x; this.d=d+b*x
+	}
+	multiply(x=1, y=0){
+		const {a,b,c,d} = this
+		this.a=a*x-c*y;this.b=b*x-d*y
+		this.c=c*x+a*y;this.d=d*x+b*y
+	}
+	box(x=0,y=0,w=1,h=w){ this.e+=x*this.a+y*this.c; this.f+=x*this.b+y*this.d; this.a*=w; this.b*=w; this.c*=h; this.d*=h }
+	point(x=0, y=0){ if(typeof x=='object')({x,y}=x); return {x:this.a*x+this.c*y+this.e,y:this.b*x+this.d*y+this.f}}
+	metric(x=0, y=0){ if(typeof x=='object')({x,y}=x); return {x:this.a*x+this.c*y,y:this.b*x+this.d*y}}
+	pointFrom(x=0, y=0){
+		if(typeof x=='object')({x,y}=x)
+		const {a,b,c,d} = this, i_det = 1/(a*d-b*c)
+		x -= this.e; y -= this.f
+		return { x: (x*d - y*c)*i_det, y: (y*a - x*b)*i_det }
+	}
+	metricFrom(x=0, y=0){
+		if(typeof x=='object')({x,y}=x)
+		const {a,b,c,d} = this, i_det = 1/(a*d-b*c)
+		return { x: (x*d - y*c)*i_det, y: (y*a - x*b)*i_det }
+	}
+	loopBoundary(loop = null){
+		const {a,b,c,d,e,f} = this
+		if(!loop){
+			const ea = e+a, fb = f+b
+			larr.push(e, f, ea, fb, ea+c, fb+d, e+c, f+d)
+		}else for(const {x,y} of loop) larr.push(a*x+c*y+e, b*x+d*y+f)
+		return _loopBoundary2()
+	}
+}
+
+// 3x3 matrix, maps R² -> R³
+// x y 1
+// v v v
+// a d g > x
+// b e h > y
+// c f i > z
+class t2t3D{
+	constructor(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=0){ this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this.i=i }
+	sub(){ return new t2t3D(this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h,this.i) }
+	subPersp(zsc=1){ return new t2t3D(this.a,this.b,this.c,this.d,this.e,this.f,this.g*zsc,this.h*zsc,this.i*zsc) }
+	sub3d(){ return new t3D(this.a,this.b,this.c,this.d,this.e,this.f,0,0,0,this.g,this.h,this.i) }
+	sub3dPersp(z0=0,zsc=1){ return new t3D(this.a,this.b,this.c,this.d,this.e,this.f,this.g*zsc,this.h*zsc,this.i*zsc,this.g*z0,this.h*z0,this.i*z0) }
+	reset(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1){ if(typeof a=='object')({a,b,c,d,e,f,g,h,i}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this.i=i }
+	project(x=0, y=0){
+		if(typeof x=='object')({x,y}=x)
+		let p = this.c*x+this.f*y+this.i
+		if(p<=0) return {x:NaN,y:NaN}
+		p = 1/p
+		return {x:(this.a*x+this.d*y+this.g)*p,y:(this.b*x+this.e*y+this.h)*p}
+	}
+	unproject(x=0, y=0){
+		if(typeof x=='object')({x,y}=x)
+		const {a,b,c,d,e,f,g,h,i} = this
+	// Definitely not plagiarized from ChatGPT
+		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e
+		const det = 1/(a*m + d*n + g*o)
+		const x0 = (m*x + (f*g-d*i)*y + (d*h-e*g)) * det
+		const y0 = (n*x + (a*i-c*g)*y + (b*g-a*h)) * det
+		let z0 = (o*x + (c*d-a*f)*y + (a*e-b*d)) * det
+		if(z0 <= 0) return {x:NaN,y:NaN}
+		z0 = 1/z0
+		return {x:x0*z0, y: y0*z0}
+	}
+	translate(x=0,y=0){ this.g+=x*this.a+y*this.d;this.h+=x*this.b+y*this.e;this.i+=x*this.c+y*this.f }
+	scale(x=1,y=x){ this.a*=x; this.b*=x; this.c*=x; this.d*=y; this.e*=y; this.f*=y }
+	rotate(r=0){
+		const cs = cos(r), sn = sin(r), {a,b,c,d,e,f} = this
+		this.a=a*cs-d*sn; this.b=b*cs-e*sn; this.c=c*cs-f*sn
+		this.d=a*sn+d*cs; this.e=b*sn+e*cs; this.f=c*sn+f*cs
+	}
+	transform(a,b,c,d,e=0,f=0){
+		if(typeof a=='object')({a,b,c,d,e,f}=a)
+		const A=this.a,B=this.b,C=this.c,D=this.d,E=this.e,F=this.f
+		this.a = A*a+D*b; this.b = B*a+E*b; this.c = C*a+F*b
+		this.d = A*c+D*d; this.e = B*c+E*d; this.f = C*c+F*d
+		this.g += A*e+D*f; this.h += B*e+E*f; this.i += C*e+F*f
+	}
+	transformInverse(a,b,c,d,e=0,f=0){
+		if(typeof a=='object')({a,b,c,d,e,f}=a)
+		const i_det = 1/(a*d-b*c)
+		const A=this.a,B=this.b,C=this.c,D=this.d,E=this.e,F=this.f
+		this.a = (A*d-D*b)*i_det; this.b = (B*d-E*b)*i_det; this.c = (C*d-F*b)*i_det
+		this.d = (D*a-A*c)*i_det; this.e = (E*a-B*c)*i_det; this.f = (F*a-C*c)*i_det
+		const e2 = (c * f - d * e) * i_det, f2 = (b * e - a * f) * i_det
+		this.g += A*e2+D*f2; this.h += B*e2+E*f2; this.i += C*e2+F*f2
+	}
+	skew(x=0, y=0){
+		const {a,b,c,d,e,f} = this
+		this.a=a+d*y; this.b=b+e*y; this.c=c+f*y
+		this.d=d+a*x; this.e=e+b*x; this.f=f+c*x
+	}
+	multiply(x=1, y=0){
+		const {a,b,c,d,e,f} = this
+		this.a=a*x-d*y;this.b=b*x-e*y;this.c=c*x-f*y
+		this.d=a*y+d*x;this.e=b*y+e*x;this.f=c*y+f*x
+	}
+	box(x=0,y=0,w=1,h=w){
+		this.g+=x*this.a+y*this.d
+		this.h+=x*this.b+y*this.e
+		this.i+=x*this.c+y*this.f
+		this.a*=w; this.b*=w; this.c*=w
+		this.d*=h; this.e*=h; this.f*=h
+	}
+	point(x=0, y=0){
+		if(typeof x=='object')({x,y}=x)
+		return {x: this.a*x+this.d*y+this.g, y: this.b*x+this.e*y+this.h, z: this.c*x+this.f*y+this.i}
+	}
+	metric(x=0, y=0){
+		if(typeof x=='object')({x,y}=x)
+		return {x: this.a*x+this.d*y, y: this.b*x+this.e*y, z: this.c*x+this.f*y}
+	}
+	loopBoundary(loop = null){
+		const {a,b,c,d,e,f,g,h,i} = this
+		if(!loop){
+			const ga = g+a, hb = h+b, ic = i+c
+			larr.push(g, h, 1/i, ga, hb, 1/ic, ga+d, hb+e, 1/(ic+f), g+d, h+e, 1/(i+f))
+		}else for(const {x,y} of loop) larr.push(a*x+d*y+g, b*x+e*y+h, 1/(c*x+f*y+i))
+		return _loopBoundary3()
+	}
+}
+
+// 4x2 matrix, maps R³ -> R²
+// x y z 1
+// v v v v
+// a c e g > x
+// b d f h > y
+class t3t2D{
+	constructor(a=1,b=0,c=0,d=1,e=0,f=0,g=0,h=0){ this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h }
+	sub(){ return new t3t2D(this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h) }
+	subPersp(z0=0,zsc=1){ return new t3D(this.a,this.b,0,this.c,this.d,0,this.g*zsc+this.e,this.h*zsc+this.f,zsc,this.g*z0,this.h*z0,z0) }
+	sub2dXY(){ return new t2D(this.a,this.b,this.c,this.d,this.g,this.h) }
+	sub2dZY(){ return new t2D(this.e,this.f,this.c,this.d,this.g,this.h) }
+	sub2dXZ(){ return new t2D(this.a,this.b,this.e,this.f,this.g,this.h) }
+	reset(a=1,b=0,c=0,d=1,e=0,f=0,g=0,h=0){ if(typeof a=='object')({a,b,c,d,e,f,g,h}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h }
+	project(x=0, y=0, z=0){
+		if(typeof x=='object')({x,y,z=0}=x)
+		let p = this.c*x+this.f*y+this.i*z+this.l
+		if(p <= 0) return {x:NaN,y:NaN}
+		p = 1/p
+		return { x: (this.a*x+this.d*y+this.g*z+this.j)*p, y: (this.b*x+this.e*y+this.h*z+this.k)*p }
+	}
+	unproject(x=0, y=0){
+		if(typeof x=='object')({x,y}=x)
+		const {a,b,c,d,e,f,g,h,i} = this
+		x -= this.j; y -= this.k
+		const z = 1-this.l
+		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e, i_det = 1./(a*m + d*n + g*o)
+		return {
+			x: (m * x + (g*f - i*d) * y + (d*h - e*g) * z) * i_det,
+			y: (n * x + (a*i - c*g) * y + (g*b - h*a) * z) * i_det,
+			z: (o * x + (d*c - f*a) * y + (a*e - b*d) * z) * i_det,
+		}
+	}
+	perspectiveOrigin(){ return { x: NaN, y: NaN, z: NaN } }
+	perspectiveRay(_x=0, _y=0, _o=null){ return { x: NaN, y: NaN, z: NaN } }
+	translate(x=0,y=0,z=0){
+		this.g+=x*this.a+y*this.c+z*this.e
+		this.h+=x*this.b+y*this.d+z*this.f
+	}
+	scale(x=1,y=x,z=x){
+		this.a*=x; this.b*=x
+		this.c*=y; this.d*=y
+		this.e*=z; this.f*=z
+	}
+	rotateXZ(by){
+		let sy = sin(by), cy = cos(by)
+		const {a,b,e,f} = this
+		this.a = cy*a-sy*e; this.e = cy*e+sy*a
+		this.b = cy*b-sy*f; this.f = cy*f+sy*b
+	}
+	rotateXY(by){
+		let sy = sin(by), cy = cos(by)
+		const {a,b,c,d} = this
+		this.a = cy*a-sy*c; this.c = cy*c+sy*a
+		this.b = cy*b-sy*d; this.d = cy*d+sy*b
+	}
+	rotateZY(by){
+		let sy = sin(by), cy = cos(by)
+		const {c,d,e,f} = this
+		this.e = cy*e-sy*c; this.c = cy*c+sy*e
+		this.f = cy*f-sy*d; this.d = cy*d+sy*f
+	}
+	multiplyXZ(x=1,y=0){
+		const {a,b,e,f} = this
+		this.a = x*a-y*e; this.e = x*e+y*a
+		this.b = x*b-y*f; this.f = x*f+y*b
+	}
+	multiplyXY(x=1,y=0){
+		const {a,b,c,d} = this
+		this.a = x*a-y*c; this.c = x*c+y*a
+		this.b = x*b-y*d; this.d = x*d+y*b
+	}
+	multiplyZY(x=1,y=0){
+		const {c,d,e,f} = this
+		this.e = x*e-y*c; this.c = x*c+y*e
+		this.f = x*f-y*d; this.d = x*d+y*f
+	}
+	skewX(xz=0,xy=0){ this.a += xy*this.c+xz*this.e; this.b += xy*this.d+xz*this.f }
+	skewY(yx=0,yz=0){ this.c += yx*this.a+yz*this.e; this.d += yx*this.b+yz*this.f }
+	skewZ(zx=0,zy=0){ this.e += zx*this.a+zy*this.c; this.f += zx*this.b+zy*this.d }
+	skew(xz=0,xy=0,yx=0,yz=0,zx=0,zy=0){
+		const {a,b,c,d,e,f} = this
+		this.a = a+xy*c+xz*e; this.b = b+xy*d+xz*f
+		this.c = c+yx*a+yz*e; this.d = d+yx*b+yz*f
+		this.e = e+zx*a+zy*c; this.f = f+zx*b+zy*d
+	}
+	transform(a,b,c,d,e,f,g,h,i,j=0,k=0,l=0){
+		if(typeof a=='object')({a,b,c,d,e,f,g,h,i,j,k,l}=a)
+		const A=this.a,B=this.b,C=this.c,D=this.d,E=this.e,F=this.f
+		this.a = A*a+C*b+E*c; this.b = B*a+D*b+F*c
+		this.c = A*d+C*e+E*f; this.d = B*d+D*e+F*f
+		this.e = A*g+C*h+E*i; this.f = B*g+D*h+F*i
+		this.g += A*j+C*k+E*l; this.h += B*j+D*k+F*l
+	}
+	transformInverse(a,b,c,d,e,f,g,h,i,j=0,k=0,l=0){
+		if(typeof a=='object')({a,b,c,d,e,f,g,h,i,j,k,l}=a)
+		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e
+		const i_det = 1/(a*m + d*n + g*o)
+		const a1 = (e*i - f*h) * i_det, b1 = (c*h - b*i) * i_det, c1 = (b*f - c*e) * i_det
+		const d1 = (f*g - d*i) * i_det, e1 = (a*i - c*g) * i_det, f1 = (c*d - a*f) * i_det
+		const g1 = (d*h - e*g) * i_det, h1 = (b*g - a*h) * i_det, i1 = (a*e - b*d) * i_det
+		const j1 = -(ia*j + id_*k + ig*l), k1 = -(ib*j + ie*k + ih*l), l1 = -(ic*j + if_*k + ii*l)
+		return this.transform(a1,b1,c1,d1,e1,f1,g1,h1,i1,j1,k1,l1)
+	}
+	box(x=0,y=0,z=0,w=1,h=w,d=w){
+		this.g+=x*this.a+y*this.c+z*this.e
+		this.h+=x*this.b+y*this.d+z*this.f
+		this.a*=w; this.b*=w
+		this.c*=h; this.d*=h
+		this.e*=d; this.f*=d
+	}
+	point(x=0, y=0, z=0){
+		if(typeof x=='object')({x,y,z}=x)
+		return {
+			x: this.a*x+this.c*y+this.e*z+this.g,
+			y: this.b*x+this.d*y+this.f*z+this.h,
+		}
+	}
+	metric(x=0, y=0, z=0){
+		if(typeof x=='object')({x,y,z}=x)
+		return {
+			x: this.a*x+this.c*y+this.e*z,
+			y: this.b*x+this.d*y+this.f*z,
+		}
+	}
+	loopBoundary(loop = null){
+		const {a,b,c,d,e,f,g,h} = this
+		for(const {x,y,z} of loop) larr.push(a*x+c*y+e*z+g, b*x+d*y+f*z+h)
+		return _loopBoundary2()
+	}
+}
+
+// 4x3 matrix, maps R³ -> R³
+// x y z 1
+// v v v v
+// a d g j > x
+// b e h k > y
+// c f i l > z
+class t3D{
+	constructor(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1,j=0,k=0,l=0){ this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this.i=i;this.j=j;this.k=k;this.l=l }
+	sub(){ return new t3D(this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h,this.i,this.j,this.k,this.l) }
+	subPersp(z0=0,zsc=1){ return new t3D(this.a,this.b,this.c,this.d,this.e,this.f,this.j*zsc+this.g,this.k*zsc+this.h,this.l*zsc+this.i,this.j*z0,this.k*z0,this.l*z0)}
+	sub2dXY(){ return new t2t3D(this.a,this.b,this.c,this.d,this.e,this.f,this.j,this.k,this.l) }
+	sub2dZY(){ return new t2t3D(this.g,this.h,this.i,this.d,this.e,this.f,this.j,this.k,this.l) }
+	sub2dXZ(){ return new t2t3D(this.a,this.b,this.c,this.g,this.h,this.i,this.j,this.k,this.l) }
+	reset(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1,j=0,k=0,l=0){ if(typeof a=='object')({a,b,c,d,e,f,g,h,i,j,k,l}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this.i=i;this.j=j;this.k=k;this.l=l }
+	project(x=0, y=0, z=0){
+		if(typeof x=='object')({x,y,z=0}=x)
+		let p = this.c*x+this.f*y+this.i*z+this.l
+		if(p <= 0) return {x:NaN,y:NaN}
+		p = 1/p
+		return { x: (this.a*x+this.d*y+this.g*z+this.j)*p, y: (this.b*x+this.e*y+this.h*z+this.k)*p }
+	}
+	unproject(x=0, y=0){
+		if(typeof x=='object')({x,y}=x)
+		const {a,b,c,d,e,f,g,h,i} = this
+		x -= this.j; y -= this.k
+		const z = 1-this.l
+		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e, i_det = 1./(a*m + d*n + g*o)
+		return {
+			x: (m * x + (g*f - i*d) * y + (d*h - e*g) * z) * i_det,
+			y: (n * x + (a*i - c*g) * y + (g*b - h*a) * z) * i_det,
+			z: (o * x + (d*c - f*a) * y + (a*e - b*d) * z) * i_det,
+		}
+	}
+	perspectiveOrigin(){
+		const {a,b,c,d,e,f,g,h,i,j,k,l} = this
+		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e, i_det = -1./(a*m + d*n + g*o);
+		return {
+			x: (m*j + (g*f - i*d)*k + (d*h - e*g)*l) * i_det,
+			y: (n*j + (a*i - c*g)*k + (g*b - h*a)*l) * i_det,
+			z: (o*j + (d*c - f*a)*k + (a*e - b*d)*l) * i_det,
+		}
+	}
+	perspectiveRay(x=0, y=0, origin = null){
+		if(typeof x=='object')({x,y}=x)
+		const {a,b,c,d,e,f,g,h,i,j,k,l} = this
+		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e, i_det = 1./(a*m + d*n + g*o)
+		const p = g*f - i*d, q = a*i - c*g, r = d*c - f*a
+		const s = d*h - e*g, t = g*b - h*a, u = a*e - b*d
+		if(origin){
+			origin.x = -(m*j + p*k + s*l) * i_det
+			origin.y = -(n*j + q*k + t*l) * i_det
+			origin.z = -(o*j + r*k + u*l) * i_det
+		}
+		const z = 1-this.l
+		const dx = (m*x + p*y + s*z) * i_det
+		const dy = (m*x + p*y + s*z) * i_det
+		const dz = (m*x + p*y + s*z) * i_det
+		const i_dst = 1/sqrt(dx*dx+dy*dy+dz*dz)
+		return {x: dx*i_dst, y: dy*i_dst, z: dz*i_dst}
+	}
+	translate(x=0,y=0,z=0){
+		this.j+=x*this.a+y*this.d+z*this.g
+		this.k+=x*this.b+y*this.e+z*this.h
+		this.l+=x*this.c+y*this.f+z*this.i
+	}
+	scale(x=1,y=x,z=x){
+		this.a*=x; this.b*=x; this.c*=x
+		this.d*=y; this.e*=y; this.f*=y
+		this.g*=z; this.h*=z; this.i*=z
+	}
+	rotateXZ(by){
+		let sy = sin(by), cy = cos(by)
+		const {a,b,c,g,h,i} = this
+		this.a = cy*a-sy*g; this.g = cy*g+sy*a
+		this.b = cy*b-sy*h; this.h = cy*h+sy*b
+		this.c = cy*c-sy*i; this.i = cy*i+sy*c
+	}
+	rotateXY(by){
+		let sy = sin(by), cy = cos(by)
+		const {a,b,c,d,e,f} = this
+		this.a = cy*a-sy*d; this.d = cy*d+sy*a
+		this.b = cy*b-sy*e; this.e = cy*e+sy*b
+		this.c = cy*c-sy*f; this.f = cy*f+sy*c
+	}
+	rotateZY(by){
+		let sy = sin(by), cy = cos(by)
+		const {d,e,f,g,h,i} = this
+		this.g = cy*g-sy*d; this.d = cy*d+sy*g
+		this.h = cy*h-sy*e; this.e = cy*e+sy*h
+		this.i = cy*i-sy*f; this.f = cy*f+sy*i
+	}
+	multiplyXZ(x=1, y=0){
+		const {a,b,c,g,h,i} = this
+		this.a = x*a-y*g; this.g = x*g+y*a
+		this.b = x*b-y*h; this.h = x*h+y*b
+		this.c = x*c-y*i; this.i = x*i+y*c
+	}
+	multiplyXY(x=1, y=0){
+		const {a,b,c,d,e,f} = this
+		this.a = x*a-y*d; this.d = x*d+y*a
+		this.b = x*b-y*e; this.e = x*e+y*b
+		this.c = x*c-y*f; this.f = x*f+y*c
+	}
+	multiplyZY(x=1, y=0){
+		const {d,e,f,g,h,i} = this
+		this.g = x*g-y*d; this.d = x*d+y*g
+		this.h = x*h-y*e; this.e = x*e+y*h
+		this.i = x*i-y*f; this.f = x*f+y*i
+	}
+	skewX(xz=0,xy=0){ this.a += xy*this.d+xz*this.g; this.b += xy*this.e+xz*this.h; this.c += xy*this.f+xz*this.i }
+	skewY(yx=0,yz=0){ this.d += yx*this.a+yz*this.g; this.e += yx*this.b+yz*this.h; this.f += yx*this.c+yz*this.i }
+	skewZ(zx=0,zy=0){ this.g += zx*this.a+zy*this.d; this.h += zx*this.b+zy*this.e; this.i += zx*this.c+zy*this.f }
+	skew(xz=0,xy=0,yx=0,yz=0,zx=0,zy=0){
+		const {a,b,c,d,e,f,g,h,i} = this
+		this.a = a+xy*d+xz*g; this.b = b+xy*e+xz*h; this.c = c+xy*f+xz*i
+		this.d = d+yx*a+yz*g; this.e = e+yx*b+yz*h; this.f = f+yx*c+yz*i
+		this.g = g+zx*a+zy*d; this.h = h+zx*b+zy*e; this.i = i+zx*c+zy*f
+	}
+	transform(a,b,c,d,e,f,g,h,i,j=0,k=0,l=0){
+		if(typeof a=='object')({a,b,c,d,e,f,g,h,i,j,k,l}=a)
+		const A=this.a,B=this.b,C=this.c,D=this.d,E=this.e,F=this.f,G=this.g,H=this.h,I=this.i
+		this.a = A*a+D*b+G*c; this.b = B*a+E*b+H*c; this.c = C*a+F*b+I*c
+		this.d = A*d+D*e+G*f; this.e = B*d+E*e+H*f; this.f = C*d+F*e+I*f
+		this.g = A*g+D*h+G*i; this.h = B*g+E*h+H*i; this.i = C*g+F*h+I*i
+		this.j += A*j+D*k+G*l; this.k += B*j+E*k+H*l; this.l += C*j+F*k+I*l
+	}
+	transformInverse(a,b,c,d,e,f,g,h,i,j=0,k=0,l=0){
+		if(typeof a=='object')({a,b,c,d,e,f,g,h,i,j,k,l}=a)
+		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e
+		const i_det = 1/(a*m + d*n + g*o)
+		const a1 = (e*i - f*h) * i_det, b1 = (c*h - b*i) * i_det, c1 = (b*f - c*e) * i_det
+		const d1 = (f*g - d*i) * i_det, e1 = (a*i - c*g) * i_det, f1 = (c*d - a*f) * i_det
+		const g1 = (d*h - e*g) * i_det, h1 = (b*g - a*h) * i_det, i1 = (a*e - b*d) * i_det
+		const j1 = -(a1*j + d1*k + g1*l), k1 = -(b1*j + e1*k + h1*l), l1 = -(c1*j + f1*k + i1*l)
+		return this.transform(a1,b1,c1,d1,e1,f1,g1,h1,i1,j1,k1,l1)
+	}
+	box(x=0,y=0,z=0,w=1,h=w,d=w){
+		this.j+=x*this.a+y*this.d+z*this.g
+		this.k+=x*this.b+y*this.e+z*this.h
+		this.l+=x*this.c+y*this.f+z*this.i
+		this.a*=w; this.b*=w; this.c*=w
+		this.d*=h; this.e*=h; this.f*=h
+		this.g*=d; this.h*=d; this.i*=d
+	}
+	point(x=0, y=0, z=0){
+		if(typeof x=='object')({x,y,z}=x)
+		return {
+			x: this.a*x+this.d*y+this.g*z+this.j,
+			y: this.b*x+this.e*y+this.h*z+this.k,
+			z: this.c*x+this.f*y+this.i*z+this.l
+		}
+	}
+	metric(x=0, y=0, z=0){
+		if(typeof x=='object')({x,y,z}=x)
+		return {
+			x: this.a*x+this.d*y+this.g*z,
+			y: this.b*x+this.e*y+this.h*z,
+			z: this.c*x+this.f*y+this.i*z
+		}
+	}
+	pointFrom(x=0, y=0, z=0){
+		if(typeof x=='object')({x,y,z}=x)
+		const {a,b,c,d,e,f,g,h,i} = this
+		x -= this.j; y -= this.k; z -= this.l
+		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e
+		const det = 1/(a*m + d*n + g*o)
+		return {
+			x: (m*x + (f*g-d*i)*y + (d*h-e*g)*z) * det,
+			y: (n*x + (a*i-c*g)*y + (b*g-a*h)*z) * det,
+			z: (o*x + (c*d-a*f)*y + (a*e-b*d)*z) * det
+		}
+	}
+	metricFrom(x=0, y=0, z=0){
+		if(typeof x=='object')({x,y,z}=x)
+		const {a,b,c,d,e,f,g,h,i} = this
+		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e
+		const det = 1/(a*m + d*n + g*o)
+		return {
+			x: (m*x + (f*g-d*i)*y + (d*h-e*g)*z) * det,
+			y: (n*x + (a*i-c*g)*y + (b*g-a*h)*z) * det,
+			z: (o*x + (c*d-a*f)*y + (a*e-b*d)*z) * det
+		}
+	}
+	loopBoundary(loop = null){
+		const {a,b,c,d,e,f,g,h,i,j,k,l} = this
+		for(const {x,y,z} of loop) larr.push(a*x+d*y+g*z+j, b*x+e*y+h*z+k, 1/(c*x+f*y+i*z+l))
+		return _loopBoundary3()
+	}
+}
+$.Transform2D = t2D, $.Transform2D.to3D = t2t3D
+$.Transform3D = t3D, $.Transform3D.to2D = t3t2D
+
 $.Gamma = (can = document.createElement('canvas'), $ = {}, flags = 15) => {
 $.flags = flags
 /** @type WebGL2RenderingContext */
@@ -537,633 +1203,6 @@ $.Texture.from = (src, o = 0, fmt = Formats.RGBA, mips = 0) => new Tex({
 	w: 0, h: 0, d: src ? Array.isArray(src) ? src.length : 1 : 0, m: mips||1
 })
 
-// Linear algebra time!
-// Some info:
-// All matrices are "column-major"
-// All multiplication is right-multiplication
-// We only use the minimum matrix and operations for a given use case, hence why there are so many classes and methods
-// t2D & t2t3D implement the Transformable2D interface. t3t2D & t3D implement the Transformable3D interface
-// The interface represents the "input" vector type. The last component is always 1 and is used to make the transformations support translation
-// The output vector type is irrelevant to the interface and only matters for how the content is eventually rendered (specifically, 2 outputs means 2D and 3 outputs means 2D + perspective)
-
-
-
-// Highly optimized algorithm to find the minimum boundary of a loop line in 2D space within the bounds of the [0,0,1,1] rect
-let larr = []
-function _loopBoundary2(){
-	if(!larr.length) return null
-	let x0 = 1, x1 = 0, y0 = 1, y1 = 0
-	let prevx = larr[0], prevy = larr[1], prevInB = abs(prevy-.5)<=.5
-	for(let i = larr.length; i;){
-		i -= 2
-		const x = larr[i], y = larr[i+1]
-		if(!prevInB){
-			let f = ((prevy>=y)-y)/(prevy-y)
-			if(abs(f-.5)<=.5){ f = x+f*(prevx-x); if(f<x0)x0=f; if(f>x1)x1=f }
-		}
-		prevInB = abs(y-.5)<=.5
-		if(prevInB){ if(x<x0)x0=x; if(x>x1)x1=x }
-		else{
-			let f = ((y>=prevy)-prevy)/(y-prevy)
-			if(abs(f-.5)<=.5){ f = prevx+f*(x-prevx); if(f<x0)x0=f; if(f>x1)x1=f }
-		}
-		prevx = x; prevy = y
-	}
-	prevInB = abs(prevx-.5)<=.5
-	for(let i = larr.length; i;){
-		i -= 2
-		const x = larr[i], y = larr[i+1]
-		if(!prevInB){
-			let f = ((prevx>=x)-x)/(prevx-x)
-			if(abs(f-.5)<=.5){ f = y+f*(prevy-y); if(f<y0)y0=f; if(f>y1)y1=f }
-		}
-		prevInB = abs(x-.5)<=.5
-		if(prevInB){ if(y<y0)y0=y; if(y>y1)y1=y }
-		else{
-			let f = ((x>=prevx)-prevx)/(x-prevx)
-			if(abs(f-.5)<=.5){ f = prevy+f*(y-prevy); if(f<y0)y0=f; if(f>y1)y1=f }
-		}
-		prevx = x; prevy = y
-	}
-	larr.length = 0
-	return x1>x0&&y1>y0 ? {x0, y0, x1, y1} : null
-}
-function _loopBoundary3(){
-	if(!larr.length) return null
-	let x0 = 1, x1 = 0, y0 = 1, y1 = 0
-	let prevx = larr[0], prevy = larr[1], prevz = larr[2]
-	prevx*=prevz; prevy*=prevz
-	let prevInB = abs(prevy-.5)<=.5
-	let n0 = 1, n1 = 0
-	for(let i = larr.length; i;){
-		i -= 3
-		let x = larr[i], y = larr[i+1], z = larr[i+2]
-		x*=z; y*=z
-		let inB = abs(y-.5)<=.5
-		a: if(z*prevz>=0){
-			if(!prevInB){
-				// reverse cut
-				let f = ((prevy>=y)-y)/(prevy-y)
-				if(abs(f-.5)<=.5){
-					f = x+f*(prevx-x)
-					if(z>=0){ if(f<x0)x0=f; if(f>x1)x1=f }
-					else{ if(f<n0)n0=f; if(f>n1)n1=f }
-				}
-			}
-			let f
-			if(inB) f = x
-			else{
-				f = ((y>=prevy)-prevy)/(y-prevy)
-				if(abs(f-.5)<=.5) f = prevx+f*(x-prevx)
-				else break a
-			}
-			if(z>=0){ if(f<x0)x0=f; if(f>x1)x1=f }
-			else{ if(f<n0)n0=f; if(f>n1)n1=f }
-		}else{
-			if(!inB){
-				// reverse cut
-				let f = ((prevy>=y)-prevy)/(prevy-y)
-				if(f>=0){
-					f = prevx+f*(prevx-x)
-					if(prevz>=0){ if(f<x0)x0=f; if(f>x1)x1=f }
-					else{ if(f<n0)n0=f; if(f>n1)n1=f }
-				}
-			}
-			if(inB){
-				if(z>=0){ if(x<x0)x0=x; if(x>x1)x1=x }
-				else{ if(x<n0)n0=x; if(x>n1)n1=x }
-			}
-			if(!prevInB){
-				let f = ((y>=prevy)-y)/(y-prevy)
-				if(f>=0){
-					f = x+f*(x-prevx)
-					if(z>=0){ if(f<x0)x0=f; if(f>x1)x1=f }
-					else{ if(f<n0)n0=f; if(f>n1)n1=f }
-				}
-			}
-		}
-		prevx = x; prevy = y; prevz = z; prevInB = inB
-	}
-	a: if(n1>=n0){
-		if(n1<x0){ x1=1; break a }
-		if(n0>x1){ x0=0; break a }
-		x1 = 1; x0 = 0
-	}
-	n0 = 1, n1 = 0
-	prevInB = prevz>0&&abs(prevx-.5)<=.5
-	for(let i = larr.length; i;){
-		i -= 3
-		let x = larr[i], y = larr[i+1], z = larr[i+2]
-		x*=z; y*=z
-		let inB = abs(x-.5)<=.5
-		a: if(z*prevz>=0){
-			if(!prevInB){
-				// reverse cut
-				let f = ((prevx>=x)-x)/(prevx-x)
-				if(abs(f-.5)<=.5){
-					f = y+f*(prevy-y)
-					if(z>=0){ if(f<y0)y0=f; if(f>y1)y1=f }
-					else{ if(f<n0)n0=f; if(f>n1)n1=f }
-				}
-			}
-			let f
-			if(inB) f = y
-			else{
-				f = ((x>=prevx)-prevx)/(x-prevx)
-				if(abs(f-.5)<=.5) f = prevy+f*(y-prevy)
-				else break a
-			}
-			if(z>=0){ if(f<y0)y0=f; if(f>y1)y1=f }
-			else{ if(f<n0)n0=f; if(f>n1)n1=f }
-		}else{
-			if(!inB){
-				// reverse cut
-				let f = ((prevx>=x)-prevx)/(prevx-x)
-				if(f>=0){
-					f = prevy+f*(prevy-y)
-					if(prevz>=0){ if(f<y0)y0=f; if(f>y1)y1=f }
-					else{ if(f<n0)n0=f; if(f>n1)n1=f }
-				}
-			}
-			if(inB){
-				if(z>=0){ if(y<y0)y0=y; if(y>y1)y1=y }
-				else{ if(y<n0)n0=y; if(y>n1)n1=y }
-			}
-			if(!prevInB){
-				let f = ((x>=prevx)-x)/(x-prevx)
-				if(f>=0){
-					f = y+f*(y-prevy)
-					if(z>=0){ if(f<y0)y0=f; if(f>y1)y1=f }
-					else{ if(f<n0)n0=f; if(f>n1)n1=f }
-				}
-			}
-			
-		}
-		prevx = x; prevy = y; prevz = z; prevInB = inB
-	}
-	a: if(n1>=n0){
-		if(n1<y0){ y1=1; break a }
-		if(n0>y1){ y0=0; break a }
-		y1 = 1; y0 = 0
-	}
-	larr.length = 0
-	return x1>x0&&y1>y0 ? {x0: x0<0?0:x0, y0: y0<0?0:y0, x1: x1>1?1:x1, y1: y1>1?1:y1} : null
-}
-
-// 3x2 matrix, maps R² -> R²
-// x y 1
-// v v v
-// a c e > x
-// b d f > y
-class t2D{
-	constructor(a=1,b=0,c=0,d=1,e=0,f=0){ this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f }
-	sub(){ return new t2D(this.a,this.b,this.c,this.d,this.e,this.f) }
-	subPersp(zsc=1){ return new t2t3D(this.a,this.b,this.c,this.d,this.e,this.f,0,0,zsc) }
-	sub3d(){ return new t3t2D(this.a,this.b,this.c,this.d,0,0,this.e,this.f) }
-	sub3dPersp(z0=0,zsc=1){ return new t3D(this.a,this.b,0,this.c,this.d,0,this.e*zsc,this.f*zsc,zsc,this.e*z0,this.f*z0,z0) }
-	reset(a=1,b=0,c=0,d=1,e=0,f=0){ if(typeof a=='object')({a,b,c,d,e,f}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f }
-	project(x=0, y=0){ if(typeof x=='object')({x,y}=x); return {x:this.a*x+this.c*y+this.e,y:this.b*x+this.d*y+this.f} }
-	unproject(x=0, y=0){
-		if(typeof x=='object')({x,y}=x)
-		const {a,b,c,d} = this, i_det = 1/(a*d-b*c)
-		x -= this.e; y -= this.f
-		return {
-			x: (x*d - y*c)*i_det,
-			y: (y*a - x*b)*i_det
-		}
-	}
-	translate(x=0,y=0){ this.e+=x*this.a+y*this.c;this.f+=x*this.b+y*this.d }
-	scale(x=1,y=x){ this.a*=x; this.b*=x; this.c*=y; this.d*=y }
-	rotate(r=0){
-		const cs = cos(r), sn = sin(r), {a,b,c,d} = this
-		this.a=a*cs-c*sn; this.b=b*cs-d*sn
-		this.c=a*sn+c*cs; this.d=b*sn+d*cs
-	}
-	transform(a,b,c,d,e=0,f=0){
-		if(typeof a=='object')({a,b,c,d,e,f}=a)
-		const A=this.a,B=this.b,C=this.c,D=this.d
-		this.a = A*a+C*b; this.b = B*a+D*b
-		this.c = A*c+C*d; this.d = B*c+D*d
-		this.e += A*e+C*f; this.f += B*e+D*f
-	}
-	skew(x=0, y=0){
-		const {a,b,c,d} = this
-		this.a=a+c*y; this.b=b+d*y
-		this.c=c+a*x; this.d=d+b*x
-	}
-	multiply(x=1, y=0){
-		const {a,b,c,d} = this
-		this.a=a*x-c*y;this.b=b*x-d*y
-		this.c=c*x+a*y;this.d=d*x+b*y
-	}
-	box(x=0,y=0,w=1,h=w){ this.e+=x*this.a+y*this.c; this.f+=x*this.b+y*this.d; this.a*=w; this.b*=w; this.c*=h; this.d*=h }
-	point(x=0, y=0){ if(typeof x=='object')({x,y}=x); return {x:this.a*x+this.c*y+this.e,y:this.b*x+this.d*y+this.f}}
-	metric(x=0, y=0){ if(typeof x=='object')({x,y}=x); return {x:this.a*x+this.c*y,y:this.b*x+this.d*y}}
-	pointFrom(x=0, y=0){
-		if(typeof x=='object')({x,y}=x)
-		const {a,b,c,d} = this, i_det = 1/(a*d-b*c)
-		x -= this.e; y -= this.f
-		return { x: (x*d - y*c)*i_det, y: (y*a - x*b)*i_det }
-	}
-	metricFrom(x=0, y=0){
-		if(typeof x=='object')({x,y}=x)
-		const {a,b,c,d} = this, i_det = 1/(a*d-b*c)
-		return { x: (x*d - y*c)*i_det, y: (y*a - x*b)*i_det }
-	}
-	loopBoundary(loop = null){
-		const {a,b,c,d,e,f} = this
-		if(!loop){
-			const ea = e+a, fb = f+b
-			larr.push(e, f, ea, fb, ea+c, fb+d, e+c, f+d)
-		}else for(const {x,y} of loop) larr.push(a*x+c*y+e, b*x+d*y+f)
-		return _loopBoundary2()
-	}
-}
-
-// 3x3 matrix, maps R² -> R³
-// x y 1
-// v v v
-// a d g > x
-// b e h > y
-// c f i > z
-class t2t3D{
-	constructor(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=0){ this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this.i=i }
-	sub(){ return new t2t3D(this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h,this.i) }
-	subPersp(zsc=1){ return new t2t3D(this.a,this.b,this.c,this.d,this.e,this.f,this.g*zsc,this.h*zsc,this.i*zsc) }
-	sub3d(){ return new t3D(this.a,this.b,this.c,this.d,this.e,this.f,0,0,0,this.g,this.h,this.i) }
-	sub3dPersp(z0=0,zsc=1){ return new t3D(this.a,this.b,this.c,this.d,this.e,this.f,this.g*zsc,this.h*zsc,this.i*zsc,this.g*z0,this.h*z0,this.i*z0) }
-	reset(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1){ if(typeof a=='object')({a,b,c,d,e,f,g,h,i}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this.i=i }
-	project(x=0, y=0){
-		if(typeof x=='object')({x,y}=x)
-		let p = this.c*x+this.f*y+this.i
-		if(p<=0) return {x:NaN,y:NaN}
-		p = 1/p
-		return {x:(this.a*x+this.d*y+this.g)*p,y:(this.b*x+this.e*y+this.h)*p}
-	}
-	unproject(x=0, y=0){
-		if(typeof x=='object')({x,y}=x)
-		const {a,b,c,d,e,f,g,h,i} = this
-	// Definitely not plagiarized from ChatGPT
-		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e
-		const det = 1/(a*m + d*n + g*o)
-		const x0 = (m*x + (f*g-d*i)*y + (d*h-e*g)) * det
-		const y0 = (n*x + (a*i-c*g)*y + (b*g-a*h)) * det
-		let z0 = (o*x + (c*d-a*f)*y + (a*e-b*d)) * det
-		if(z0 <= 0) return {x:NaN,y:NaN}
-		z0 = 1/z0
-		return {x:x0*z0, y: y0*z0}
-	}
-	translate(x=0,y=0){ this.g+=x*this.a+y*this.d;this.h+=x*this.b+y*this.e;this.i+=x*this.c+y*this.f }
-	scale(x=1,y=x){ this.a*=x; this.b*=x; this.c*=x; this.d*=y; this.e*=y; this.f*=y }
-	rotate(r=0){
-		const cs = cos(r), sn = sin(r), {a,b,c,d,e,f} = this
-		this.a=a*cs-d*sn; this.b=b*cs-e*sn; this.c=c*cs-f*sn
-		this.d=a*sn+d*cs; this.e=b*sn+e*cs; this.f=c*sn+f*cs
-	}
-	transform(a,b,c,d,e=0,f=0){
-		if(typeof a=='object')({a,b,c,d,e,f}=a)
-		const A=this.a,B=this.b,C=this.c,D=this.d,E=this.e,F=this.f
-		this.a = A*a+D*b; this.b = B*a+E*b; this.c = C*a+F*b
-		this.d = A*c+D*d; this.e = B*c+E*d; this.f = C*c+F*d
-		this.g += A*e+D*f; this.h += B*e+E*f; this.i += C*e+F*f
-	}
-	skew(x=0, y=0){
-		const {a,b,c,d,e,f} = this
-		this.a=a+d*y; this.b=b+e*y; this.c=c+f*y
-		this.d=d+a*x; this.e=e+b*x; this.f=f+c*x
-	}
-	multiply(x=1, y=0){
-		const {a,b,c,d,e,f} = this
-		this.a=a*x-d*y;this.b=b*x-e*y;this.c=c*x-f*y
-		this.d=a*y+d*x;this.e=b*y+e*x;this.f=c*y+f*x
-	}
-	box(x=0,y=0,w=1,h=w){
-		this.g+=x*this.a+y*this.d
-		this.h+=x*this.b+y*this.e
-		this.i+=x*this.c+y*this.f
-		this.a*=w; this.b*=w; this.c*=w
-		this.d*=h; this.e*=h; this.f*=h
-	}
-	point(x=0, y=0){
-		if(typeof x=='object')({x,y}=x)
-		return {x: this.a*x+this.d*y+this.g, y: this.b*x+this.e*y+this.h, z: this.c*x+this.f*y+this.i}
-	}
-	metric(x=0, y=0){
-		if(typeof x=='object')({x,y}=x)
-		return {x: this.a*x+this.d*y, y: this.b*x+this.e*y, z: this.c*x+this.f*y}
-	}
-	loopBoundary(loop = null){
-		const {a,b,c,d,e,f,g,h,i} = this
-		if(!loop){
-			const ga = g+a, hb = h+b, ic = i+c
-			larr.push(g, h, 1/i, ga, hb, 1/ic, ga+d, hb+e, 1/(ic+f), g+d, h+e, 1/(i+f))
-		}else for(const {x,y} of loop) larr.push(a*x+d*y+g, b*x+e*y+h, 1/(c*x+f*y+i))
-		return _loopBoundary3()
-	}
-}
-
-// 4x2 matrix, maps R³ -> R²
-// x y z 1
-// v v v v
-// a c e g > x
-// b d f h > y
-class t3t2D{
-	constructor(a=1,b=0,c=0,d=1,e=0,f=0,g=0,h=0){ this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h }
-	sub(){ return new t3t2D(this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h) }
-	subPersp(z0=0,zsc=1){ return new t3D(this.a,this.b,0,this.c,this.d,0,this.g*zsc+this.e,this.h*zsc+this.f,zsc,this.g*z0,this.h*z0,z0) }
-	sub2dXY(){ return new t2D(this.a,this.b,this.c,this.d,this.g,this.h) }
-	sub2dZY(){ return new t2D(this.e,this.f,this.c,this.d,this.g,this.h) }
-	sub2dXZ(){ return new t2D(this.a,this.b,this.e,this.f,this.g,this.h) }
-	reset(a=1,b=0,c=0,d=1,e=0,f=0,g=0,h=0){ if(typeof a=='object')({a,b,c,d,e,f,g,h}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h }
-	project(x=0, y=0, z=0){
-		if(typeof x=='object')({x,y,z=0}=x)
-		let p = this.c*x+this.f*y+this.i*z+this.l
-		if(p <= 0) return {x:NaN,y:NaN}
-		p = 1/p
-		return { x: (this.a*x+this.d*y+this.g*z+this.j)*p, y: (this.b*x+this.e*y+this.h*z+this.k)*p }
-	}
-	unproject(x=0, y=0){
-		if(typeof x=='object')({x,y}=x)
-		const {a,b,c,d,e,f,g,h,i} = this
-		x -= this.j; y -= this.k
-		const z = 1-this.l
-		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e, i_det = 1./(a*m + d*n + g*o)
-		return {
-			x: (m * x + (g*f - i*d) * y + (d*h - e*g) * z) * i_det,
-			y: (n * x + (a*i - c*g) * y + (g*b - h*a) * z) * i_det,
-			z: (o * x + (d*c - f*a) * y + (a*e - b*d) * z) * i_det,
-		}
-	}
-	perspectiveOrigin(){ return { x: NaN, y: NaN, z: NaN } }
-	perspectiveRay(_x=0, _y=0, _o=null){ return { x: NaN, y: NaN, z: NaN } }
-	translate(x=0,y=0,z=0){
-		this.g+=x*this.a+y*this.c+z*this.e
-		this.h+=x*this.b+y*this.d+z*this.f
-	}
-	scale(x=1,y=x,z=x){
-		this.a*=x; this.b*=x
-		this.c*=y; this.d*=y
-		this.e*=z; this.f*=z
-	}
-	rotateXZ(by){
-		let sy = sin(by), cy = cos(by)
-		const {a,b,e,f} = this
-		this.a = cy*a-sy*e; this.e = cy*e+sy*a
-		this.b = cy*b-sy*f; this.f = cy*f+sy*b
-	}
-	rotateXY(by){
-		let sy = sin(by), cy = cos(by)
-		const {a,b,c,d} = this
-		this.a = cy*a-sy*c; this.c = cy*c+sy*a
-		this.b = cy*b-sy*d; this.d = cy*d+sy*b
-	}
-	rotateZY(by){
-		let sy = sin(by), cy = cos(by)
-		const {c,d,e,f} = this
-		this.e = cy*e-sy*c; this.c = cy*c+sy*e
-		this.f = cy*f-sy*d; this.d = cy*d+sy*f
-	}
-	multiplyXZ(x=1,y=0){
-		const {a,b,e,f} = this
-		this.a = x*a-y*e; this.e = x*e+y*a
-		this.b = x*b-y*f; this.f = x*f+y*b
-	}
-	multiplyXY(x=1,y=0){
-		const {a,b,c,d} = this
-		this.a = x*a-y*c; this.c = x*c+y*a
-		this.b = x*b-y*d; this.d = x*d+y*b
-	}
-	multiplyZY(x=1,y=0){
-		const {c,d,e,f} = this
-		this.e = x*e-y*c; this.c = x*c+y*e
-		this.f = x*f-y*d; this.d = x*d+y*f
-	}
-	skewX(xz=0,xy=0){ this.a += xy*this.c+xz*this.e; this.b += xy*this.d+xz*this.f }
-	skewY(yx=0,yz=0){ this.c += yx*this.a+yz*this.e; this.d += yx*this.b+yz*this.f }
-	skewZ(zx=0,zy=0){ this.e += zx*this.a+zy*this.c; this.f += zx*this.b+zy*this.d }
-	skew(xz=0,xy=0,yx=0,yz=0,zx=0,zy=0){
-		const {a,b,c,d,e,f} = this
-		this.a = a+xy*c+xz*e; this.b = b+xy*d+xz*f
-		this.c = c+yx*a+yz*e; this.d = d+yx*b+yz*f
-		this.e = e+zx*a+zy*c; this.f = f+zx*b+zy*d
-	}
-	transform(a,b,c,d,e,f,g,h,i,j=0,k=0,l=0){
-		if(typeof a=='object')({a,b,c,d,e,f,g,h,i,j,k,l}=a)
-		const A=this.a,B=this.b,C=this.c,D=this.d,E=this.e,F=this.f
-		this.a = A*a+C*b+E*c; this.b = B*a+D*b+F*c
-		this.c = A*d+C*e+E*f; this.d = B*d+D*e+F*f
-		this.e = A*g+C*h+E*i; this.f = B*g+D*h+F*i
-		this.g += A*j+C*k+E*l; this.h += B*j+D*k+F*l
-	}
-	box(x=0,y=0,z=0,w=1,h=w,d=w){
-		this.g+=x*this.a+y*this.c+z*this.e
-		this.h+=x*this.b+y*this.d+z*this.f
-		this.a*=w; this.b*=w
-		this.c*=h; this.d*=h
-		this.e*=d; this.f*=d
-	}
-	point(x=0, y=0, z=0){
-		if(typeof x=='object')({x,y,z}=x)
-		return {
-			x: this.a*x+this.c*y+this.e*z+this.g,
-			y: this.b*x+this.d*y+this.f*z+this.h,
-		}
-	}
-	metric(x=0, y=0, z=0){
-		if(typeof x=='object')({x,y,z}=x)
-		return {
-			x: this.a*x+this.c*y+this.e*z,
-			y: this.b*x+this.d*y+this.f*z,
-		}
-	}
-	loopBoundary(loop = null){
-		const {a,b,c,d,e,f,g,h} = this
-		for(const {x,y,z} of loop) larr.push(a*x+c*y+e*z+g, b*x+d*y+f*z+h)
-		return _loopBoundary2()
-	}
-}
-
-// 4x3 matrix, maps R³ -> R³
-// x y z 1
-// v v v v
-// a d g j > x
-// b e h k > y
-// c f i l > z
-class t3D{
-	constructor(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1,j=0,k=0,l=0){ this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this.i=i;this.j=j;this.k=k;this.l=l }
-	sub(){ return new t3D(this.a,this.b,this.c,this.d,this.e,this.f,this.g,this.h,this.i,this.j,this.k,this.l) }
-	subPersp(z0=0,zsc=1){ return new t3D(this.a,this.b,this.c,this.d,this.e,this.f,this.j*zsc+this.g,this.k*zsc+this.h,this.l*zsc+this.i,this.j*z0,this.k*z0,this.l*z0)}
-	sub2dXY(){ return new t2t3D(this.a,this.b,this.c,this.d,this.e,this.f,this.j,this.k,this.l) }
-	sub2dZY(){ return new t2t3D(this.g,this.h,this.i,this.d,this.e,this.f,this.j,this.k,this.l) }
-	sub2dXZ(){ return new t2t3D(this.a,this.b,this.c,this.g,this.h,this.i,this.j,this.k,this.l) }
-	reset(a=1,b=0,c=0,d=0,e=1,f=0,g=0,h=0,i=1,j=0,k=0,l=0){ if(typeof a=='object')({a,b,c,d,e,f,g,h,i,j,k,l}=a);this.a=a;this.b=b;this.c=c;this.d=d;this.e=e;this.f=f;this.g=g;this.h=h;this.i=i;this.j=j;this.k=k;this.l=l }
-	project(x=0, y=0, z=0){
-		if(typeof x=='object')({x,y,z=0}=x)
-		let p = this.c*x+this.f*y+this.i*z+this.l
-		if(p <= 0) return {x:NaN,y:NaN}
-		p = 1/p
-		return { x: (this.a*x+this.d*y+this.g*z+this.j)*p, y: (this.b*x+this.e*y+this.h*z+this.k)*p }
-	}
-	unproject(x=0, y=0){
-		if(typeof x=='object')({x,y}=x)
-		const {a,b,c,d,e,f,g,h,i} = this
-		x -= this.j; y -= this.k
-		const z = 1-this.l
-		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e, i_det = 1./(a*m + d*n + g*o)
-		return {
-			x: (m * x + (g*f - i*d) * y + (d*h - e*g) * z) * i_det,
-			y: (n * x + (a*i - c*g) * y + (g*b - h*a) * z) * i_det,
-			z: (o * x + (d*c - f*a) * y + (a*e - b*d) * z) * i_det,
-		}
-	}
-	perspectiveOrigin(){
-		const {a,b,c,d,e,f,g,h,i,j,k,l} = this
-		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e, i_det = -1./(a*m + d*n + g*o);
-		return {
-			x: (m*j + (g*f - i*d)*k + (d*h - e*g)*l) * i_det,
-			y: (n*j + (a*i - c*g)*k + (g*b - h*a)*l) * i_det,
-			z: (o*j + (d*c - f*a)*k + (a*e - b*d)*l) * i_det,
-		}
-	}
-	perspectiveRay(x=0, y=0, origin = null){
-		if(typeof x=='object')({x,y}=x)
-		const {a,b,c,d,e,f,g,h,i,j,k,l} = this
-		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e, i_det = 1./(a*m + d*n + g*o)
-		const p = g*f - i*d, q = a*i - c*g, r = d*c - f*a
-		const s = d*h - e*g, t = g*b - h*a, u = a*e - b*d
-		if(origin){
-			origin.x = -(m*j + p*k + s*l) * i_det
-			origin.y = -(n*j + q*k + t*l) * i_det
-			origin.z = -(o*j + r*k + u*l) * i_det
-		}
-		const z = 1-this.l
-		const dx = (m*x + p*y + s*z) * i_det
-		const dy = (m*x + p*y + s*z) * i_det
-		const dz = (m*x + p*y + s*z) * i_det
-		const i_dst = 1/sqrt(dx*dx+dy*dy+dz*dz)
-		return {x: dx*i_dst, y: dy*i_dst, z: dz*i_dst}
-	}
-	translate(x=0,y=0,z=0){
-		this.j+=x*this.a+y*this.d+z*this.g
-		this.k+=x*this.b+y*this.e+z*this.h
-		this.l+=x*this.c+y*this.f+z*this.i
-	}
-	scale(x=1,y=x,z=x){
-		this.a*=x; this.b*=x; this.c*=x
-		this.d*=y; this.e*=y; this.f*=y
-		this.g*=z; this.h*=z; this.i*=z
-	}
-	rotateXZ(by){
-		let sy = sin(by), cy = cos(by)
-		const {a,b,c,g,h,i} = this
-		this.a = cy*a-sy*g; this.g = cy*g+sy*a
-		this.b = cy*b-sy*h; this.h = cy*h+sy*b
-		this.c = cy*c-sy*i; this.i = cy*i+sy*c
-	}
-	rotateXY(by){
-		let sy = sin(by), cy = cos(by)
-		const {a,b,c,d,e,f} = this
-		this.a = cy*a-sy*d; this.d = cy*d+sy*a
-		this.b = cy*b-sy*e; this.e = cy*e+sy*b
-		this.c = cy*c-sy*f; this.f = cy*f+sy*c
-	}
-	rotateZY(by){
-		let sy = sin(by), cy = cos(by)
-		const {d,e,f,g,h,i} = this
-		this.g = cy*g-sy*d; this.d = cy*d+sy*g
-		this.h = cy*h-sy*e; this.e = cy*e+sy*h
-		this.i = cy*i-sy*f; this.f = cy*f+sy*i
-	}
-	multiplyXZ(x=1, y=0){
-		const {a,b,c,g,h,i} = this
-		this.a = x*a-y*g; this.g = x*g+y*a
-		this.b = x*b-y*h; this.h = x*h+y*b
-		this.c = x*c-y*i; this.i = x*i+y*c
-	}
-	multiplyXY(x=1, y=0){
-		const {a,b,c,d,e,f} = this
-		this.a = x*a-y*d; this.d = x*d+y*a
-		this.b = x*b-y*e; this.e = x*e+y*b
-		this.c = x*c-y*f; this.f = x*f+y*c
-	}
-	multiplyZY(x=1, y=0){
-		const {d,e,f,g,h,i} = this
-		this.g = x*g-y*d; this.d = x*d+y*g
-		this.h = x*h-y*e; this.e = x*e+y*h
-		this.i = x*i-y*f; this.f = x*f+y*i
-	}
-	skewX(xz=0,xy=0){ this.a += xy*this.d+xz*this.g; this.b += xy*this.e+xz*this.h; this.c += xy*this.f+xz*this.i }
-	skewY(yx=0,yz=0){ this.d += yx*this.a+yz*this.g; this.e += yx*this.b+yz*this.h; this.f += yx*this.c+yz*this.i }
-	skewZ(zx=0,zy=0){ this.g += zx*this.a+zy*this.d; this.h += zx*this.b+zy*this.e; this.i += zx*this.c+zy*this.f }
-	skew(xz=0,xy=0,yx=0,yz=0,zx=0,zy=0){
-		const {a,b,c,d,e,f,g,h,i} = this
-		this.a = a+xy*d+xz*g; this.b = b+xy*e+xz*h; this.c = c+xy*f+xz*i
-		this.d = d+yx*a+yz*g; this.e = e+yx*b+yz*h; this.f = f+yx*c+yz*i
-		this.g = g+zx*a+zy*d; this.h = h+zx*b+zy*e; this.i = i+zx*c+zy*f
-	}
-	transform(a,b,c,d,e,f,g,h,i,j=0,k=0,l=0){
-		if(typeof a=='object')({a,b,c,d,e,f,g,h,i,j,k,l}=a)
-		const A=this.a,B=this.b,C=this.c,D=this.d,E=this.e,F=this.f,G=this.g,H=this.h,I=this.i
-		this.a = A*a+D*b+G*c; this.b = B*a+E*b+H*c; this.c = C*a+F*b+I*c
-		this.d = A*d+D*e+G*f; this.e = B*d+E*e+H*f; this.f = C*d+F*e+I*f
-		this.g = A*g+D*h+G*i; this.h = B*g+E*h+H*i; this.i = C*g+F*h+I*i
-		this.j += A*j+D*k+G*l; this.k += B*j+E*k+H*l; this.l += C*j+F*k+I*l
-	}
-	box(x=0,y=0,z=0,w=1,h=w,d=w){
-		this.j+=x*this.a+y*this.d+z*this.g
-		this.k+=x*this.b+y*this.e+z*this.h
-		this.l+=x*this.c+y*this.f+z*this.i
-		this.a*=w; this.b*=w; this.c*=w
-		this.d*=h; this.e*=h; this.f*=h
-		this.g*=d; this.h*=d; this.i*=d
-	}
-	point(x=0, y=0, z=0){
-		if(typeof x=='object')({x,y,z}=x)
-		return {
-			x: this.a*x+this.d*y+this.g*z+this.j,
-			y: this.b*x+this.e*y+this.h*z+this.k,
-			z: this.c*x+this.f*y+this.i*z+this.l
-		}
-	}
-	metric(x=0, y=0, z=0){
-		if(typeof x=='object')({x,y,z}=x)
-		return {
-			x: this.a*x+this.d*y+this.g*z,
-			y: this.b*x+this.e*y+this.h*z,
-			z: this.c*x+this.f*y+this.i*z
-		}
-	}
-	pointFrom(x=0, y=0, z=0){
-		if(typeof x=='object')({x,y,z}=x)
-		const {a,b,c,d,e,f,g,h,i} = this
-		x -= this.j; y -= this.k; z -= this.l
-		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e
-		const det = 1/(a*m + d*n + g*o)
-		return {
-			x: (m*x + (f*g-d*i)*y + (d*h-e*g)*z) * det,
-			y: (n*x + (a*i-c*g)*y + (b*g-a*h)*z) * det,
-			z: (o*x + (c*d-a*f)*y + (a*e-b*d)*z) * det
-		}
-	}
-	metricFrom(x=0, y=0, z=0){
-		if(typeof x=='object')({x,y,z}=x)
-		const {a,b,c,d,e,f,g,h,i} = this
-		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e
-		const det = 1/(a*m + d*n + g*o)
-		return {
-			x: (m*x + (f*g-d*i)*y + (d*h-e*g)*z) * det,
-			y: (n*x + (a*i-c*g)*y + (b*g-a*h)*z) * det,
-			z: (o*x + (c*d-a*f)*y + (a*e-b*d)*z) * det
-		}
-	}
-	loopBoundary(loop = null){
-		const {a,b,c,d,e,f,g,h,i,j,k,l} = this
-		for(const {x,y,z} of loop) larr.push(a*x+d*y+g*z+j, b*x+e*y+h*z+k, 1/(c*x+f*y+i*z+l))
-		return _loopBoundary3()
-	}
-}
-$.Transform2D = t2D, $.Transform2D.Perspective = t2t3D
-$.Transform3D = t3t2D, $.Transform3D.Perspective = t3D
 const grow = ArrayBuffer.prototype.transfer ?
 	by=>{const j=i;if((i=j+by)>iarr.length){iarr=new Int32Array(iarr.buffer.transfer(i*8)),arr=new Float32Array(iarr.buffer)}return j}
 	: by=>{const j=i;if((i=j+by)>iarr.length){const oa=iarr;(iarr=new Int32Array(i*2)).set(oa,0);arr=new Float32Array(iarr.buffer)}return j}
@@ -1457,7 +1496,10 @@ const x = Object.getOwnPropertyDescriptors({
 			return
 		}
 		const msaa = tex.msaa
-		if(!msaa) tex = tex.t
+		if(!msaa){
+			tex = tex.t
+			if(tex.i>=0) gl.activeTexture(gl.TEXTURE0 + tex.i), gl.bindTexture(gl.TEXTURE_2D_ARRAY, null), bound[tex.i] = null, tex.i = -1
+		}
 		if(t.t.length<=id){
 			if(!t.t.length) msaa ? (t.w = tex.width, t.h = tex.height, t.m = msaa) : (t.w = tex.w, t.h = tex.h, t.m = 0)
 			while(t.t.push(null)<id); t.t.push(tex)
@@ -2106,6 +2148,7 @@ vec4 fGetPixel(int u,ivec3 p,int l){${T||switcher(i=>`return texelFetch(GL_f[${i
 	vShaderBody.push('}')
 	gl.shaderSource(v, vShaderHead.join('')+vShaderBody.join(''))
 	gl.compileShader(v)
+	s.src = fShaderHead.join('')+'\n'+src
 	gl.shaderSource(f, fShaderHead.join('')+'\n'+src)
 	gl.compileShader(f)
 	gl.attachShader(program, v)

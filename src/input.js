@@ -338,18 +338,21 @@ class PointerState{
 			this.pressure = +other.pressure, this.twist = +other.twist
 			this.buttons = other.buttons|0
 			this.setHint = other.setHint
+			this.vibrate = other.vibrate
 		}else{
 			this.x = 0, this.y = 0
 			this.tiltX = 0, this.tiltY = 0
 			this.pressure = 0, this.twist = 0
 			this.buttons = 0
 			this.setHint = null
+			this.vibrate = null
 		}
 	}
 	update(other){
 		this.x = +other.x, this.y = +other.y; this.buttons = other.buttons|0
 		this.tiltX = +other.tiltX; this.tiltY = +other.tiltY; this.pressure = +other.pressure; this.twist = +other.twist
 		this.setHint = other.setHint
+		this.vibrate = other.vibrate
 	}
 	has(btn){ return !!(this.buttons >> btn & 1) }
 	anyIn(from=0, to){ return !!(this.buttons >> from & (typeof to == 'number' ? ~(-1 << (to-from)) : -1)) }
@@ -466,6 +469,7 @@ class GamepadState extends BitField{
 // Gamepads are BitFields for pressed buttons along with:
 // 	.axis(i) returning {x,y} objects for each stick/axis
 
+const v3z = {x: 0, y: 0, z: 0}
 class Ictx extends BitField{
 	next = null // for chaining contexts
 	wheel = {x: 0, y: 0} // accumulated wheel delta
@@ -656,14 +660,30 @@ class Ictx extends BitField{
 		if(typeof dx == 'object') dy = +dx.y, dx = +dx.x
 		let self = this
 		while(self){
-			this.mouse.x += dx; this.mouse.y += dy
-			let i = this.#mcbs.length
-			while(i--) try{ const p = this.#mcbs[i](dx, dy, self); if(typeof p == 'object') p ? (dx = +p.x, dy = +p.y) : (dx=dy=0) }catch(e){Promise.reject(e)}
+			self.mouse.x += dx; self.mouse.y += dy
+			let i = self.#mcbs.length
+			while(i--) try{ const p = self.#mcbs[i](dx, dy, self); if(typeof p == 'object') p ? (dx = +p.x, dy = +p.y) : (dx=dy=0) }catch(e){Promise.reject(e)}
 			self = self.next
 		}
 		return {x: dx, y: dy}
 	}
 	clearDeltas(){ this.mouse.x = this.mouse.y = this.wheel.x = this.wheel.y = 0 }
+	orientation = new Transform3D()
+	transientVelocity = {x:0,y:0,z:0}
+	_ocbs = []
+	fireOrientation(t, v = null){
+		let self = this
+		while(self){
+			self.orientation.transform(t)
+			let v2 = self.transientVelocity
+			if(v) v2.x = v.x, v2.y = v.y, v2.z = v.z, v2 = v
+			else v2 = {x: v2.x, y: v2.y, z: v2.z}
+			let i = self._ocbs.length
+			while(i--) try{ self._ocbs[i](t, v2) }catch(e){Promise.reject(e)}
+			self = self.next
+		}
+	}
+	onOrientation(fn){ this._bcbs.push(fn) }
 }
 
 let ptrlockPointer = null, ptrlockIctx = null
@@ -674,7 +694,8 @@ Gamma.input = ($, can = $.canvas) => {
 	$.KEY = KEY
 	$.GAMEPAD = GAMEPAD
 	$.PointerState = PointerState; $.GamepadState = GamepadState
-	const oldSafari = typeof ApplePaySession != 'undefined' && !('letterSpacing' in CanvasRenderingContext2D.prototype), ptrlockOpts = !navigator.platform.startsWith('Linux') && typeof netscape == 'undefined' && !oldSafari ? {unadjustedMovement:true} : undefined
+	const anySafari = typeof ApplePaySession != 'undefined'
+	const oldSafari = anySafari && !('letterSpacing' in CanvasRenderingContext2D.prototype), ptrlockOpts = !navigator.platform.startsWith('Linux') && typeof netscape == 'undefined' && !oldSafari ? {unadjustedMovement:true} : undefined
 	Object.defineProperty($, 'pointerLock', {
 		get: () => document.pointerLockElement == can,
 		set: v => {
@@ -789,7 +810,7 @@ Gamma.input = ($, can = $.canvas) => {
 		else if(!domEl._ictx) _addFocusableAlternate(domEl)
 		ignoreBlur = true; domEl.focus(); ignoreBlur = false
 	}
-	const setCursor = t => {cur=t}
+	const setCursor = t => {cur=t}, vibrate = navigator.vibrate ? v => void navigator.vibrate(v) : null
 	const pointerupdate = e => {
 		if(e.pointerId==-1) return
 		const ptr = new PointerState()
@@ -801,6 +822,7 @@ Gamma.input = ($, can = $.canvas) => {
 		ptr.tiltY = e.tiltY*.017453292519943295
 		ptr.twist = e.twist*.017453292519943295
 		let id = 0
+		ptr.vibrate = vibrate
 		if(e.pointerType == 'mouse'){
 			ptr.setHint = setCursor
 			if(document.pointerLockElement == can){ ptrlockPointer = ptr; return }
@@ -828,11 +850,45 @@ Gamma.input = ($, can = $.canvas) => {
 		ictx.setPointer(id, null)
 	})
 	can.addEventListener('touchend', e => e.preventDefault())
-	window.addEventListener('deviceorientation', e => {
-		const a = +e.alpha, b = +e.beta, g = +e.gamma
-		//alert([a, b, g])
+	const R = PI/180
+	let bA = NaN, bB = 0, bC = 0, bD = 0, bE = 1, bF = 0, bG = 0, bH = 0, bI = 1
+	window.addEventListener('deviceorientation', ev => {
+		const t = new Transform3D(1,0,0,0,0,-1,0,1,0,0,0,0), r = screen.orientation.angle
+		t.rotateXZ(-ev.alpha*R)
+		t.rotateZY(-ev.beta*R)
+		t.rotateXY(ev.gamma*R)
+		if(r) t.rotateXZ(r*R)
+		const {a,b,c,g:d,h:e,i:f} = t, g = -t.d, h = -t.e, i = -t.f
+		if(bA == bA){
+			t.a = a*bA+b*bD+c*bG; t.b = a*bB+b*bE+c*bH; t.c = a*bC+b*bF+c*bI
+			t.d = d*bA+e*bD+f*bG; t.e = d*bB+e*bE+f*bH; t.f = d*bC+e*bF+f*bI
+			t.g = g*bA+h*bD+i*bG; t.h = g*bB+h*bE+i*bH; t.i = g*bC+h*bF+i*bI
+			const p = t.metric(lmx, lmy, lmz)
+			t.translate(lmx = p.x, lmy = p.y, lmz = p.z)
+			const v = {x: t.j, y: t.k, z: t.l}
+			t.j = t.k = t.l = 0
+			ictx.fireOrientation(t, v)
+		}
+		const m = e*i-f*h, n = c*h-b*i, o = b*f-c*e
+		const det = 1/(a*m + n*d + g*o)
+		bA = m*det, bD = (f*g-d*i)*det, bG = (d*h-e*g)*det
+		bB = n*det, bE = (a*i-c*g)*det, bH = (b*g-a*h)*det
+		bC = o*det, bF = (c*d-a*f)*det, bI = (a*e-b*d)*det
 	})
-	window.addEventListener('devicemotion', e => {
-		
+	onpointerup = () => {DeviceOrientationEvent.requestPermission?.(), DeviceMotionEvent.requestPermission?.()}
+	let lastMotion = NaN, lmx = 0, lmy = 0, lmz = 0
+	window.addEventListener('devicemotion', ev => {
+		let {x,y,z} = ev.acceleration, dt = -.001*(lastMotion-(lastMotion=performance.now()))
+		const r = screen.orientation.angle
+		if(r){
+			const cr = cos(r*R), sr = sin(r*R), x0 = x
+			x = cr*x-sr*y; y = cr*y+sr*x0
+		}
+		if(anySafari) x=-x,y=-y,z=-z
+		if(dt != dt){ dt = ev.interval*.001; lmx = x*dt; lmy = y*dt; lmz = -z*dt; return }
+		else x *= dt, y *= dt, z *= -dt
+		lmx += (x-lmx)*dt; lmy += (y-lmy)*dt; lmz += (z-lmz)*dt
+		dt = .5**dt; lmx *= dt; lmy *= dt; lmz *= dt
+		ictx.fireOrientation(new Transform3D(), {x: lmx, y: lmy, z: lmz})
 	})
 }}

@@ -292,6 +292,13 @@ declare global{
 	 */
 	function cbrt(x: number): number
 
+	class Transform2D implements Transformable2D, Transformable2Dto2D{
+		static to3D = class implements Transformable2D, Transformable2Dto3D{}
+	}
+	class Transform3D implements Transformable3D, Transformable3Dto3D{
+		static to2D = class implements Transformable3D, Transformable3Dto2D{}
+	}
+
 	type GammaInstance = typeof GammaInstance
 namespace GammaInstance{
 }}

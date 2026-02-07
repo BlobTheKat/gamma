@@ -221,7 +221,7 @@ Gamma.gui = $ => {
 				if(id == this.#ptrCapt){
 					this.#ptrCapt = -1
 					const pr = this.state; this.state = 0
-					for(const r of this.#stch) try{r(NaN, NaN, 0, pr)}catch(e){Promise.reject(e)}
+					for(const r of this.#stch) try{r(NaN, NaN, null, 0, pr)}catch(e){Promise.reject(e)}
 				}
 				return
 			}
@@ -229,8 +229,8 @@ Gamma.gui = $ => {
 			if(cur != null) ptr.setHint?.(cur)
 			let pst = this.state; this.state = 1+ptr.pressed
 			if(this.#ptrCapt == -1) this.#ptrCapt = id
-			for(const r of this.#stch) try{r(p.x, p.y, this.state, pst)}catch(e){Promise.reject(e)}
-			if(this.state!=2&&pst==2) for(const r of this.#click) try{r(p.x, p.y, this.state)}catch(e){Promise.reject(e)}
+			for(const r of this.#stch) try{r(p.x, p.y, ptr, this.state, pst)}catch(e){Promise.reject(e)}
+			if(this.state!=2&&pst==2) for(const r of this.#click) try{r(p.x, p.y, ptr, this.state)}catch(e){Promise.reject(e)}
 			return null
 		}
 		draw(ctx, ictx, w, h){ ictx.onPointerUpdate(this.#onPointerUpdate.bind(this, ctx, w, h)) }

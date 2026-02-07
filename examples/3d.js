@@ -1,6 +1,5 @@
 /// <reference path="../docs/monolith-global.d.ts" />
 
-
 const libnoise = await fetch('examples/libnoise.glsl').then(a => a.text())
 
 title = '3D demo'
@@ -20,8 +19,8 @@ label.font = fonts.marker
 label.yOffset = .5-fonts.marker.ascend
 label.add('peak')
 
-const ground = Texture(2, 2, 1, DOWNSCALE_SMOOTH | MIPMAP_SMOOTH | REPEAT, Formats.RGB5_A1, 2)
-	.pasteData(Uint16Array.fromHex('A529 C631 C631 A529')).super(.5,.5,.01,.01)
+const ground = Texture(2, 2, 1, DOWNSCALE_SMOOTH | MIPMAP_SMOOTH | REPEAT, Formats.RGBA, 2)
+	.pasteData(Uint8Array.fromHex('#999999FF #CCCCCCFF #CCCCCCFF #999999FF')).super(.5,.5,.01,.01)
 ground.genMipmaps()
 
 const cyl = Geometry3D(Geometry3D.Vertex.WITH_NORMALS)
@@ -108,6 +107,10 @@ ictx.onPointerUpdate((_id, ptr) => {
 ictx.onKey(MOUSE.LEFT, () => {
 	pointerLock = true
 })
+const btn = GUI.Target((x, y, ptr) => {
+	ictx.orientation.reset()
+	ptr.vibrate?.(10)
+})
 
 const skyShader = Shader(`${libnoise}
 void main(){
@@ -122,8 +125,9 @@ void main(){
    	vec2 v = valnoise2(vec2(uv.x+uv.y, uv.x-uv.y)/2.8+off);
 		color.rgb = lerp(color.rgb, vec3(.8+abs(v.x-.75)*.3+v.y*.2), clamp(0., v.x*min(2.,a.y*d-.6)-.5, 1.));
 	}
+	color *= clamp(dGetPixel(uni2, ivec3(gl_FragCoord.xy, 0), 0)*2.-1., 0., 1.);
 }
-`, {uniforms: [FLOAT, FLOAT], uniformDefaults: [0, .05], vertex: Geometry3D.Vertex.DEFAULT})
+`, {uniforms: [FLOAT, FLOAT, FTEXTURE], uniformDefaults: [0, .05], vertex: Geometry3D.Vertex.DEFAULT})
 
 let pos = vec3(0, 0, -6), vel = vec3(), look = vec2()
 globalThis.pos = pos
@@ -259,8 +263,6 @@ void main(){
 let sfx = 0
 let frames = []
 
-const fogXzShader = Shader(`void main(){ color = param0(pos.xz)*(1.-depth*depth); }`, {params: COLOR, vertex: Geometry3D.Vertex.DEFAULT})
-
 let selectedShader = -1
 
 ictx.onGamepadButtonPress([GAMEPAD.LB, GAMEPAD.RB], (key) => {
@@ -341,17 +343,18 @@ render = () => {
 	else targetFov = 90
 	FOV += (targetFov - FOV) * min(1, dt*20)
 	
-	skyShader.uniforms(t)
 	if(!surface || surface.width != ctx.width || surface.height != ctx.height){
 		surface?.delete(); surface2?.delete(); dsurface?.delete()
 		surface = Texture(ctx.width, ctx.height, 1, SMOOTH, Formats.RGB, 999)
 		surface2 = Texture(ctx.width, ctx.height, 1, 0, Drawable.BLEND_32F ? Formats.RGBA32F : Formats.RGBA16F)
-		dsurface = Texture.Surface(ctx.width, ctx.height, 0, Formats.DEPTH32F_STENCIL)
+		dsurface = Texture(ctx.width, ctx.height, 1, 0, Formats.DEPTH32F_STENCIL)
 		scene.setTarget(0, surface)
 		scene.setTarget(-1, dsurface, 0)
 		altctx2.setTarget(0, surface2)
 		for(const sh of [bulgeShader, ghostShader, edgeShader, waterShader]) sh.uniforms(surface, ctx.width/ctx.height)
 	}
+	skyShader.uniforms(t, .05, dsurface)
+
 	scene.mask |= DEPTH
 	scene.clear()
 	const {width: w, height: h} = getGUIDimensions(20)
@@ -388,18 +391,20 @@ render = () => {
 	}
 	ctx3.rotateZY(look.y)
 	ctx3.rotateXZ(-look.x)
+	{
+		const {x, y, z} = vec3.multiply(ictx.transientVelocity, -200)
+		ctx3.translate(x, y, z)
+	}
+	ctx3.transformInverse(ictx.orientation)
+	ctx3.translate(-pos.x, -pos.y, -pos.z)
+	const skyCtx = ctx3.sub()
+	ctx3.mask |= DEPTH | IF_CLOSER
 
 	const light = ctx3.metric(0, -0.25, 0)
-
-	ctx3.shader = skyShader
-	ctx3.geometry = Geometry3D.INSIDE_CUBE
-	ctx3.drawCube(-20, -20, -20, 40, 40, 40)
-	ctx3.translate(-pos.x, -pos.y, -pos.z)
-	ctx3.mask |= DEPTH | IF_CLOSER
 	confetti.config.projection = ctx3.getTransform()
 
 	ctx3.geometry = Geometry3D.XZ_FACE
-	ctx3.shader = fogXzShader
+	ctx3.shader = Shader.XZ_FACE
 	ctx3.drawCube(floor(pos.x*.2)*5-250, -2, floor(pos.z*.2)*5-250, 500, 0, 500, ground)
 	
 	ctx3.geometry = cyl
@@ -412,6 +417,14 @@ render = () => {
 	ctx3.translate(0, 0, sin(t)*-3)
 
 	cubeCtx.draw(vec4(.2,.85,.1,1), cubeCtx.metricFrom(light))
+
+	skyCtx.shader = skyShader
+	scene.setTarget(-1, null)
+	skyCtx.geometry = Geometry3D.INSIDE_CUBE
+	const {x, y, z} = skyCtx.perspectiveOrigin()
+	skyCtx.drawCube(x-20, y-20, z-20, 40, 40, 40)
+	scene.setTarget(-1, dsurface, 0)
+
 	drawText(ctx3.sub2dXY())
 	
 	const hint = pointerLock ? 'Press 0-9 to try some special FX' : 'Click anywhere to lock pointer'
@@ -422,6 +435,7 @@ render = () => {
 	confetti.config.i_width = sc/w
 	confetti.config.i_height = sc/h
 	confetti.draw(sc2)
+
 	surface.genMipmaps()
 	switch(sfx){
 		case 1:
@@ -452,12 +466,18 @@ render = () => {
 	const fps = (frames.length-1)/(t+1-frames[0])
 	while(frames[i] < t) i++
 	if(i) frames.splice(0, i)
-	for(const str of [`FPS: ${fps==fps?fps.toFixed(1):'-'}`, `D: ${frameDrawCalls} / M: ${Number.formatData(frameData)} / S: ${frameSprites}`]){
+	for(const str of [
+	`FPS: ${fps==fps?fps.toFixed(1):'-'}`,
+	`D: ${frameDrawCalls} / M: ${Number.formatData(frameData)} / S: ${frameSprites}`,
+]){
 		fonts.ubuntu.draw(ctx.sub(), str, [vec4(0,0,0,1)], -.03, .07)
 		fonts.ubuntu.draw(ctx.sub(), str, [], -.03)
 		ctx.translate(0, -1)
 	}
 	if(sfx == 4 || sfx != oldSfx) ictx.refirePointers(), oldSfx = sfx
+	ctx.reset()
+	sceneIctx.reset()
+	btn.draw(ctx, sceneIctx, 1, 1)
 }
 
 ictx.onKeyPress(KEY.F2, () => {

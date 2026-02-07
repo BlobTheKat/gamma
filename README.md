@@ -77,7 +77,7 @@ Gamma is well into development, with approximately 4,300 lines of code and a 100
 - Mouse and keyboard input, exposed in both an event-based and query-based interface
 - Touch, stylus and gamepad (e.g controller) input
 - Recursive, highly manipulable and relatively _novel_ event propagation system
-- **TODO** Gyroscope/accelerometer input
+- Gyroscope/accelerometer input
 - **TODO** Microphone input
 
 ### Gamma.gui
