@@ -5,7 +5,7 @@ Copyright (c) 2025 Matthew Reiner
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software (the "Library") and associated documentation files, to use, reproduce, modify, prepare derivative works of, and embed the Library in larger works (including commercial products), subject to the following conditions:
 
 1. No independent sale
-	- You may not sell, license, distribute, or otherwise offer the Library (original or modified) as a standalone product or as the primary item of commercial value. Selling or redistributing a larger work that embeds the Library is permitted, provided the Library itself is not offered independently for purchase.
+	- You may not sell, license, or otherwise offer the Library, original or modified, behind some commercial restiction (such as an ad-wall), as a standalone product or as the primary item of commercial value. Selling or redistributing a larger work that embeds the Library is permitted, provided the Library itself is not offered independently for purchase, and meets the requirements set out by the other clauses.
 
 2. Preservation of this license and notices
 	- Any distribution of the Library (source or binary), or of any modified version that contains parts of the Library, must include an intact copy of this license and retain all existing copyright, patent, trademark, and attribution notices.
