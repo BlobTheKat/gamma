@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en" style="background:#000">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+	<title>&#8203;</title>
+	<link rel="shortcut icon" id="icon" />
+</head>
+<body>
+<!--script src="./glpatch.js"></script-->
+<!--script src="min/monolith.min.js"></script-->
+<script src="src/gamma.js"></script>
+<script src="src/input.js"></script>
+<script src="src/font.js"></script>
+<script src="src/gui.js"></script>
+<script src="src/utils.js"></script>
+<script>;{
+	const $ = globalThis
+	let ow = 0, oh = 0
+	$.render = null
+	$.ctxSupersample = 1
+	Gamma(undefined, $, 31).loop(() => {
+		const px = devicePixelRatio * ctxSupersample
+		const w = innerWidth, h = innerHeight
+		if(ow!=(ow=round(w*px))|oh!=(oh=round(h*px))) $.setSize(ow, oh)
+		$.canvas.style.imageRendering = ctxSupersample > 1 ? '' : 'pixelated'
+		$.render?.()
+		$.ictx.clearDeltas()
+	})
+	const unint = `user-select:none;-webkit-user-select:none;touch-action: none;`
+	$.canvas.style = `width: 100%; image-rendering: pixelated; position: fixed; inset: 0; `+unint
+	$.glLost = () => {
+		$.canvas.replaceWith(document.body = document.createElement('body'))
+		document.body.textContent = 'WebGL2 context lost :('
+		document.body.style = 'color:white;background:#000;text-align:center;line-height:90vh;font-size:32px;font-family:monospace;cursor:normal;'+unint
+	}
+	if(!$.gl) throw $.glLost(), 'Please reload app'
+	document.body.replaceWith($.canvas)
+	requestAnimationFrame(() => $.canvas.focus())
+	
+	$.resolver = (a) => {
+		const url = new URL('.', a.url ?? a.href).href
+		return (src, ...p) => {
+			if(Array.isArray(src)){
+				const a = [src[0]]
+				for(let i = 0; i < p.length;) a.push(p[i], src[++i])
+				src = a.join('')
+			}
+			return src[0]=='/'?src:url+src
+		}
+	}
+	Gamma.input($)
+	Gamma.font($)
+	Gamma.gui($)
+	Gamma.utils($)
+	globalThis.engine = globalThis.chrome ? 'chromium' : globalThis.netscape ? 'firefox' : globalThis.ApplePaySession ? 'webkit' : 'unknown'
+	let t = '', i = icon, ic = null
+	Object.defineProperties($, {
+		title: {get:()=>t,set:a=>document.title=(t=a+'')||'\ud80c\udffc'},
+		icon: {get:()=>ic,set:a=>{
+			if(ic instanceof Blob) URL.revokeObjectURL(i.href)
+			i.href = a instanceof Blob ? URL.createObjectURL(ic=a) : (ic=typeof a=='string'?a:null)||(globalThis.chrome?'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAACklEQVR4nGMAAQAABQABDQottAAAAABJRU5ErkJggg':'')
+		}},
+		[Symbol.toStringTag]: {value: 'Global', writable: false}
+	})
+	$.icon = null
+	import('./examples/gui.js')
+}</script></body>
+</html>
