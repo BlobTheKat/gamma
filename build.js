@@ -1,5 +1,7 @@
 import { minify } from 'terser'
-import fs, {promises as fsa} from 'fs'
+import fs, { promises as fsa } from 'fs'
+
+const WATERMARK = `/** Gamma pre-release. See license at https://github.com/BlobTheKat/gamma */\n`
 
 const renames = {
 	__proto__: null,
@@ -154,7 +156,7 @@ for(const src of fs.readdirSync('docs')){
 			return fsa.readFile('docs/_gamma.d.ts').then(head => {
 				head = head.toString()
 				code = head.slice(0, head.lastIndexOf('\n')+1) + code.split('\n').slice(4).join('\n') + '\n}'
-				return fsa.writeFile('docs/' + name + '.d.ts', code)
+				return fsa.writeFile('docs/' + name + '.d.ts', WATERMARK + code)
 			})
 		}
 		code = `/// <reference path="./gamma.d.ts" />
@@ -168,7 +170,7 @@ declare global{
 	namespace GammaInstance.${name}{
 ${code.split('\n').slice(4).join('\n')}
 }`
-		return fsa.writeFile('docs/' + name + '.d.ts', code)
+		return fsa.writeFile('docs/' + name + '.d.ts', WATERMARK + code)
 	}))
 }
 for(const p of pr) await p
@@ -189,9 +191,9 @@ for(const src of fs.readdirSync('src')){
 			if(fn) code = fn(code)
 			if(src == 'gamma.js') all = code + all
 			else all += code
-			return fsa.writeFile('min/'+src.slice(0, -3) + '.min.js', code)
+			return fsa.writeFile('min/'+src.slice(0, -3) + '.min.js', WATERMARK + code)
 		}))
 }
 for(const p of pr) await p
 pr.length = 0
-fs.writeFileSync('min/monolith.min.js', all)
+fs.writeFileSync('min/monolith.min.js', WATERMARK + all)

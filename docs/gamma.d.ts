@@ -1,3 +1,4 @@
+/** Gamma pre-release. See license at https://github.com/BlobTheKat/gamma */
 export {}
 declare global{
 	interface Float16Array{}

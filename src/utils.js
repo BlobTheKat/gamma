@@ -8,7 +8,7 @@
 		}
 		return el
 	}},
-	mmap: {enumerable: false, value(fn){
+	mapInPlace: {enumerable: false, value(fn){
 		const len = this.length
 		for(let i = 0; i < len; i++)
 			this[i] = fn(this[i])
@@ -34,6 +34,11 @@
 		return i
 	}}
 })
+Array.map ??= (len = 0, fn) => {
+	const a = []
+	for(let i = 0; i < len; i++) a.push(fn(i))
+	return a
+}
 globalThis.TypedArray ??= Object.getPrototypeOf(Uint8Array)
 Uint8Array.fromHex = function(hex){
 	const res = new Uint8Array(hex.length>>>1)
@@ -71,12 +76,15 @@ const grow = 'transfer' in ArrayBuffer.prototype ? (b,n=0)=>{ b.buf8 = new Uint8
 	r.set(b.buf8, 0); b.buf = new DataView(r.buffer); b.buf8 = r
 }
 // Feds are coming, watch out!
-let encodable = (f,e,d,s) => (f.encode=e,f.decode=d,f.size=s,f)
+const encodable = (f,e,d,s) => (f.encode=e,f.decode=d,f.minLength=s,f)
 globalThis.Nanobuf = {
 	decoder: new TextDecoder(),
 	encoder: new TextEncoder(),
 	BufReader: class BufReader extends DataView{
-		/**  */
+		/**
+		 * Construct a new BufReader to parse data from the supplied buffer
+		 * @param {ArrayBufferView | ArrayBuffer} arr
+		 */
 		constructor(arr){
 			if(arr instanceof ArrayBuffer) super(arr)
 			else super(arr.buffer, arr.byteOffset, arr.byteLength)
@@ -145,38 +153,42 @@ globalThis.Nanobuf = {
 		}catch{return 0} }
 		/** Advance a number of bytes. Useful for padding */
 		skip(n){ this.i += n }
+		/** Read an Uint8Array, optionally first reading the length as a `v32` if it isn't supplied as a parameter */
 		u8arr(len = -1){ try{
 			let i = this.i
 			if(len < 0){
 				len = this.getUint8(i++)
 				if(len >= 64){
-					if(len >= 128)len = this.getUint32(i) & 0x7FFFFFFF, i += 3
-					else len = this.getUint8(this.i++)|len<<8&0x3FFF
+					if(len >= 128)len = this.getUint32(i-1) & 0x7FFFFFFF, i += 3
+					else len = this.getUint8(i++)|len<<8&0x3FFF
 				}
 			}
-			this.i = i + len
-			return new Uint8Array(this.buffer.slice(i+=this.byteOffset, len))
+			return new Uint8Array(this.buffer.slice(this.byteOffset + i, this.byteOffset + (this.i = i + len)))
 		}catch{return new Uint8Array()} }
-		str(){
+		str(){ try{
 			let i = this.i
 			let len = this.getUint8(i++)
 			if(len >= 64){
-				if(len >= 128)len = this.getUint32(i) & 0x7FFFFFFF, i += 3
-				else len = this.getUint8(this.i++)|len<<8&0x3FFF
+				if(len >= 128)len = this.getUint32(i-1) & 0x7FFFFFFF, i += 3
+				else len = this.getUint8(i++)|len<<8&0x3FFF
 			}
 			this.i = i + len
 			return decoder.decode(new Uint8Array(this.buffer, this.byteOffset + i, len))
-		}
-		enum({intToStr, defaultString}){
+		}catch{ return '' } }
+		enum({intToStr, defaultString}){ try{
 			let n = this.getUint8(this.i++)
 			if(n > 64){
 				if(n >= 128) n = this.getUint32((this.i += 3)-4) & 0x7FFFFFFF
 				else n = this.getUint8(this.i++)|n<<8&0x3FFF
 			}
 			return intToStr[n]??defaultString
-		}
-		/** Returns a mutable Uint8Array view of the next bytes */
-		view(size=0){ return new Uint8Array(this.buffer, this.byteOffset+(this.i+=size)-size, size) }
+		}catch{ return defaultString } }
+		/** Returns a mutable Uint8Array view of the next bytes. THIS METHOD CAN THROW if out of bounds */
+		view(size=0){ return new Uint8Array(this.buffer, this.byteOffset+this.i, (this.i += size, size)) }
+		/** Returns a copied Uint8Array of the next bytes. */
+		array(size=0){ try{ return new Uint8Array(this.buffer.slice(this.byteOffset+this.i, this.byteOffset+(this.i+=size))); }catch{ return new Uint8Array(size) } }
+		/** Returns a copied ArrayBuffer of the next bytes. */
+		arrayBuffer(size=0){ try{ return this.buffer.slice(this.byteOffset+this.i, this.byteOffset+(this.i+=size)); }catch{ return new ArrayBuffer(size) } }
 		/** How many bytes have been read from this buffer so far */
 		get read(){ return this.i }
 		/** How many more bytes can be read before reaching the end of the buffer */
@@ -210,6 +222,14 @@ globalThis.Nanobuf = {
 			this.buf8 = new Uint8Array(arr)
 			this.i = head<=(this.cap=arr.byteLength)?head:this.cap
 			this.bitState = 0
+		}
+		clear(free = false){
+			this.i = this.bitState = 0
+			if(free){
+				const arr = new ArrayBuffer(32)
+				this.buf = new DataView(arr)
+				this.buf8 = new Uint8Array(arr)
+			}
 		}
 		encode(t,v){return t.encode(this,v)}
 		b1(n=0){
@@ -298,10 +318,11 @@ globalThis.Nanobuf = {
 			if(n > 0x7F) this.buf8[this.i++] = n>>8|128, this.buf8[this.i++] = n
 			else this.buf8[this.i++] = n>=0?n:0
 		}
+		/** Write a Uint8Array, optionally first writing the length as a `v32` if it isn't supplied as the second parameter */
 		u8arr(v, n = -1){
 			if(!(v instanceof Uint8Array)){
 				if(v instanceof BufWriter) v = v.buf8.subarray(0, v.i)
-				else{if(this.i >= this.cap) grow(this); this.buf8[this.i++] = 0;return}
+				else v = new Uint8Array()
 			}
 			if(n < 0){
 				n = v.byteLength
@@ -313,7 +334,24 @@ globalThis.Nanobuf = {
 				}else if(n > 0x3F) this.buf8[this.i++] = n>>8|64, this.buf8[this.i++] = n
 				else this.buf8[this.i++] = n
 			}else if(this.i > this.cap-n) grow(this,n)
+			this.buf8.set(n<v.length?v.subarray(0,n):v, this.i); this.i += n
+		}
+		append(v){
+			if(v instanceof BufWriter) v = v.buf8.subarray(0, v.i)
+			else if(!(v instanceof Uint8Array)) v = v instanceof ArrayBuffer ? new Uint8Array(v) : new Uint8Array(v.buffer, v.byteOffset, v.byteLength)
+			const n = v.byteLength
+			if(this.i > this.cap-n) grow(this, n)
 			this.buf8.set(v, this.i); this.i += n
+		}
+		array(v){
+			const n = v.byteLength
+			if(this.i > this.cap-n) grow(this, n)
+			this.buf8.set(v instanceof Uint8Array ? v : new Uint8Array(v.buffer, v.byteOffset, v.byteLength), this.i); this.i += n
+		}
+		arrayBuffer(v){
+			const n = v.byteLength
+			if(this.i > this.cap-n) grow(this, n)
+			this.buf8.set(new Uint8Array(v), this.i); this.i += n
 		}
 		/** Advance a number of bytes. Useful for padding */
 		skip(n=0){ if((this.i+=n) > this.cap) grow(this,n) }
@@ -401,58 +439,64 @@ globalThis.Nanobuf = {
 			f1ret.push(n+':this.a'+i+'(a'+i+')')
 			f2bod.push('this.a'+i+'.encode(b,a'+i+')')
 			f3ret.push(''+n+':this.a'+i+'.decode(b)')
-			n = (n.length==k.length?'v.'+n:'v['+n+']')
+			n = (n.length == k.length ? 'v.'+n : 'v['+n+']')
 			f3bod.push(n+'=this.a'+i+'.decode(b,'+n+')')
-			sz += (os['a'+i++] = obj[k]).size??0
+			sz += (os['a' + i++] = obj[k]).minLength??0
 		}
 		const f1bod = `return{${f1ret}}`
-		f ??= new Function(`{${fparams}}={}`, f1bod).bind(os)
-		f.encode = new Function(`b,{${fparams}}={}`, f2bod.join(';')).bind(os)
-		f.decode = new Function(`b,v`, `if(!v)return {${f3ret}};${f3bod.join(';')};return v`).bind(os)
-		f.size = sz
-		f.of = new Function(Object.keys(os), f1bod).bind(os)
+		f ??= new Struct.constructor(`{${fparams}}={}`, f1bod).bind(os)
+		f.encode = new Struct.constructor(`b,{${fparams}}={}`, f2bod.join(';')).bind(os)
+		f.decode = new Struct.constructor(`b,v`, `if(!v)return {${f3ret}};${f3bod.join(';')};return v`).bind(os)
+		f.minLength = sz
+		f.of = new Struct.constructor(Object.keys(os), f1bod).bind(os)
 		return f
 	},
 	Arr: (type, len = -1) => {
-		(len=floor(len))>=0||(len=-1)
-		const f=encodable(a => {
-		const arr = []
-		try{for(const el of a) arr.push(type(el))}catch{}
-		if(len >= 0){
-			if(arr.length > len) arr.length = len
-			else while(arr.length < len) arr.push(type())
-		}else if(arr.length > 2147483647) arr.length = 2147483647
-		return arr
-	}, (buf, v=[]) => {
-		const l = len < 0 ? (buf.v32(v.length),v.length) : len
-		for(let i = 0; i < l; i++) type.encode(buf, v[i])
-	}, (buf, v) => {
-		const l = len < 0 ? buf.v32() : len
-		if(v) for(let i = 0; i < l; i++) v[i] = type.decode(buf, v[i])
-		else{ v = []; for(let i = l; --i>=0;) v.push(type.decode(buf)) }
-		return v
-	}, len<0?1:(type.size??0)*len);f.of=(...a)=>f(a);return f
+		if(!((len=floor(len))>=0)) len = -1
+		const f = encodable(a => {
+			const arr = []
+			try{ for(const el of a) arr.push(type(el)) }catch{}
+			if(len >= 0){
+				if(arr.length > len) arr.length = len
+				else while(arr.length < len) arr.push(type())
+			}else if(arr.length > 2147483647) arr.length = 2147483647
+			return arr
+		}, (buf, v = []) => {
+			const l = len < 0 ? (buf.v32(v.length), v.length) : len
+			for(let i = 0; i < l; i++) type.encode(buf, v[i])
+		}, (buf, v) => {
+			let l = len < 0 ? buf.v32() : len
+			if(v) for(let i = 0; i < l; i++) v[i] = type.decode(buf, v[i])
+			else{ v = []; while(--l >= 0) v.push(type.decode(buf)) }
+			return v
+		}, len < 0 ? 1 : (type.minLength??0)*len)
+		f.of = (...a) => f(a)
+		return f
 	},
 	Optional: t => encodable(a => a==null?null:t(a), (buf,v) => {
-		if(v==null) buf.u8(0)
-		else buf.u8(1),t.encode(buf,v)
+		if(v == null) buf.u8(0)
+		else{ buf.u8(1); t.encode(buf,v) }
 	}, (buf, v) => buf.u8() ? t.decode(buf, v) : null, 1),
-	Enum: (v=[], def=undefined) => {
+	Enum: (v = [], def) => {
 		const map = new Map, rmap = []
-		if(Array.isArray(v)) for(let i=0;i<v.length;i++) map.set(v[i]+'',i), rmap[i] = v[i]
-		else for(const k in v){const j=v[k]&2147483647;map.set(k, j);rmap[j]=k}
-		if(typeof def!='string') def=map.keys().next().value??''
+		if(Array.isArray(v)) for(let i = 0; i < v.length; i++) map.set(v[i]+'',i), rmap[i] = v[i]
+		else for(const k in v){ const j = v[k]&2147483647; map.set(k, j); rmap[j] = k }
+		if(typeof def != 'string') def = map.keys().next().value ?? ''
 		let none = -1; while(rmap[++none]);
-		const f = encodable(a => typeof a=='string'?map.get(a)??none:Number(a)&2147483647, (buf,a) => buf.v32(typeof a=='string'?map.get(a)??none:a), (buf, _) => rmap[buf.v32()]??def, 1)
+		const f = encodable(a => typeof a == 'string' ? map.get(a) ?? none : Number(a)&2147483647, (buf,a) => buf.v32(typeof a == 'string' ? map.get(a) ?? none : a), (buf, _) => rmap[buf.v32()] ?? def, 1)
 		f.strToInt = map; f.intToStr = rmap; f.default = none; f.defaultString = def
 		return f
 	},
-	Padding: (sz=0) => encodable(() => undefined, (buf,_) => buf.skip(sz), (buf, _) => (buf.i+=sz,undefined), sz)
+	Padding: (sz=0) => encodable(() => {}, (buf,_) => buf.skip(sz), (buf, _) => { buf.i += sz }, sz)
 }
-globalThis.Nanobuf.u8arr.len = len => ((len=floor(len))>=0||(len=0), encodable(a => a instanceof ArrayBuffer ? new Uint8Array(a.byteLength >= len ? a.slice(0, len) : len) : new Uint8Array(a?.length === len ? a : len), (buf,a) => buf.u8arr(a, len), (buf,_) => buf.u8arr(len),len))
+Nanobuf.u8arr.len = len => {
+	if(!((len=floor(len))>=0)) len = -1
+	return encodable(a => a instanceof ArrayBuffer ? new Uint8Array(a.byteLength >= len ? a.slice(0, len) : len) : new Uint8Array(a?.length === len ? a : len),
+		(buf,a) => buf.u8arr(a, len), (buf,_) => buf.u8arr(len),len)
+}
 
-globalThis.loader = ({url})=>{
-	url = url.slice(0,url.lastIndexOf('/')+1)
+globalThis.resolver = a => {
+	const url = new URL('.', a.url ?? a.href).href
 	return (...src) => {
 		if(src[0].raw){
 			const a = [src[0][0]]
@@ -463,13 +507,14 @@ globalThis.loader = ({url})=>{
 		return src.length==1?src[0][0]=='/'?src[0]:url+src[0]:src.map(src=>src[0]=='/'?src:url+src)
 	}
 }
-Array.map ??= (len=0, fn) => {
-	const a = []
-	for(let i = 0; i < len; i++) a.push(fn(i))
-	return a
-}
+
 Gamma.utils = $ => {
-	$.download = (file, name = file.name ?? (file.type[0]=='@' ? 'file' : file.type.split('/',1)[0])) => {
+	$.download = (file, name = file.name) => {
+		if(!name){
+			const type = file.type+''
+			if(type[0] == '@') name = 'file'
+			else{ const j = type.indexOf('/'); name = j >= 0 ? type.slice(0, j) : type }
+		}
 		a.href = URL.createObjectURL(file)
 		a.download = name
 		a.click()

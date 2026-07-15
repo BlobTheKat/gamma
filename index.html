@@ -37,18 +37,6 @@
 	if(!$.gl) throw $.glLost(), 'Please reload app'
 	document.body.replaceWith($.canvas)
 	requestAnimationFrame(() => $.canvas.focus())
-	
-	$.resolver = (a) => {
-		const url = new URL('.', a.url ?? a.href).href
-		return (src, ...p) => {
-			if(Array.isArray(src)){
-				const a = [src[0]]
-				for(let i = 0; i < p.length;) a.push(p[i], src[++i])
-				src = a.join('')
-			}
-			return src[0]=='/'?src:url+src
-		}
-	}
 	Gamma.input($)
 	Gamma.font($)
 	Gamma.gui($)
